@@ -74,6 +74,7 @@ export async function signIn(classId, studentName, computerName) {
       data: {
         classId,
         studentName: student.name,
+        studentId: student.id,
         computerName: computerName || '',
       },
     })

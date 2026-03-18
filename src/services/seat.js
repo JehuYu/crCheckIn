@@ -33,9 +33,15 @@ async function buildSeatMap(classId) {
     const n = Number(parts[parts.length - 1])
     if (!Number.isInteger(n) || n < 1 || n > 60) continue
     if (!seatToStudents.has(n)) seatToStudents.set(n, [])
+    // studentId 可能为 null（旧记录），fallback 到按姓名查
+    let homeClass = rec.student?.homeClass ?? ''
+    if (!homeClass && !rec.student) {
+      const stu = await prisma.student.findFirst({ where: { classId, name: rec.studentName } })
+      homeClass = stu?.homeClass ?? ''
+    }
     seatToStudents.get(n).push({
       name: rec.studentName,
-      homeClass: rec.student?.homeClass ?? '',
+      homeClass,
     })
   }
   return seatToStudents
