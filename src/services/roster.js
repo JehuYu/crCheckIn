@@ -558,14 +558,11 @@ export async function exportStatsToExcel(stats, cls) {
     const dataRow = ws.addRow([s.name, fmtHomeClass(s.homeClass), s.signedCount, s.absentCount, `${s.rate}%`])
     dataRow.height = 20
     dataRow.eachCell((cell, colNumber) => {
-      cell.font = { name: '微软雅黑', size: 10, color: { argb: colNumber === 5 ? rateColor : 'FF1E293B' } }
+      cell.font = { name: '微软雅黑', size: 10, bold: colNumber === 5, color: { argb: colNumber === 5 ? rateColor : 'FF1E293B' } }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' } }
       cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle' }
       cell.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } }
     })
-    if (colNumber === 5) {
-      dataRow.getCell(5).font = { name: '微软雅黑', size: 10, bold: true, color: { argb: rateColor } }
-    }
   })
 
   return workbook.xlsx.writeBuffer()
