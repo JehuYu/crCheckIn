@@ -278,7 +278,7 @@ export async function exportSeatTableToExcel(classId) {
         const stu = students[0]
         const displayName = dupIp ? students.map((s) => s.name).join('/') : stu.name
         const homeClass = dupIp ? '' : stu.homeClass
-        cell.value = homeClass ? `${homeClass}\n${displayName}` : displayName
+        cell.value = homeClass ? `${displayName}\n${homeClass}` : displayName
         cell.font = {
           name: '微软雅黑',
           size: dupIp ? 8 : 10,

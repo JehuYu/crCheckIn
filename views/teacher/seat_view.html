@@ -246,16 +246,16 @@ function renderGrid(grid, aisles) {
           card.appendChild(nameEl)
         } else {
           const stu = seat.students[0]
+          const nameEl = document.createElement('div')
+          nameEl.className = 'stu-name'
+          nameEl.textContent = stu.name
+          card.appendChild(nameEl)
           if (stu.homeClass) {
             const hcEl = document.createElement('div')
             hcEl.className = 'home-class'
             hcEl.textContent = stu.homeClass
             card.appendChild(hcEl)
           }
-          const nameEl = document.createElement('div')
-          nameEl.className = 'stu-name'
-          nameEl.textContent = stu.name
-          card.appendChild(nameEl)
         }
       }
 
