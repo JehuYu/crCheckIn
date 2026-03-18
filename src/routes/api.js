@@ -194,7 +194,8 @@ export default async function apiRoutes(fastify) {
   // GET /api/students/match — 无需登录
   fastify.get('/api/students/match', async (request, reply) => {
     const q = request.query.q || ''
-    const students = await matchStudents(q)
+    const classId = request.query.classId ? parseInt(request.query.classId, 10) : null
+    const students = await matchStudents(q, 15, classId)
     return reply.send(students)
   })
 

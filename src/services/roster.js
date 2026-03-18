@@ -409,8 +409,10 @@ export async function exportSeatTableToExcel(classId) {
  * @param {number} limit
  * @returns {Promise<{studentId, studentName, homeClass, classId, className}[]>}
  */
-export async function matchStudents(query, limit = 15) {
+export async function matchStudents(query, limit = 15, classId = null) {
+  const where = classId ? { classId } : {}
   const students = await prisma.student.findMany({
+    where,
     include: { class: true },
   })
   const lower = query.toLowerCase()
