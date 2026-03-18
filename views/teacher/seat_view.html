@@ -6,15 +6,111 @@
   <title>{{ cls.name }} - 座位表</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .seat { min-width: 76px; min-height: 68px; vertical-align: top; }
-    .aisle-right { border-right: 2px solid #e2e8f0; padding-right: 8px; margin-right: 4px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+
+    .seat-card {
+      width: 80px;
+      height: 72px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      border: 1.5px solid #e2e8f0;
+      background: #fff;
+      transition: box-shadow 0.15s, border-color 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .seat-card.signed {
+      background: #f0fdf4;
+      border-color: #86efac;
+    }
+    .seat-card.dup {
+      background: #fff1f2;
+      border-color: #fca5a5;
+    }
+    .seat-card.empty-slot {
+      background: #f8fafc;
+      border: 1.5px dashed #e2e8f0;
+    }
+    .seat-card .seat-no {
+      font-size: 10px;
+      color: #cbd5e1;
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+    .seat-card.signed .seat-no { color: #86efac; }
+    .seat-card.dup .seat-no { color: #fca5a5; }
+    .seat-card .home-class {
+      font-size: 10px;
+      color: #94a3b8;
+      line-height: 1.2;
+      max-width: 72px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .seat-card .stu-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #15803d;
+      line-height: 1.3;
+      max-width: 72px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .seat-card.dup .stu-name { color: #dc2626; font-size: 11px; }
+    .seat-card.empty-slot .seat-no { color: #e2e8f0; font-size: 13px; margin: 0; }
+
+    /* 过道 */
+    .aisle { width: 20px; flex-shrink: 0; }
+
+    /* 讲台 */
+    .podium {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 48px;
+      background: #f1f5f9;
+      border-radius: 10px;
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      border: 1.5px solid #e2e8f0;
+    }
+
+    /* 打印样式 */
+    @media print {
+      body { background: #fff !important; }
+      header, .no-print { display: none !important; }
+      .print-area {
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .seat-card {
+        width: 68px !important;
+        height: 60px !important;
+        border-radius: 6px !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .seat-card.signed { background: #f0fdf4 !important; border-color: #86efac !important; }
+      .seat-card.dup { background: #fff1f2 !important; border-color: #fca5a5 !important; }
+      .seat-card.empty-slot { background: #f8fafc !important; }
+      .podium { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .print-title { display: block !important; }
+    }
+    .print-title { display: none; }
   </style>
 </head>
 <body class="min-h-screen bg-slate-50">
 
-  <header class="bg-white border-b border-slate-100 sticky top-0 z-20">
-    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+  <!-- 顶栏 -->
+  <header class="bg-white border-b border-slate-100 sticky top-0 z-20 no-print">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <a href="/teacher/classes/{{ classId }}"
           class="text-sm text-slate-400 hover:text-slate-600 transition flex items-center gap-1">
@@ -24,58 +120,75 @@
           返回
         </a>
         <span class="text-slate-300">/</span>
-        <span class="font-semibold text-slate-800">{{ cls.name }} 座位表</span>
-        <span class="text-xs text-slate-400 ml-1">已签到 {{ signedCount }} 人</span>
+        <span class="font-semibold text-slate-800">{{ cls.name }}</span>
+        <span class="text-xs bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full px-2 py-0.5 ml-1">
+          已签到 {{ signedCount }} 人
+        </span>
       </div>
-      <a href="/api/export-seats?classId={{ classId }}"
-        class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition">
-        导出 Excel
-      </a>
+      <div class="flex items-center gap-2">
+        <!-- 视角切换 -->
+        <div class="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
+          <button id="btnTeacher" class="px-3 py-1.5 transition">教师视角</button>
+          <button id="btnStudent" class="px-3 py-1.5 transition">学生视角</button>
+        </div>
+        <!-- 打印 -->
+        <button onclick="window.print()"
+          class="px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm rounded-lg transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+          </svg>
+          打印
+        </button>
+        <!-- 导出 -->
+        <a href="/api/export-seats?classId={{ classId }}"
+          class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          导出 Excel
+        </a>
+      </div>
     </div>
   </header>
 
-  <main class="max-w-5xl mx-auto px-4 py-6">
+  <main class="max-w-6xl mx-auto px-4 py-6 print-area">
 
-    <!-- 视角切换 + 图例 -->
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-      <div class="flex gap-5 text-xs text-slate-500">
-        <span class="flex items-center gap-1.5">
-          <span class="w-3 h-3 rounded bg-emerald-100 border border-emerald-200 inline-block"></span>已签到
-        </span>
-        <span class="flex items-center gap-1.5">
-          <span class="w-3 h-3 rounded bg-white border border-slate-200 inline-block"></span>空位
-        </span>
-        <span class="flex items-center gap-1.5">
-          <span class="w-3 h-3 rounded bg-slate-100 inline-block"></span>无座位
-        </span>
-        <span class="flex items-center gap-1.5">
-          <span class="w-3 h-3 rounded bg-red-100 border border-red-200 inline-block"></span>重复IP
-        </span>
-      </div>
-      <!-- 切换按钮 -->
-      <div class="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
-        <button id="btnTeacher"
-          class="px-4 py-1.5 bg-slate-800 text-white transition">教师视角</button>
-        <button id="btnStudent"
-          class="px-4 py-1.5 text-slate-600 hover:bg-slate-50 transition">学生视角</button>
-      </div>
+    <!-- 打印时显示的标题 -->
+    <div class="print-title mb-4">
+      <div style="font-size:18px;font-weight:700;color:#1e293b;">{{ cls.name }}  座位表</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px;">已签到 {{ signedCount }} 人</div>
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-100 p-5 overflow-x-auto">
-      <!-- 讲台（位置由 JS 控制） -->
-      <div id="podiumTop" class="hidden flex justify-center mb-6">
-        <div class="px-10 py-2 bg-slate-100 rounded-lg text-xs text-slate-500 font-medium tracking-widest">讲台</div>
+    <!-- 图例（屏幕显示） -->
+    <div class="flex flex-wrap items-center gap-4 mb-5 no-print">
+      <div class="flex items-center gap-1.5 text-xs text-slate-500">
+        <span class="w-3 h-3 rounded bg-emerald-100 border border-emerald-300 inline-block"></span>已签到
+      </div>
+      <div class="flex items-center gap-1.5 text-xs text-slate-500">
+        <span class="w-3 h-3 rounded bg-white border border-slate-200 inline-block"></span>空位
+      </div>
+      <div class="flex items-center gap-1.5 text-xs text-slate-500">
+        <span class="w-3 h-3 rounded bg-slate-100 border border-dashed border-slate-200 inline-block"></span>无座位
+      </div>
+      <div class="flex items-center gap-1.5 text-xs text-slate-500">
+        <span class="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block"></span>重复 IP
+      </div>
+      <span class="text-xs text-slate-400 ml-auto">根据签到 IP 最后一段匹配座位编号</span>
+    </div>
+
+    <!-- 座位区域 -->
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-x-auto">
+      <div id="podiumTop" class="hidden justify-center mb-6">
+        <div class="podium">▲ &nbsp; 讲 &nbsp; 台 &nbsp; ▲</div>
       </div>
 
-      <table id="seatTable" class="mx-auto border-separate border-spacing-1.5">
-        <tbody id="seatBody"></tbody>
-      </table>
+      <div id="seatGrid" class="flex flex-col gap-2 items-center"></div>
 
       <div id="podiumBottom" class="flex justify-center mt-6">
-        <div class="px-10 py-2 bg-slate-100 rounded-lg text-xs text-slate-500 font-medium tracking-widest">讲台</div>
+        <div class="podium">▲ &nbsp; 讲 &nbsp; 台 &nbsp; ▲</div>
       </div>
-
-      <p class="mt-5 text-center text-xs text-slate-400">根据签到 IP 最后一段匹配座位编号</p>
     </div>
 
   </main>
@@ -83,50 +196,73 @@
 <script>
 const TEACHER_GRID = {{ teacherGridJson | safe }}
 const STUDENT_GRID = {{ studentGridJson | safe }}
-
-// 教师视角过道在列 2,4,6 右侧；学生视角在列 1,3,5 右侧
 const TEACHER_AISLES = new Set([2, 4, 6])
 const STUDENT_AISLES = new Set([1, 3, 5])
 
 let currentView = 'teacher'
 
 function renderGrid(grid, aisles) {
-  const tbody = document.getElementById('seatBody')
-  tbody.innerHTML = ''
+  const container = document.getElementById('seatGrid')
+  container.innerHTML = ''
+
   grid.forEach(row => {
-    const tr = document.createElement('tr')
+    const rowDiv = document.createElement('div')
+    rowDiv.className = 'flex gap-1.5 items-center'
+
     row.forEach((seat, colIdx) => {
-      const td = document.createElement('td')
-      td.className = 'seat rounded-xl p-1.5 text-center'
+      // 过道间隔
+      if (aisles.has(colIdx - 1)) {
+        const aisle = document.createElement('div')
+        aisle.className = 'aisle'
+        rowDiv.appendChild(aisle)
+      }
 
-      // 背景色
+      const card = document.createElement('div')
+      card.className = 'seat-card'
+
       if (seat.seatNo === null) {
-        td.classList.add('bg-slate-50')
-      } else if (seat.dupIp) {
-        td.classList.add('bg-red-50', 'border', 'border-red-200')
+        card.classList.add('empty-slot')
+        rowDiv.appendChild(card)
+        return
+      }
+
+      if (seat.dupIp) {
+        card.classList.add('dup')
       } else if (seat.students.length > 0) {
-        td.classList.add('bg-emerald-50', 'border', 'border-emerald-100')
-      } else {
-        td.classList.add('bg-white', 'border', 'border-slate-100')
+        card.classList.add('signed')
       }
 
-      // 过道
-      if (aisles.has(colIdx)) td.classList.add('aisle-right')
+      // 座位编号
+      const noEl = document.createElement('div')
+      noEl.className = 'seat-no'
+      noEl.textContent = `#${seat.label}`
+      card.appendChild(noEl)
 
-      if (seat.seatNo !== null) {
-        let html = `<div class="text-xs text-slate-300 mb-0.5">#${seat.label}</div>`
-        seat.students.forEach(stu => {
+      if (seat.students.length > 0) {
+        if (seat.dupIp) {
+          const nameEl = document.createElement('div')
+          nameEl.className = 'stu-name'
+          nameEl.textContent = seat.students.map(s => s.name).join(' / ')
+          card.appendChild(nameEl)
+        } else {
+          const stu = seat.students[0]
           if (stu.homeClass) {
-            html += `<div class="text-xs text-slate-400 leading-tight">${stu.homeClass}</div>`
+            const hcEl = document.createElement('div')
+            hcEl.className = 'home-class'
+            hcEl.textContent = stu.homeClass
+            card.appendChild(hcEl)
           }
-          const nameColor = seat.dupIp ? 'text-red-600' : 'text-emerald-700'
-          html += `<div class="text-xs font-semibold ${nameColor} leading-tight">${stu.name}</div>`
-        })
-        td.innerHTML = html
+          const nameEl = document.createElement('div')
+          nameEl.className = 'stu-name'
+          nameEl.textContent = stu.name
+          card.appendChild(nameEl)
+        }
       }
-      tr.appendChild(td)
+
+      rowDiv.appendChild(card)
     })
-    tbody.appendChild(tr)
+
+    container.appendChild(rowDiv)
   })
 }
 
@@ -134,13 +270,16 @@ function setView(view) {
   currentView = view
   const isTeacher = view === 'teacher'
 
-  // 切换按钮样式
-  document.getElementById('btnTeacher').className = `px-4 py-1.5 transition ${isTeacher ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`
-  document.getElementById('btnStudent').className = `px-4 py-1.5 transition ${!isTeacher ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`
+  document.getElementById('btnTeacher').className =
+    `px-3 py-1.5 transition text-sm ${isTeacher ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`
+  document.getElementById('btnStudent').className =
+    `px-3 py-1.5 transition text-sm ${!isTeacher ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`
 
-  // 讲台位置：教师视角讲台在下（教师背对讲台看学生），学生视角讲台在上
+  // 教师视角：讲台在下；学生视角：讲台在上
   document.getElementById('podiumTop').classList.toggle('hidden', isTeacher)
+  document.getElementById('podiumTop').classList.toggle('flex', !isTeacher)
   document.getElementById('podiumBottom').classList.toggle('hidden', !isTeacher)
+  document.getElementById('podiumBottom').classList.toggle('flex', isTeacher)
 
   renderGrid(isTeacher ? TEACHER_GRID : STUDENT_GRID, isTeacher ? TEACHER_AISLES : STUDENT_AISLES)
 }
@@ -148,7 +287,6 @@ function setView(view) {
 document.getElementById('btnTeacher').addEventListener('click', () => setView('teacher'))
 document.getElementById('btnStudent').addEventListener('click', () => setView('student'))
 
-// 默认教师视角
 setView('teacher')
 </script>
 </body>
