@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>班级列表</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }</style>
+</head>
+<body class="min-h-screen bg-slate-50">
+
+  <!-- 顶栏 -->
+  <header class="bg-white border-b border-slate-100 sticky top-0 z-20">
+    <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="font-semibold text-slate-800">机房签到</span>
+        {% if teacher.isAdmin %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">管理员</span>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-slate-500">{{ teacher.username }}</span>
+        {% if teacher.isAdmin %}
+        <a href="/admin"
+          class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">管理员面板</a>
+        {% endif %}
+        <form method="post" action="/teacher/logout">
+          <button class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">退出</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+
+    <!-- 页面标题 -->
+    <div>
+      <h1 class="text-xl font-semibold text-slate-800">我的班级</h1>
+      <p class="text-sm text-slate-400 mt-1">管理您的班级和签到记录</p>
+    </div>
+
+    <!-- 通知 -->
+    <div id="msg" class="hidden px-4 py-3 rounded-xl text-sm font-medium"></div>
+
+    <!-- 班级列表 -->
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
+        <p class="text-sm font-medium text-slate-700">班级列表</p>
+        <span class="text-xs text-slate-400">{{ classes | length }} 个班级</span>
+      </div>
+
+      {% if classes.length === 0 %}
+      <div class="px-5 py-12 text-center">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-100 mb-3">
+          <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+          </svg>
+        </div>
+        <p class="text-sm text-slate-400">暂无班级，请先创建一个班级</p>
+      </div>
+      {% else %}
+      <ul class="divide-y divide-slate-50">
+        {% for cls in classes %}
+        <li class="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition group">
+          <a href="/teacher/classes/{{ cls.id }}" class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-800 group-hover:text-slate-900">{{ cls.name }}</p>
+            <p class="text-xs text-slate-400 mt-0.5">创建于 {{ cls.createdAt }}</p>
+          </a>
+          <div class="flex items-center gap-2 ml-4">
+            <a href="/teacher/classes/{{ cls.id }}"
+              class="text-xs px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">进入</a>
+            <button onclick="deleteClass({{ cls.id }}, '{{ cls.name }}')"
+              class="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 transition">删除</button>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+
+    <!-- 创建班级 -->
+    <div class="bg-white rounded-2xl border border-slate-100 p-5">
+      <p class="text-sm font-medium text-slate-700 mb-3">创建新班级</p>
+      <div class="flex gap-2">
+        <input id="classNameInput" type="text" placeholder="输入班级名称"
+          class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 placeholder-slate-300
+                 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition text-sm" />
+        <button id="createBtn"
+          class="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-xl transition">
+          创建
+        </button>
+      </div>
+    </div>
+
+    <!-- 导入名单（自动创建班级） -->
+    <div class="bg-white rounded-2xl border border-slate-100 p-5">
+      <p class="text-sm font-medium text-slate-700 mb-1">导入名单</p>
+      <p class="text-xs text-slate-400 mb-3">Excel 格式：A列=教学班名，B列=行政班级，C列=学生姓名（无表头）。班级不存在时自动创建。</p>
+      <form id="importForm" class="flex flex-wrap gap-2 items-center">
+        <input type="file" name="file" accept=".xlsx,.xlsm"
+          class="text-sm text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+                 file:text-sm file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer" />
+        <button type="submit"
+          class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-xl transition">
+          导入
+        </button>
+      </form>
+    </div>
+
+  </main>
+
+<script>
+const msg = document.getElementById('msg')
+
+function notify(text, ok = true) {
+  msg.className = `px-4 py-3 rounded-xl text-sm font-medium ${ok
+    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+    : 'bg-red-50 text-red-600 border border-red-100'}`
+  msg.textContent = text
+  msg.classList.remove('hidden')
+}
+
+async function deleteClass(id, name) {
+  if (!confirm(`确认删除班级「${name}」？此操作将同时删除该班级的所有学生和签到记录，不可恢复。`)) return
+  const res = await fetch(`/api/classes/${id}`, { method: 'DELETE' })
+  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  const data = await res.json()
+  if (data.ok) {
+    window.location.reload()
+  } else {
+    notify(data.message || '删除失败', false)
+  }
+}
+
+document.getElementById('createBtn').addEventListener('click', async () => {
+  const name = document.getElementById('classNameInput').value.trim()
+  if (!name) { notify('请输入班级名称', false); return }
+  const res = await fetch('/api/classes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  })
+  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  const data = await res.json()
+  if (data.ok) {
+    window.location.reload()
+  } else {
+    notify(data.message || '创建失败', false)
+  }
+})
+
+document.getElementById('classNameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('createBtn').click()
+})
+
+document.getElementById('importForm').addEventListener('submit', async e => {
+  e.preventDefault()
+  const fileInput = e.target.querySelector('input[type=file]')
+  if (!fileInput.files.length) { notify('请先选择 Excel 文件', false); return }
+  const btn = e.target.querySelector('button[type=submit]')
+  btn.disabled = true
+  btn.textContent = '导入中…'
+  try {
+    const formData = new FormData(e.target)
+    const res = await fetch('/api/import', { method: 'POST', body: formData })
+    if (res.status === 401) { window.location.href = '/teacher/login'; return }
+    const data = await res.json()
+    if (data.ok) {
+      notify(data.message, true)
+      setTimeout(() => window.location.reload(), 800)
+    } else {
+      notify(data.message || '导入失败', false)
+    }
+  } catch (err) {
+    notify('网络错误，请重试', false)
+  } finally {
+    btn.disabled = false
+    btn.textContent = '导入'
+  }
+})
+</script>
+</body>
+</html>

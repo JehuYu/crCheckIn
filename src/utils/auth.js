@@ -1,0 +1,71 @@
+import { assertClassOwner } from '../services/class.js'
+
+/**
+ * 检查当前 session 是否已登录教师端。
+ * @param {import('fastify').FastifyRequest} request
+ * @returns {boolean}
+ */
+export function isTeacherLoggedIn(request) {
+  return Boolean(request.session?.teacherId)
+}
+
+/**
+ * Fastify preHandler 钩子：要求教师登录。
+ * - 已登录：继续执行
+ * - 未登录 + /api/ 路径：reply 401 JSON
+ * - 未登录 + 页面路径：redirect /teacher/login
+ * @param {import('fastify').FastifyRequest} request
+ * @param {import('fastify').FastifyReply} reply
+ */
+export async function teacherRequired(request, reply) {
+  if (isTeacherLoggedIn(request)) {
+    return
+  }
+  if (request.url.startsWith('/api/')) {
+    reply.code(401).send({ ok: false, message: '请先登录教师端。' })
+  } else {
+    reply.redirect('/teacher/login')
+  }
+}
+
+/**
+ * Fastify preHandler 钩子：要求管理员登录。
+ * - isAdmin=true：继续执行
+ * - 否则：reply 403 JSON
+ * @param {import('fastify').FastifyRequest} request
+ * @param {import('fastify').FastifyReply} reply
+ */
+export async function adminRequired(request, reply) {
+  if (request.session?.isAdmin === true) {
+    return
+  }
+  reply.code(403).send({ ok: false, message: '需要管理员权限。' })
+}
+
+/**
+ * Fastify preHandler 钩子：要求对指定 classId 有操作权限（教师本人或 admin）。
+ * classId 从 params、body、query 中依次取值（parseInt）。
+ * 无权限则 reply 403 JSON。
+ * @param {import('fastify').FastifyRequest} request
+ * @param {import('fastify').FastifyReply} reply
+ */
+export async function classOwnerRequired(request, reply) {
+  const rawClassId =
+    request.params?.classId ??
+    request.body?.classId ??
+    request.query?.classId
+
+  const classId = parseInt(rawClassId, 10)
+  const teacherId = request.session?.teacherId
+  const isAdmin = request.session?.isAdmin === true
+
+  try {
+    await assertClassOwner(classId, teacherId, isAdmin)
+  } catch (err) {
+    if (err.statusCode === 403) {
+      reply.code(403).send({ ok: false, message: err.message || '无权访问该班级。' })
+    } else {
+      throw err
+    }
+  }
+}

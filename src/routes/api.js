@@ -1,0 +1,184 @@
+import { teacherRequired, classOwnerRequired } from '../utils/auth.js'
+import { parseDt } from '../utils/time.js'
+import { resolveClientName } from '../utils/ip.js'
+import {
+  signIn,
+  getClassStatus,
+  archiveAndReset,
+  clearRoster,
+  setSignInWindow,
+  getSessions,
+  getSessionDetail,
+} from '../services/attendance.js'
+import {
+  importStudentsFromExcel,
+  exportRecordsToExcel,
+  exportSeatTableToExcel,
+  matchStudents,
+} from '../services/roster.js'
+import { createClass, deleteClass } from '../services/class.js'
+import { changePassword } from '../services/auth.js'
+
+/**
+ * 格式化当前时间为 YYYYMMDD_HHmmss
+ * @returns {string}
+ */
+function nowTimestamp() {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return (
+    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_` +
+    `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+  )
+}
+
+/**
+ * @param {import('fastify').FastifyInstance} fastify
+ */
+export default async function apiRoutes(fastify) {
+  // GET /api/status — 需要 classOwnerRequired
+  fastify.get('/api/status', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const payload = await getClassStatus(classId)
+    return reply.send(payload)
+  })
+
+  // POST /api/reset — 归档当前记录并重置，需要 classOwnerRequired
+  fastify.post('/api/reset', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.body.classId, 10)
+    const result = await archiveAndReset(classId)
+    const msg = result.label
+      ? `已归档批次「${result.label}」，签到已重置。`
+      : '签到记录已重置。'
+    return reply.send({ ok: true, message: msg })
+  })
+
+  // GET /api/sessions — 获取历史批次列表，需要 classOwnerRequired
+  fastify.get('/api/sessions', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const sessions = await getSessions(classId)
+    return reply.send(sessions.map(s => ({
+      id: s.id,
+      label: s.label,
+      archivedAt: s.archivedAt,
+      count: s._count.records,
+    })))
+  })
+
+  // GET /api/sessions/:sessionId — 获取批次详情，需要 teacherRequired
+  fastify.get('/api/sessions/:sessionId', { preHandler: teacherRequired }, async (request, reply) => {
+    const sessionId = parseInt(request.params.sessionId, 10)
+    const detail = await getSessionDetail(sessionId)
+    if (!detail) return reply.code(404).send({ ok: false, message: '批次不存在' })
+    return reply.send(detail)
+  })
+
+  // POST /api/clear-roster — 需要 classOwnerRequired
+  fastify.post('/api/clear-roster', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.body.classId, 10)
+    await clearRoster(classId)
+    return reply.send({ ok: true, message: '当前名单与签到记录已清空。' })
+  })
+
+  // POST /api/window — 需要 classOwnerRequired
+  fastify.post('/api/window', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const { classId: rawClassId, start_time, end_time } = request.body
+    const classId = parseInt(rawClassId, 10)
+    await setSignInWindow(classId, parseDt(start_time), parseDt(end_time))
+    return reply.send({ ok: true, message: '签到时间段已更新。' })
+  })
+
+  // GET /api/export — 需要 classOwnerRequired
+  fastify.get('/api/export', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const buffer = await exportRecordsToExcel(classId)
+    const filename = `signin_records_${nowTimestamp()}.xlsx`
+    reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+    return reply.send(buffer)
+  })
+
+  // GET /api/export-seats — 需要 classOwnerRequired
+  fastify.get('/api/export-seats', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const buffer = await exportSeatTableToExcel(classId)
+    const filename = `seat_table_${nowTimestamp()}.xlsx`
+    reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+    return reply.send(buffer)
+  })
+
+  // POST /api/import — 需要 teacherRequired
+  fastify.post('/api/import', { preHandler: teacherRequired }, async (request, reply) => {
+    try {
+      let fileBuffer = null
+      for await (const part of request.parts()) {
+        if (part.type === 'file' && part.fieldname === 'file') {
+          const chunks = []
+          for await (const chunk of part.file) {
+            chunks.push(chunk)
+          }
+          fileBuffer = Buffer.concat(chunks)
+        }
+      }
+      if (!fileBuffer) {
+        return reply.code(400).send({ ok: false, message: '请上传 Excel 文件。' })
+      }
+      const teacherId = request.session.teacherId
+      const count = await importStudentsFromExcel(teacherId, fileBuffer)
+      return reply.send({ ok: true, message: `导入完成，新增 ${count} 名学生。` })
+    } catch (err) {
+      request.log.error(err)
+      return reply.code(500).send({ ok: false, message: `导入失败：${err.message}` })
+    }
+  })
+
+  // POST /api/change-password — 需要 teacherRequired
+  fastify.post('/api/change-password', { preHandler: teacherRequired }, async (request, reply) => {
+    const { old_password, new_password } = request.body
+    const teacherId = request.session.teacherId
+    const result = await changePassword(teacherId, old_password, new_password)
+    if (!result.ok) {
+      return reply.code(400).send(result)
+    }
+    return reply.send(result)
+  })
+
+  // POST /api/classes — 需要 teacherRequired
+  fastify.post('/api/classes', { preHandler: teacherRequired }, async (request, reply) => {
+    const { name } = request.body
+    const teacherId = request.session.teacherId
+    const cls = await createClass(teacherId, name)
+    return reply.code(201).send({ ok: true, class: cls })
+  })
+
+  // DELETE /api/classes/:classId — 需要 classOwnerRequired
+  fastify.delete('/api/classes/:classId', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.params.classId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    await deleteClass(classId, teacherId, isAdmin)
+    return reply.send({ ok: true, message: '班级已删除。' })
+  })
+
+  // GET /api/students/match — 无需登录
+  fastify.get('/api/students/match', async (request, reply) => {
+    const q = request.query.q || ''
+    const students = await matchStudents(q)
+    return reply.send(students)
+  })
+
+  // POST /api/signin — 无需登录
+  fastify.post('/api/signin', async (request, reply) => {
+    const { classId: rawClassId, student_name } = request.body
+    const classId = parseInt(rawClassId, 10)
+    const computerName = resolveClientName(request)
+    const result = await signIn(classId, student_name, computerName)
+    if (!result.ok) {
+      return reply.code(400).send(result)
+    }
+    return reply.send(result)
+  })
+}

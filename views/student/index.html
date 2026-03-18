@@ -1,0 +1,175 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>学生签到</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    #suggestions { max-height: 200px; overflow-y: auto; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600 mb-4 shadow-lg">
+        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-semibold text-slate-800">机房签到</h1>
+      <p class="text-sm text-slate-400 mt-1">当前设备：<span class="font-mono text-slate-500">{{ computer_name }}</span></p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+      <div class="mb-4 relative">
+        <label class="block text-sm font-medium text-slate-600 mb-1.5">姓名</label>
+        <input id="nameInput" type="text" autocomplete="off" placeholder="请输入姓名片段搜索"
+          class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 placeholder-slate-300
+                 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" />
+        <div id="suggestions"
+          class="absolute z-10 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-lg overflow-hidden hidden">
+        </div>
+      </div>
+
+      <!-- 已选学生信息 -->
+      <div id="selectedInfo" class="hidden mb-4 px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-100 text-sm text-indigo-700">
+        <span id="selectedText"></span>
+        <button id="clearSelection" class="ml-2 text-indigo-400 hover:text-indigo-600 transition text-xs">✕ 重新选择</button>
+      </div>
+
+      <button id="signinBtn"
+        class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800
+               text-white font-medium rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed">
+        提交签到
+      </button>
+
+      <div id="msg" class="hidden mt-4 px-4 py-3 rounded-xl text-sm font-medium"></div>
+
+      <div class="mt-4 text-center">
+        <a href="/teacher/classes" class="text-xs text-slate-400 hover:text-slate-600 transition">进入教师管理端 →</a>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+const input = document.getElementById('nameInput')
+const suggestions = document.getElementById('suggestions')
+const msg = document.getElementById('msg')
+const selectedInfo = document.getElementById('selectedInfo')
+const selectedText = document.getElementById('selectedText')
+
+let selectedClassId = null
+let debounceTimer = null
+
+function setMessage(text, ok = false) {
+  msg.className = `mt-4 px-4 py-3 rounded-xl text-sm font-medium ${ok
+    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+    : 'bg-red-50 text-red-600 border border-red-100'}`
+  msg.textContent = text
+  msg.classList.remove('hidden')
+}
+
+function selectStudent(studentName, classId, className, homeClass) {
+  selectedClassId = classId
+  input.value = studentName
+  const homeLabel = homeClass ? `${homeClass} · ` : ''
+  selectedText.textContent = `已选择：${studentName}（${homeLabel}${className}）`
+  selectedInfo.classList.remove('hidden')
+  suggestions.classList.add('hidden')
+  suggestions.innerHTML = ''
+}
+
+function clearSelection() {
+  selectedClassId = null
+  input.value = ''
+  selectedInfo.classList.add('hidden')
+  selectedText.textContent = ''
+  input.focus()
+}
+
+document.getElementById('clearSelection').addEventListener('click', clearSelection)
+
+async function fetchSuggestions() {
+  const q = input.value.trim()
+  if (!q) {
+    suggestions.classList.add('hidden')
+    suggestions.innerHTML = ''
+    return
+  }
+
+  try {
+    const res = await fetch(`/api/students/match?q=${encodeURIComponent(q)}`)
+    const data = await res.json()
+    suggestions.innerHTML = ''
+
+    if (!data.length) {
+      const empty = document.createElement('div')
+      empty.className = 'px-4 py-3 text-sm text-slate-400 text-center'
+      empty.textContent = '未找到匹配学生'
+      suggestions.appendChild(empty)
+      suggestions.classList.remove('hidden')
+      return
+    }
+
+    data.forEach(item => {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition border-b border-slate-50 last:border-0'
+      btn.innerHTML = `<span class="font-medium">${item.studentName}</span><span class="text-slate-400 ml-1">（${item.homeClass ? item.homeClass + ' · ' : ''}${item.className}）</span>`
+      btn.addEventListener('click', () => selectStudent(item.studentName, item.classId, item.className, item.homeClass))
+      suggestions.appendChild(btn)
+    })
+    suggestions.classList.remove('hidden')
+  } catch (e) {
+    suggestions.classList.add('hidden')
+  }
+}
+
+input.addEventListener('input', () => {
+  // 输入时清除已选状态
+  if (selectedClassId !== null) {
+    selectedClassId = null
+    selectedInfo.classList.add('hidden')
+  }
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(fetchSuggestions, 200)
+})
+
+document.addEventListener('click', e => {
+  if (!suggestions.contains(e.target) && e.target !== input) {
+    suggestions.classList.add('hidden')
+  }
+})
+
+const signinBtn = document.getElementById('signinBtn')
+signinBtn.addEventListener('click', async () => {
+  const student_name = input.value.trim()
+  if (!student_name) { setMessage('请先输入姓名。'); return }
+  if (!selectedClassId) { setMessage('请从列表中选择学生'); return }
+  if (signinBtn.disabled) return
+
+  signinBtn.disabled = true
+  signinBtn.textContent = '提交中…'
+  try {
+    const res = await fetch('/api/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classId: selectedClassId, student_name })
+    })
+    const data = await res.json()
+    setMessage(data.message, data.ok)
+    if (data.ok) {
+      clearSelection()
+    }
+  } finally {
+    signinBtn.disabled = false
+    signinBtn.textContent = '提交签到'
+  }
+})
+</script>
+</body>
+</html>
