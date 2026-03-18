@@ -90,7 +90,6 @@ export async function importStudentsFromExcel(teacherId, buffer) {
  * @returns {Promise<Buffer>}
  */
 export async function exportRecordsToExcel(classId) {
-  const cls = await prisma.class.findUnique({ where: { id: classId } })
   const [students, records] = await Promise.all([
     prisma.student.findMany({ where: { classId }, orderBy: { name: 'asc' } }),
     prisma.signInRecord.findMany({ where: { classId } }),
@@ -122,12 +121,14 @@ export async function exportRecordsToExcel(classId) {
  * @returns {Promise<Buffer>}
  */
 export async function exportSeatTableToExcel(classId) {
-  const cls = await prisma.class.findUnique({ where: { id: classId } })
-  const records = await prisma.signInRecord.findMany({
-    where: { classId },
-    include: { student: true },
-    orderBy: { computerName: 'asc' },
-  })
+  const [cls, records] = await Promise.all([
+    prisma.class.findUnique({ where: { id: classId } }),
+    prisma.signInRecord.findMany({
+      where: { classId },
+      include: { student: true },
+      orderBy: { computerName: 'asc' },
+    }),
+  ])
 
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('座位表')
