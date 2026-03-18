@@ -50,6 +50,13 @@ export async function adminRequired(request, reply) {
  * @param {import('fastify').FastifyReply} reply
  */
 export async function classOwnerRequired(request, reply) {
+  if (!isTeacherLoggedIn(request)) {
+    if (request.url.startsWith('/api/')) {
+      return reply.code(401).send({ ok: false, message: '请先登录教师端。' })
+    }
+    return reply.redirect('/teacher/login')
+  }
+
   const rawClassId =
     request.params?.classId ??
     request.body?.classId ??

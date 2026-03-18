@@ -212,6 +212,11 @@ function notify(text, ok = true) {
 
 async function parseResponse(res) {
   if (res.status === 401) { window.location.href = '/teacher/login'; return null }
+  if (!res.ok) {
+    const text = await res.text()
+    console.error('API error', res.status, text)
+    return null
+  }
   return res.json()
 }
 
@@ -219,6 +224,7 @@ async function refreshStatus() {
   const res = await fetch(`/api/status?classId=${CLASS_ID}`)
   const data = await parseResponse(res)
   if (!data) return
+  if (!Array.isArray(data.roster)) { console.error('unexpected data', data); return }
 
   document.getElementById('totalCount').textContent = data.totalCount
   document.getElementById('signedCount').textContent = data.signedCount
