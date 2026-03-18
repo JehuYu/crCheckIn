@@ -420,3 +420,148 @@ export async function matchStudents(query, limit = 15) {
       className: s.class.name,
     }))
 }
+
+/**
+ * 导出历史批次签到记录为 Excel
+ * @param {import('@prisma/client').SignInSession & { records: ArchivedRecord[], class: { name: string } }} session
+ * @returns {Promise<Buffer>}
+ */
+export async function exportSessionToExcel(session) {
+  const records = session.records ?? []
+  const className = session.class?.name ?? ''
+
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'Lab Attendance'
+  const ws = workbook.addWorksheet('签到记录', {
+    pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1 },
+  })
+
+  ws.columns = [
+    { key: 'homeClass', width: 16 },
+    { key: 'name', width: 12 },
+    { key: 'signedAt', width: 22 },
+    { key: 'computerName', width: 22 },
+  ]
+
+  // 第1行：标题行，合并 A1:D1
+  ws.mergeCells('A1:D1')
+  const titleCell = ws.getCell('A1')
+  titleCell.value = `${className}  ${session.label}`
+  titleCell.font = { name: '微软雅黑', bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
+  ws.getRow(1).height = 36
+
+  // 第2行：统计行，合并 A2:D2
+  ws.mergeCells('A2:D2')
+  const statCell = ws.getCell('A2')
+  statCell.value = `共签到 ${records.length} 人    归档时间：${fmtSecond(new Date(session.archivedAt))}`
+  statCell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
+  statCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  statCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } }
+  ws.getRow(2).height = 20
+
+  // 第3行：表头
+  const headerRow = ws.addRow(['行政班级', '姓名', '签到时间', '计算机 IP'])
+  headerRow.height = 24
+  headerRow.eachCell((cell) => {
+    cell.font = { name: '微软雅黑', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FF475569' } } }
+  })
+
+  // 第4行起：数据行
+  records.forEach((rec, idx) => {
+    const isEven = idx % 2 === 0
+    const dataRow = ws.addRow([
+      fmtHomeClass(rec.homeClass),
+      rec.studentName,
+      rec.signedAt ? fmtSecond(new Date(rec.signedAt)) : '',
+      rec.computerName ?? '',
+    ])
+    dataRow.height = 20
+    dataRow.eachCell((cell, colNumber) => {
+      cell.font = { name: '微软雅黑', size: 10, color: { argb: 'FF1E293B' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' } }
+      cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle' }
+      cell.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } }
+    })
+    // 姓名列绿色加粗
+    dataRow.getCell(2).font = { name: '微软雅黑', size: 10, bold: true, color: { argb: 'FF059669' } }
+  })
+
+  return workbook.xlsx.writeBuffer()
+}
+
+/**
+ * 导出出勤率统计为 Excel
+ * @param {{ totalSessions: number, students: Array }} stats
+ * @param {{ name: string }} cls
+ * @returns {Promise<Buffer>}
+ */
+export async function exportStatsToExcel(stats, cls) {
+  const { totalSessions, students } = stats
+
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'Lab Attendance'
+  const ws = workbook.addWorksheet('出勤统计', {
+    pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1 },
+  })
+
+  ws.columns = [
+    { key: 'name', width: 14 },
+    { key: 'homeClass', width: 16 },
+    { key: 'signedCount', width: 12 },
+    { key: 'absentCount', width: 12 },
+    { key: 'rate', width: 14 },
+  ]
+
+  // 标题行
+  ws.mergeCells('A1:E1')
+  const titleCell = ws.getCell('A1')
+  titleCell.value = `${cls.name}  出勤统计（共 ${totalSessions} 个批次）`
+  titleCell.font = { name: '微软雅黑', bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
+  ws.getRow(1).height = 36
+
+  // 统计行
+  ws.mergeCells('A2:E2')
+  const statCell = ws.getCell('A2')
+  statCell.value = `共 ${students.length} 名学生    导出时间：${fmtSecond(new Date())}`
+  statCell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
+  statCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  statCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } }
+  ws.getRow(2).height = 20
+
+  // 表头
+  const headerRow = ws.addRow(['姓名', '行政班级', '签到次数', '缺勤次数', '出勤率 (%)'])
+  headerRow.height = 24
+  headerRow.eachCell((cell) => {
+    cell.font = { name: '微软雅黑', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FF475569' } } }
+  })
+
+  // 数据行
+  students.forEach((s, idx) => {
+    const isEven = idx % 2 === 0
+    const rate = parseFloat(s.rate)
+    const rateColor = rate >= 80 ? 'FF059669' : rate >= 60 ? 'FFD97706' : 'FFDC2626'
+    const dataRow = ws.addRow([s.name, fmtHomeClass(s.homeClass), s.signedCount, s.absentCount, `${s.rate}%`])
+    dataRow.height = 20
+    dataRow.eachCell((cell, colNumber) => {
+      cell.font = { name: '微软雅黑', size: 10, color: { argb: colNumber === 5 ? rateColor : 'FF1E293B' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' } }
+      cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle' }
+      cell.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } }
+    })
+    if (colNumber === 5) {
+      dataRow.getCell(5).font = { name: '微软雅黑', size: 10, bold: true, color: { argb: rateColor } }
+    }
+  })
+
+  return workbook.xlsx.writeBuffer()
+}

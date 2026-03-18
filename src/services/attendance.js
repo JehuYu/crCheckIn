@@ -111,6 +111,7 @@ export async function getClassStatus(classId) {
     const rec = recordMap.get(s.name)
     if (rec) {
       signed.push({
+        recordId: rec.id,
         studentName: s.name,
         homeClass: s.homeClass || '',
         status: '已签到',
@@ -119,6 +120,7 @@ export async function getClassStatus(classId) {
       })
     } else {
       unsigned.push({
+        recordId: null,
         studentName: s.name,
         homeClass: s.homeClass || '',
         status: '未签到',
@@ -246,6 +248,67 @@ export async function getSessionDetail(sessionId) {
 export async function clearRoster(classId) {
   await prisma.signInRecord.deleteMany({ where: { classId } })
   await prisma.student.deleteMany({ where: { classId } })
+}
+
+/**
+ * 撤销签到记录
+ * @param {number} recordId
+ * @param {number} teacherId
+ * @param {boolean} isAdmin
+ * @returns {Promise<{ ok: boolean, message?: string, status?: number }>}
+ */
+export async function deleteSignInRecord(recordId, teacherId, isAdmin = false) {
+  const record = await prisma.signInRecord.findUnique({
+    where: { id: recordId },
+    include: { class: true },
+  })
+  if (!record) {
+    return { ok: false, message: '记录不存在', status: 404 }
+  }
+  if (!isAdmin && record.class.teacherId !== teacherId) {
+    return { ok: false, message: '无权限', status: 403 }
+  }
+  await prisma.signInRecord.delete({ where: { id: recordId } })
+  return { ok: true }
+}
+
+/**
+ * 跨批次出勤率统计
+ * @param {number} classId
+ * @returns {Promise<{ totalSessions: number, students: Array }>}
+ */
+export async function getAttendanceStats(classId) {
+  const [students, sessions] = await Promise.all([
+    prisma.student.findMany({ where: { classId }, orderBy: { name: 'asc' } }),
+    prisma.signInSession.findMany({
+      where: { classId },
+      include: { records: { select: { studentName: true } } },
+    }),
+  ])
+
+  const totalSessions = sessions.length
+
+  // 每位学生在各批次中的签到次数
+  const countMap = new Map()
+  for (const session of sessions) {
+    for (const rec of session.records) {
+      countMap.set(rec.studentName, (countMap.get(rec.studentName) || 0) + 1)
+    }
+  }
+
+  const result = students.map((s) => {
+    const signedCount = countMap.get(s.name) || 0
+    const absentCount = totalSessions - signedCount
+    const rate = totalSessions === 0 ? '0.00' : (signedCount / totalSessions * 100).toFixed(2)
+    return { studentId: s.id, name: s.name, homeClass: s.homeClass || '', signedCount, absentCount, rate }
+  })
+
+  result.sort((a, b) => {
+    const rd = parseFloat(a.rate) - parseFloat(b.rate)
+    return rd !== 0 ? rd : a.name.localeCompare(b.name)
+  })
+
+  return { totalSessions, students: result }
 }
 
 /**

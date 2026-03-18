@@ -9,15 +9,21 @@ import {
   setSignInWindow,
   getSessions,
   getSessionDetail,
+  getAttendanceStats,
+  deleteSignInRecord,
 } from '../services/attendance.js'
 import {
   importStudentsFromExcel,
   exportRecordsToExcel,
   exportSeatTableToExcel,
   matchStudents,
+  exportSessionToExcel,
+  exportStatsToExcel,
 } from '../services/roster.js'
 import { createClass, deleteClass } from '../services/class.js'
 import { changePassword } from '../services/auth.js'
+import { getSeatGrid, getSeatGridTeacher } from '../services/seat.js'
+import { updateStudent, deleteStudent, transferStudent } from '../services/student.js'
 
 /**
  * 格式化当前时间为 YYYYMMDD_HHmmss
@@ -71,6 +77,28 @@ export default async function apiRoutes(fastify) {
     const detail = await getSessionDetail(sessionId)
     if (!detail) return reply.code(404).send({ ok: false, message: '批次不存在' })
     return reply.send(detail)
+  })
+
+  // GET /api/sessions/:sessionId/export — 导出历史批次 Excel，需要 teacherRequired
+  fastify.get('/api/sessions/:sessionId/export', { preHandler: teacherRequired }, async (request, reply) => {
+    const sessionId = parseInt(request.params.sessionId, 10)
+    const session = await getSessionDetail(sessionId)
+    if (!session) return reply.code(404).send({ ok: false, message: '批次不存在' })
+
+    const isAdmin = request.session.isAdmin === true
+    if (!isAdmin) {
+      const teacherId = request.session.teacherId
+      if (session.class?.teacherId !== teacherId) {
+        return reply.code(403).send({ ok: false, message: '无权限' })
+      }
+    }
+
+    const buffer = await exportSessionToExcel(session)
+    const filename = `session_${sessionId}_${nowTimestamp()}.xlsx`
+    reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+    return reply.send(buffer)
   })
 
   // POST /api/clear-roster — 需要 classOwnerRequired
@@ -179,6 +207,81 @@ export default async function apiRoutes(fastify) {
     if (!result.ok) {
       return reply.code(400).send(result)
     }
+    return reply.send(result)
+  })
+
+  // GET /api/stats — 出勤率统计，需要 classOwnerRequired
+  fastify.get('/api/stats', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const stats = await getAttendanceStats(classId)
+    return reply.send(stats)
+  })
+
+  // GET /api/stats/export — 导出出勤统计 Excel，需要 classOwnerRequired
+  fastify.get('/api/stats/export', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const { prisma } = await import('../plugins/db.js')
+    const cls = await prisma.class.findUnique({ where: { id: classId } })
+    const stats = await getAttendanceStats(classId)
+    const buffer = await exportStatsToExcel(stats, cls)
+    const filename = `attendance_stats_${nowTimestamp()}.xlsx`
+    reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+    return reply.send(buffer)
+  })
+
+  // DELETE /api/signin/:recordId — 撤销签到记录，需要 teacherRequired
+  fastify.delete('/api/signin/:recordId', { preHandler: teacherRequired }, async (request, reply) => {
+    const recordId = parseInt(request.params.recordId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const result = await deleteSignInRecord(recordId, teacherId, isAdmin)
+    if (!result.ok) {
+      return reply.code(result.status || 400).send(result)
+    }
+    return reply.send(result)
+  })
+
+  // GET /api/seat-grid — 座位表数据，需要 classOwnerRequired
+  fastify.get('/api/seat-grid', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const [studentGrid, teacherGrid] = await Promise.all([
+      getSeatGrid(classId),
+      getSeatGridTeacher(classId),
+    ])
+    const signedCount = teacherGrid.flat().reduce((acc, cell) => acc + cell.students.length, 0)
+    return reply.send({ teacherGrid, studentGrid, signedCount })
+  })
+
+  // PATCH /api/students/:studentId — 更新学生信息，需要 teacherRequired
+  fastify.patch('/api/students/:studentId', { preHandler: teacherRequired }, async (request, reply) => {
+    const studentId = parseInt(request.params.studentId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const result = await updateStudent(studentId, request.body, teacherId, isAdmin)
+    if (!result.ok) return reply.code(result.status || 400).send(result)
+    return reply.send(result)
+  })
+
+  // DELETE /api/students/:studentId — 删除学生，需要 teacherRequired
+  fastify.delete('/api/students/:studentId', { preHandler: teacherRequired }, async (request, reply) => {
+    const studentId = parseInt(request.params.studentId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const result = await deleteStudent(studentId, teacherId, isAdmin)
+    if (!result.ok) return reply.code(result.status || 400).send(result)
+    return reply.send(result)
+  })
+
+  // POST /api/students/:studentId/transfer — 转移学生，需要 teacherRequired
+  fastify.post('/api/students/:studentId/transfer', { preHandler: teacherRequired }, async (request, reply) => {
+    const studentId = parseInt(request.params.studentId, 10)
+    const targetClassId = parseInt(request.body.targetClassId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const result = await transferStudent(studentId, targetClassId, teacherId, isAdmin)
+    if (!result.ok) return reply.code(result.status || 400).send(result)
     return reply.send(result)
   })
 }

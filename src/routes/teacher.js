@@ -68,4 +68,19 @@ export default async function teacherRoutes(app) {
       signedCount,
     })
   })
+
+  // 学生管理页
+  app.get('/teacher/classes/:classId/students', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.params.classId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const [cls, students, allClasses] = await Promise.all([
+      prisma.class.findUnique({ where: { id: classId } }),
+      prisma.student.findMany({ where: { classId }, orderBy: [{ homeClass: 'asc' }, { name: 'asc' }] }),
+      isAdmin
+        ? prisma.class.findMany({ orderBy: { name: 'asc' } })
+        : prisma.class.findMany({ where: { teacherId }, orderBy: { name: 'asc' } }),
+    ])
+    return reply.view('teacher/students.html', { cls, students, classes: allClasses })
+  })
 }

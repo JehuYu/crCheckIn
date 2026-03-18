@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ cls.name }} - 学生管理</title>
+  <link rel="stylesheet" href="/public/tailwind.min.css">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .fade { animation: fadeIn .15s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50">
+
+  <header class="bg-white border-b border-slate-100 sticky top-0 z-20">
+    <div class="max-w-4xl mx-auto px-4 h-14 flex items-center gap-3">
+      <a href="/teacher/classes/{{ cls.id }}"
+        class="text-sm text-slate-400 hover:text-slate-600 transition flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        返回
+      </a>
+      <span class="text-slate-300">/</span>
+      <span class="font-semibold text-slate-800">{{ cls.name }}</span>
+      <span class="text-xs bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">学生管理</span>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6">
+
+    <div id="msg" class="hidden mb-4 px-4 py-3 rounded-xl text-sm font-medium fade"></div>
+
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
+        <p class="text-sm font-medium text-slate-700">共 <span id="stuCount">{{ students | length }}</span> 名学生</p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs text-slate-400 border-b border-slate-50">
+              <th class="text-left px-5 py-3 font-medium">姓名</th>
+              <th class="text-left px-5 py-3 font-medium">行政班级</th>
+              <th class="text-right px-5 py-3 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody id="stuBody">
+            {% for s in students %}
+            <tr id="row-{{ s.id }}" class="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition" data-id="{{ s.id }}" data-name="{{ s.name }}" data-homeclass="{{ s.homeClass }}">
+              <td class="px-5 py-3 font-medium text-slate-800 name-cell">{{ s.name }}</td>
+              <td class="px-5 py-3 text-slate-500 text-xs hc-cell">{{ s.homeClass }}</td>
+              <td class="px-5 py-3 text-right">
+                <div class="view-actions inline-flex gap-1">
+                  <button onclick="startEdit({{ s.id }})"
+                    class="text-xs px-2.5 py-1 rounded-lg text-slate-600 hover:bg-slate-100 transition">编辑</button>
+                  <button onclick="confirmDelete({{ s.id }}, '{{ s.name }}')"
+                    class="text-xs px-2.5 py-1 rounded-lg text-red-500 hover:bg-red-50 transition">删除</button>
+                  <button onclick="startTransfer({{ s.id }}, '{{ s.name }}')"
+                    class="text-xs px-2.5 py-1 rounded-lg text-indigo-600 hover:bg-indigo-50 transition">转移</button>
+                </div>
+                <div class="edit-actions hidden inline-flex gap-1 items-center">
+                  <input id="edit-name-{{ s.id }}" type="text" value="{{ s.name }}"
+                    class="px-2 py-1 rounded border border-slate-200 text-xs w-24 focus:outline-none focus:ring-1 focus:ring-slate-400" />
+                  <input id="edit-hc-{{ s.id }}" type="text" value="{{ s.homeClass }}"
+                    class="px-2 py-1 rounded border border-slate-200 text-xs w-24 focus:outline-none focus:ring-1 focus:ring-slate-400" placeholder="行政班级" />
+                  <button onclick="saveEdit({{ s.id }})"
+                    class="text-xs px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition">保存</button>
+                  <button onclick="cancelEdit({{ s.id }})"
+                    class="text-xs px-2.5 py-1 rounded-lg text-slate-500 hover:bg-slate-100 transition">取消</button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 转移弹窗 -->
+  <div id="transferModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+    <div class="bg-white rounded-2xl shadow-xl w-80 mx-4 p-6">
+      <p class="text-sm font-semibold text-slate-800 mb-1">转移学生</p>
+      <p id="transferName" class="text-xs text-slate-400 mb-4"></p>
+      <label class="block text-xs text-slate-500 mb-1">目标教学班</label>
+      <select id="transferTarget"
+        class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 mb-4">
+        {% for c in classes %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="flex gap-2 justify-end">
+        <button onclick="closeTransfer()"
+          class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition">取消</button>
+        <button onclick="doTransfer()"
+          class="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition">确认转移</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const msg = document.getElementById('msg')
+let transferStudentId = null
+
+function notify(text, ok = true) {
+  msg.className = `mb-4 px-4 py-3 rounded-xl text-sm font-medium fade ${ok
+    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+    : 'bg-red-50 text-red-600 border border-red-100'}`
+  msg.textContent = text
+  msg.classList.remove('hidden')
+  setTimeout(() => msg.classList.add('hidden'), 3000)
+}
+
+function startEdit(id) {
+  const row = document.getElementById(`row-${id}`)
+  row.querySelector('.view-actions').classList.add('hidden')
+  row.querySelector('.edit-actions').classList.remove('hidden')
+  row.querySelector('.edit-actions').classList.add('inline-flex')
+}
+
+function cancelEdit(id) {
+  const row = document.getElementById(`row-${id}`)
+  row.querySelector('.view-actions').classList.remove('hidden')
+  row.querySelector('.edit-actions').classList.add('hidden')
+  row.querySelector('.edit-actions').classList.remove('inline-flex')
+}
+
+async function saveEdit(id) {
+  const name = document.getElementById(`edit-name-${id}`).value.trim()
+  const homeClass = document.getElementById(`edit-hc-${id}`).value.trim()
+  if (!name) { notify('姓名不能为空', false); return }
+  const res = await fetch(`/api/students/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, homeClass }),
+  })
+  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  const data = await res.json()
+  if (!data.ok) { notify(data.message, false); return }
+  const row = document.getElementById(`row-${id}`)
+  row.querySelector('.name-cell').textContent = data.student.name
+  row.querySelector('.hc-cell').textContent = data.student.homeClass || ''
+  row.dataset.name = data.student.name
+  row.dataset.homeclass = data.student.homeClass || ''
+  // 更新编辑框按钮的 onclick 参数（姓名用于删除确认）
+  cancelEdit(id)
+  notify('已更新')
+}
+
+async function confirmDelete(id, name) {
+  if (!confirm(`确认删除学生「${name}」？此操作不可恢复。`)) return
+  const res = await fetch(`/api/students/${id}`, { method: 'DELETE' })
+  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  const data = await res.json()
+  if (!data.ok) { notify(data.message, false); return }
+  const row = document.getElementById(`row-${id}`)
+  row.remove()
+  const cnt = document.getElementById('stuCount')
+  cnt.textContent = parseInt(cnt.textContent) - 1
+  notify('已删除')
+}
+
+function startTransfer(id, name) {
+  transferStudentId = id
+  document.getElementById('transferName').textContent = `学生：${name}`
+  document.getElementById('transferModal').classList.remove('hidden')
+}
+
+function closeTransfer() {
+  transferStudentId = null
+  document.getElementById('transferModal').classList.add('hidden')
+}
+
+async function doTransfer() {
+  const targetClassId = document.getElementById('transferTarget').value
+  const res = await fetch(`/api/students/${transferStudentId}/transfer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetClassId: parseInt(targetClassId) }),
+  })
+  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  const data = await res.json()
+  closeTransfer()
+  if (!data.ok) { notify(data.message, false); return }
+  const row = document.getElementById(`row-${transferStudentId}`)
+  row.remove()
+  const cnt = document.getElementById('stuCount')
+  cnt.textContent = parseInt(cnt.textContent) - 1
+  notify('已转移')
+}
+</script>
+</body>
+</html>
