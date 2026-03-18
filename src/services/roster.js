@@ -150,7 +150,7 @@ export async function exportRecordsToExcel(classId) {
     const rec = recordMap.get(student.name)
     const signed = !!rec
     const dataRow = ws.addRow([
-      student.homeClass || '',
+      fmtHomeClass(student.homeClass),
       student.name,
       signed ? '✓ 已签到' : '✗ 未签到',
       rec ? rec.computerName : '',
@@ -198,7 +198,12 @@ export async function exportSeatTableToExcel(classId) {
     const n = Number(parts[parts.length - 1])
     if (!Number.isInteger(n) || n < 1 || n > 60) continue
     if (!seatMap.has(n)) seatMap.set(n, [])
-    seatMap.get(n).push({ name: rec.studentName, homeClass: rec.student?.homeClass ?? '' })
+    let homeClass = rec.student?.homeClass ?? ''
+    if (!homeClass && !rec.student) {
+      const stu = await prisma.student.findFirst({ where: { classId, name: rec.studentName } })
+      homeClass = stu?.homeClass ?? ''
+    }
+    seatMap.get(n).push({ name: rec.studentName, homeClass })
   }
 
   // 教师视角：行列均反转
