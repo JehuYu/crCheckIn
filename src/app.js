@@ -7,6 +7,8 @@ export async function buildApp(opts = {}) {
   const app = Fastify({ logger: true, ...opts })
 
   await registerPlugins(app)
+  // 接受 form 提交但不解析 body（仅用于退出等无需读取 body 的路由）
+  app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, _body, done) => done(null, {}))
   await app.register(multipart)
   await registerRoutes(app)
 
