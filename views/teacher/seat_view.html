@@ -197,6 +197,11 @@
   </main>
 
 <script>
+function fmtHomeClass(hc) {
+  if (!hc) return '—'
+  return hc.endsWith('班') ? hc : hc + '班'
+}
+
 const TEACHER_GRID = {{ teacherGridJson | safe }}
 const STUDENT_GRID = {{ studentGridJson | safe }}
 const TEACHER_AISLES = new Set([2, 4, 6])
@@ -245,7 +250,7 @@ function renderGrid(grid, aisles) {
             card.appendChild(nameEl)
             const hcEl = document.createElement('div')
             hcEl.className = 'home-class'
-            hcEl.textContent = stu.homeClass || '—'
+            hcEl.textContent = fmtHomeClass(stu.homeClass)
             card.appendChild(hcEl)
           }
         }
