@@ -92,6 +92,27 @@
       </div>
     </div>
 
+    <!-- 导入名单 -->
+    <div class="bg-white rounded-2xl border border-slate-100 p-5">
+      <p class="text-sm font-semibold text-slate-800 mb-1">从 Excel 导入名单</p>
+      <p class="text-xs text-slate-400 mb-3">格式：A列=教学班名，B列=行政班级，C列=学生姓名。会自动创建不存在的班级。</p>
+      <div class="flex gap-2 items-center">
+        <label id="importLabel"
+          class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          选择文件
+          <input type="file" id="importFile" accept=".xlsx,.xls" class="hidden" />
+        </label>
+        <span id="importFileName" class="text-xs text-slate-400">未选择文件</span>
+        <button id="importBtn"
+          class="hidden px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-xl transition whitespace-nowrap">
+          开始导入
+        </button>
+      </div>
+    </div>
+
   </main>
 
 <script>
@@ -127,6 +148,37 @@ document.getElementById('createBtn').addEventListener('click', async () => {
 
 document.getElementById('classNameInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('createBtn').click()
+})
+
+const importFile = document.getElementById('importFile')
+const importBtn = document.getElementById('importBtn')
+const importFileName = document.getElementById('importFileName')
+
+importFile.addEventListener('change', () => {
+  const file = importFile.files[0]
+  if (file) {
+    importFileName.textContent = file.name
+    importBtn.classList.remove('hidden')
+  } else {
+    importFileName.textContent = '未选择文件'
+    importBtn.classList.add('hidden')
+  }
+})
+
+importBtn.addEventListener('click', async () => {
+  const file = importFile.files[0]
+  if (!file) return
+  importBtn.disabled = true
+  importBtn.textContent = '导入中...'
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await fetch('/api/import', { method: 'POST', body: fd })
+  importBtn.disabled = false
+  importBtn.textContent = '开始导入'
+  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  const data = await res.json()
+  notify(data.message || (data.ok ? '导入成功' : '导入失败'), data.ok)
+  if (data.ok) setTimeout(() => window.location.reload(), 1000)
 })
 </script>
 </body>
