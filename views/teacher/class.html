@@ -131,8 +131,14 @@
 
       <!-- 数据操作 -->
       <div>
-        <p class="section-label">数据导出</p>
+        <p class="section-label">数据管理</p>
         <div class="flex flex-wrap gap-2">
+          <button id="importBtn" class="btn btn-gray">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+            </svg>
+            导入名单
+          </button>
           <a href="/api/export?classId={{ cls.id }}" class="btn btn-gray">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -248,6 +254,9 @@
         <div class="px-5 py-8 text-center text-sm text-slate-400">暂无历史批次</div>
       </div>
     </div>
+
+    <!-- 导入名单隐藏 input -->
+    <input type="file" id="importFile" accept=".xlsx,.xls" class="hidden" />
 
     <!-- 历史批次详情弹窗 -->
     <div id="sessionModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
@@ -504,6 +513,24 @@ document.getElementById('clearRosterBtn').addEventListener('click', async () => 
   if (!data) return
   notify(data.message, data.ok)
   refreshStatus()
+})
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').click()
+})
+document.getElementById('importFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('classId', CLASS_ID)
+  notify('导入中...', true)
+  const res = await fetch('/api/import', { method: 'POST', body: fd })
+  const data = await parseResponse(res)
+  e.target.value = ''
+  if (!data) return
+  notify(data.message, data.ok)
+  if (data.ok) refreshStatus()
 })
 
 refreshStatus()
