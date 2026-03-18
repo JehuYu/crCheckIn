@@ -20,11 +20,11 @@ export default async function adminRoutes(app) {
   app.post('/admin/teachers', { preHandler: adminRequired }, async (request, reply) => {
     const { username, password, isAdmin } = request.body ?? {}
     try {
-      await createTeacher(username, password, isAdmin === 'true' || isAdmin === true)
-      return reply.redirect('/admin')
+      await createTeacher(username, password, isAdmin === true || isAdmin === 'true')
+      return reply.send({ ok: true })
     } catch (err) {
       if (err.code === 'USERNAME_TAKEN') {
-        return reply.redirect('/admin?error=用户名已存在')
+        return reply.send({ ok: false, message: '用户名已存在' })
       }
       throw err
     }
