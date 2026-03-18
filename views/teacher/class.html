@@ -6,16 +6,28 @@
   <title>{{ cls.name }} - 签到管理</title>
   <link rel="stylesheet" href="/public/tailwind.min.css">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
     .fade { animation: fadeIn .15s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    .progress-bar { transition: width 0.4s ease; }
+    .section-card { background: #fff; border-radius: 16px; border: 1px solid #f1f5f9; }
+    .btn-primary { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#1e293b;color:#fff;border-radius:10px;font-size:13px;font-weight:500;transition:background .15s;cursor:pointer;border:none; }
+    .btn-primary:hover { background:#0f172a; }
+    .btn-secondary { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#f8fafc;color:#475569;border-radius:10px;font-size:13px;font-weight:500;transition:background .15s;cursor:pointer;border:1px solid #e2e8f0; }
+    .btn-secondary:hover { background:#f1f5f9; }
+    .btn-danger { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#fff;color:#ef4444;border-radius:10px;font-size:13px;font-weight:500;transition:all .15s;cursor:pointer;border:1px solid #fecaca; }
+    .btn-danger:hover { background:#fef2f2; }
+    .btn-accent { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#059669;color:#fff;border-radius:10px;font-size:13px;font-weight:500;transition:background .15s;cursor:pointer;border:none; }
+    .btn-accent:hover { background:#047857; }
+    .student-link { display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:linear-gradient(135deg,#1e293b,#334155);color:#fff;border-radius:14px;text-decoration:none;transition:opacity .15s; }
+    .student-link:hover { opacity:.92; }
   </style>
 </head>
 <body class="min-h-screen bg-slate-50">
 
   <!-- 顶栏 -->
   <header class="bg-white border-b border-slate-100 sticky top-0 z-20">
-    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <a href="/teacher/classes" class="text-sm text-slate-400 hover:text-slate-600 transition flex items-center gap-1">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -23,14 +35,13 @@
           </svg>
           班级列表
         </a>
-        <span class="text-slate-300">/</span>
+        <span class="text-slate-200">|</span>
         <span class="font-semibold text-slate-800">{{ cls.name }}</span>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="pwdToggle"
-          class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">修改密码</button>
+      <div class="flex items-center gap-1">
+        <button id="pwdToggle" class="text-sm px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition">修改密码</button>
         <form method="post" action="/teacher/logout">
-          <button class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">退出</button>
+          <button class="text-sm px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition">退出</button>
         </form>
       </div>
     </div>
@@ -38,100 +49,162 @@
 
   <!-- 修改密码面板 -->
   <div id="pwdPanel" class="hidden bg-white border-b border-slate-100">
-    <div class="max-w-5xl mx-auto px-4 py-4 fade">
+    <div class="max-w-4xl mx-auto px-4 py-4 fade">
       <p class="text-sm font-medium text-slate-700 mb-3">修改密码</p>
       <div class="flex flex-wrap gap-2 items-end">
         <div>
-          <label class="block text-xs text-slate-500 mb-1">旧密码</label>
-          <input id="oldPwd" type="password"
-            class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 w-40" />
+          <label class="block text-xs text-slate-400 mb-1">旧密码</label>
+          <input id="oldPwd" type="password" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 w-36" />
         </div>
         <div>
-          <label class="block text-xs text-slate-500 mb-1">新密码</label>
-          <input id="newPwd" type="password"
-            class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 w-40" />
+          <label class="block text-xs text-slate-400 mb-1">新密码</label>
+          <input id="newPwd" type="password" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 w-36" />
         </div>
-        <button id="changePwdBtn"
-          class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm rounded-lg transition">确认修改</button>
+        <button id="changePwdBtn" class="btn-primary">确认修改</button>
       </div>
       <div id="pwdMsg" class="hidden mt-2 text-sm"></div>
     </div>
   </div>
 
-  <main class="max-w-5xl mx-auto px-4 py-6 space-y-5">
+  <main class="max-w-4xl mx-auto px-4 py-6 space-y-4">
 
     <!-- 统计卡片 -->
-    <div class="grid grid-cols-3 gap-4">
-      <div class="bg-white rounded-2xl border border-slate-100 p-4 text-center">
+    <div class="grid grid-cols-3 gap-3">
+      <div class="section-card p-4">
         <p class="text-xs text-slate-400 mb-1">总人数</p>
-        <p id="totalCount" class="text-3xl font-bold text-slate-800">0</p>
+        <p id="totalCount" class="text-2xl font-bold text-slate-800">0</p>
       </div>
-      <div class="bg-white rounded-2xl border border-slate-100 p-4 text-center">
+      <div class="section-card p-4">
         <p class="text-xs text-slate-400 mb-1">已签到</p>
-        <p id="signedCount" class="text-3xl font-bold text-emerald-600">0</p>
+        <p id="signedCount" class="text-2xl font-bold text-emerald-600">0</p>
+        <div class="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div id="progressBar" class="progress-bar h-full bg-emerald-400 rounded-full" style="width:0%"></div>
+        </div>
       </div>
-      <div class="bg-white rounded-2xl border border-slate-100 p-4 text-center">
+      <div class="section-card p-4">
         <p class="text-xs text-slate-400 mb-1">未签到</p>
-        <p id="absentCount" class="text-3xl font-bold text-slate-400">0</p>
+        <p id="absentCount" class="text-2xl font-bold text-slate-300">0</p>
       </div>
     </div>
 
-    <!-- 时间窗口 -->
-    <div class="bg-white rounded-2xl border border-slate-100 p-5">
-      <p class="text-sm font-medium text-slate-700 mb-3">签到时间段</p>
-      <div class="flex flex-wrap gap-3 items-end">
-        <div>
-          <label class="block text-xs text-slate-500 mb-1">开始</label>
-          <input id="startTime" type="datetime-local"
-            class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
-        </div>
-        <div>
-          <label class="block text-xs text-slate-500 mb-1">结束</label>
-          <input id="endTime" type="datetime-local"
-            class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
-        </div>
-        <button id="saveWindow"
-          class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm rounded-lg transition">保存</button>
+    <!-- 学生端入口（突出显示） -->
+    <a href="/student?classId={{ cls.id }}" target="_blank" class="student-link">
+      <div>
+        <p class="text-sm font-semibold">学生签到入口</p>
+        <p class="text-xs text-slate-300 mt-0.5">点击复制链接或在学生端打开</p>
       </div>
-      <p id="windowText" class="mt-2 text-xs text-slate-400">当前时间段：不限</p>
+      <div class="flex items-center gap-2">
+        <span class="text-xs bg-white/10 px-2 py-1 rounded-lg font-mono">/student?classId={{ cls.id }}</span>
+        <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+        </svg>
+      </div>
+    </a>
+
+    <!-- 主要操作区 -->
+    <div class="section-card p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">操作</p>
+      <div class="flex flex-wrap gap-2">
+        <a href="/teacher/classes/{{ cls.id }}/seats" class="btn-secondary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+          </svg>
+          座位表
+        </a>
+        <a href="/teacher/classes/{{ cls.id }}/students" class="btn-secondary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          学生管理
+        </a>
+        <button id="statsToggle" class="btn-secondary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          出勤统计
+        </button>
+        <a id="exportLink" href="/api/export?classId={{ cls.id }}" class="btn-secondary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          导出记录
+        </a>
+      </div>
     </div>
 
-    <!-- 操作区 -->
-    <div class="bg-white rounded-2xl border border-slate-100 p-5">
-      <p class="text-sm font-medium text-slate-700 mb-3">名单 / 记录</p>
-      <div class="flex flex-wrap gap-2 items-center">
-        <form id="importForm" class="flex gap-2 items-center">
-          <input type="file" name="file" accept=".xlsx,.xlsm"
-            class="text-sm text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
-                   file:text-sm file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer" />
-          <button type="submit"
-            class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg transition">导入名单</button>
-        </form>
-        <a id="exportLink" href="/api/export?classId={{ cls.id }}"
-          class="px-4 py-1.5 bg-slate-700 hover:bg-slate-800 text-white text-sm rounded-lg transition">导出记录</a>
-        <a href="/teacher/classes/{{ cls.id }}/seats"
-          class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition">查看座位表</a>
+    <!-- 导入名单 -->
+    <div class="section-card p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">导入名单</p>
+      <form id="importForm" class="flex flex-wrap gap-2 items-center">
+        <input type="file" name="file" accept=".xlsx,.xlsm"
+          class="text-sm text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer" />
+        <button type="submit" class="btn-accent">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          导入
+        </button>
+      </form>
+    </div>
+
+    <!-- 签到时间段（可折叠） -->
+    <div class="section-card overflow-hidden">
+      <button id="windowToggle" class="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="text-sm font-medium text-slate-700">签到时间段</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="windowText" class="text-xs text-slate-400">不限</span>
+          <svg id="windowChevron" class="w-4 h-4 text-slate-300 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </button>
+      <div id="windowPanel" class="hidden px-5 pb-5 border-t border-slate-50">
+        <div class="flex flex-wrap gap-3 items-end pt-4">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">开始时间</label>
+            <input id="startTime" type="datetime-local" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">结束时间</label>
+            <input id="endTime" type="datetime-local" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
+          </div>
+          <button id="saveWindow" class="btn-primary">保存</button>
+          <button id="clearWindow" class="btn-secondary">清除限制</button>
+        </div>
+        <p class="mt-3 text-xs text-slate-400">设置后，仅在该时间段内允许学生签到。留空表示不限制。</p>
       </div>
-      <div class="flex flex-wrap gap-2 mt-3">
-        <button id="resetBtn"
-          class="px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition">重置签到</button>
-        <button id="clearRosterBtn"
-          class="px-4 py-1.5 border border-red-200 text-red-500 hover:bg-red-50 text-sm rounded-lg transition">清空名单</button>
-        <a href="/student?classId={{ cls.id }}"
-          class="px-4 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm rounded-lg transition">学生端</a>
-        <a href="/teacher/classes/{{ cls.id }}/students"
-          class="px-4 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm rounded-lg transition">学生管理</a>
-        <button id="statsToggle"
-          class="px-4 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm rounded-lg transition">出勤统计</button>
+    </div>
+
+    <!-- 危险操作 -->
+    <div class="section-card p-5">
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">危险操作</p>
+      <div class="flex flex-wrap gap-2">
+        <button id="resetBtn" class="btn-danger">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          归档并重置签到
+        </button>
+        <button id="clearRosterBtn" class="btn-danger">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          清空名单
+        </button>
       </div>
+      <p class="mt-2 text-xs text-slate-400">归档重置：将当前签到记录存入历史批次，并清空当前签到状态。清空名单：删除所有学生及签到记录，不可恢复。</p>
     </div>
 
     <!-- 出勤统计面板 -->
-    <div id="statsPanel" class="hidden bg-white rounded-2xl border border-slate-100 overflow-hidden">
+    <div id="statsPanel" class="hidden section-card overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
         <p class="text-sm font-medium text-slate-700">出勤统计</p>
-        <a id="statsExportLink" href="/api/stats/export?classId={{ cls.id }}"
-          class="text-xs px-3 py-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition">导出 Excel</a>
+        <a id="statsExportLink" href="/api/stats/export?classId={{ cls.id }}" class="text-xs px-3 py-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition">导出 Excel</a>
       </div>
       <div id="statsContent" class="px-5 py-8 text-center text-sm text-slate-400">加载中...</div>
     </div>
@@ -140,9 +213,10 @@
     <div id="msg" class="hidden px-4 py-3 rounded-xl text-sm font-medium fade"></div>
 
     <!-- 签到名单 -->
-    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-50">
-        <p class="text-sm font-medium text-slate-700">签到名单</p>
+    <div class="section-card overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
+        <p class="text-sm font-medium text-slate-700">当前签到名单</p>
+        <span id="rosterBadge" class="text-xs text-slate-400"></span>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -151,7 +225,7 @@
               <th class="text-left px-5 py-3 font-medium">姓名</th>
               <th class="text-left px-5 py-3 font-medium">行政班级</th>
               <th class="text-left px-5 py-3 font-medium">状态</th>
-              <th class="text-left px-5 py-3 font-medium">计算机IP</th>
+              <th class="text-left px-5 py-3 font-medium">计算机 IP</th>
               <th class="text-left px-5 py-3 font-medium">签到时间</th>
               <th class="text-left px-5 py-3 font-medium"></th>
             </tr>
@@ -162,7 +236,7 @@
     </div>
 
     <!-- 历史批次 -->
-    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+    <div class="section-card overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
         <p class="text-sm font-medium text-slate-700">历史批次</p>
         <span id="sessionCount" class="text-xs text-slate-400"></span>
@@ -177,7 +251,7 @@
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
         <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <p id="modalTitle" class="text-sm font-semibold text-slate-800"></p>
-          <button id="modalClose" class="text-slate-400 hover:text-slate-600 transition text-lg leading-none">&times;</button>
+          <button id="modalClose" class="text-slate-400 hover:text-slate-600 transition text-xl leading-none">&times;</button>
         </div>
         <div class="overflow-auto flex-1">
           <table class="w-full text-sm">
@@ -185,7 +259,7 @@
               <tr class="text-xs text-slate-400 border-b border-slate-100">
                 <th class="text-left px-5 py-3 font-medium">姓名</th>
                 <th class="text-left px-5 py-3 font-medium">行政班级</th>
-                <th class="text-left px-5 py-3 font-medium">计算机IP</th>
+                <th class="text-left px-5 py-3 font-medium">计算机 IP</th>
                 <th class="text-left px-5 py-3 font-medium">签到时间</th>
               </tr>
             </thead>
@@ -212,11 +286,7 @@ function notify(text, ok = true) {
 
 async function parseResponse(res) {
   if (res.status === 401) { window.location.href = '/teacher/login'; return null }
-  if (!res.ok) {
-    const text = await res.text()
-    console.error('API error', res.status, text)
-    return null
-  }
+  if (!res.ok) { const t = await res.text(); console.error('API error', res.status, t); return null }
   return res.json()
 }
 
@@ -224,21 +294,22 @@ async function refreshStatus() {
   const res = await fetch(`/api/status?classId=${CLASS_ID}`)
   const data = await parseResponse(res)
   if (!data) return
-  if (!Array.isArray(data.roster)) { console.error('unexpected data', data); return }
+  if (!Array.isArray(data.roster)) return
 
-  document.getElementById('totalCount').textContent = data.totalCount
-  document.getElementById('signedCount').textContent = data.signedCount
+  const total = data.totalCount, signed = data.signedCount
+  document.getElementById('totalCount').textContent = total
+  document.getElementById('signedCount').textContent = signed
   document.getElementById('absentCount').textContent = data.absentCount
+  document.getElementById('progressBar').style.width = total > 0 ? (signed / total * 100) + '%' : '0%'
+  document.getElementById('rosterBadge').textContent = `共 ${total} 人`
 
-  document.getElementById('windowText').textContent = data.window.start || data.window.end
-    ? `当前时间段：${data.window.start || '不限'} 至 ${data.window.end || '不限'}`
-    : '当前时间段：不限'
+  const wt = document.getElementById('windowText')
+  wt.textContent = (data.window.start || data.window.end)
+    ? `${data.window.start || '不限'} 至 ${data.window.end || '不限'}`
+    : '不限'
 
   const ipCount = {}
-  data.roster.forEach(r => {
-    const ip = (r.computerName || '').trim()
-    if (ip && ip !== '-') ipCount[ip] = (ipCount[ip] || 0) + 1
-  })
+  data.roster.forEach(r => { const ip = (r.computerName||'').trim(); if (ip && ip!=='-') ipCount[ip]=(ipCount[ip]||0)+1 })
 
   const tbody = document.getElementById('tableBody')
   tbody.innerHTML = ''
@@ -246,13 +317,13 @@ async function refreshStatus() {
     const tr = document.createElement('tr')
     tr.className = 'border-b border-slate-50 last:border-0 hover:bg-slate-50 transition'
     const signed = r.status === '已签到'
-    const dupIp = ipCount[(r.computerName || '').trim()] > 1
+    const dupIp = ipCount[(r.computerName||'').trim()] > 1
     const revokeBtn = (signed && r.recordId)
       ? `<button onclick="revokeRecord(${r.recordId}, this)" class="text-xs px-2 py-0.5 rounded text-red-400 hover:bg-red-50 transition">撤销</button>`
       : ''
     tr.innerHTML = `
       <td class="px-5 py-3 text-slate-800 font-medium">${r.studentName}</td>
-      <td class="px-5 py-3 text-slate-500 text-xs">${r.homeClass || ''}</td>
+      <td class="px-5 py-3 text-slate-400 text-xs">${r.homeClass||''}</td>
       <td class="px-5 py-3">
         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
           ${signed ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}">
@@ -272,10 +343,7 @@ async function refreshSessions() {
   if (!data) return
   const list = document.getElementById('sessionList')
   document.getElementById('sessionCount').textContent = data.length ? `共 ${data.length} 批次` : ''
-  if (!data.length) {
-    list.innerHTML = '<div class="px-5 py-8 text-center text-sm text-slate-400">暂无历史批次</div>'
-    return
-  }
+  if (!data.length) { list.innerHTML = '<div class="px-5 py-8 text-center text-sm text-slate-400">暂无历史批次</div>'; return }
   list.innerHTML = data.map(s => `
     <div class="px-5 py-3 border-b border-slate-50 last:border-0 flex items-center justify-between hover:bg-slate-50 transition">
       <div>
@@ -283,7 +351,7 @@ async function refreshSessions() {
         <p class="text-xs text-slate-400 mt-0.5">签到人数：${s.count}</p>
       </div>
       <div class="flex gap-2">
-        <button onclick="openSession(${s.id}, this.dataset.label)" data-label="${s.label.replace(/"/g, '&quot;')}"
+        <button onclick="openSession(${s.id}, this.dataset.label)" data-label="${s.label.replace(/"/g,'&quot;')}"
           class="text-xs px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">查看</button>
         <a href="/api/sessions/${s.id}/export"
           class="text-xs px-3 py-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition">导出</a>
@@ -296,11 +364,10 @@ async function openSession(sessionId, label) {
   const data = await parseResponse(res)
   if (!data) return
   document.getElementById('modalTitle').textContent = label
-  const tbody = document.getElementById('modalBody')
-  tbody.innerHTML = (data.records || []).map(r => `
+  document.getElementById('modalBody').innerHTML = (data.records||[]).map(r => `
     <tr class="border-b border-slate-50 last:border-0">
       <td class="px-5 py-3 text-slate-800">${r.studentName}</td>
-      <td class="px-5 py-3 text-slate-500 text-xs">${r.homeClass || ''}</td>
+      <td class="px-5 py-3 text-slate-400 text-xs">${r.homeClass||''}</td>
       <td class="px-5 py-3 font-mono text-xs text-slate-400">${r.computerName}</td>
       <td class="px-5 py-3 text-slate-400 text-xs">${r.signedAt ? new Date(r.signedAt).toLocaleString('zh-CN') : '-'}</td>
     </tr>`).join('')
@@ -311,103 +378,89 @@ document.getElementById('modalClose').addEventListener('click', () => {
   document.getElementById('sessionModal').classList.add('hidden')
 })
 
-// 出勤统计面板
+// 出勤统计
 document.getElementById('statsToggle').addEventListener('click', async () => {
   const panel = document.getElementById('statsPanel')
   panel.classList.toggle('hidden')
-  if (!panel.classList.contains('hidden')) {
-    await loadStats()
-  }
+  if (!panel.classList.contains('hidden')) await loadStats()
 })
 
 async function loadStats() {
   const content = document.getElementById('statsContent')
-  content.innerHTML = '<div class="px-5 py-8 text-center text-sm text-slate-400">加载中...</div>'
+  content.innerHTML = '<div class="py-8 text-center text-sm text-slate-400">加载中...</div>'
   const res = await fetch('/api/stats?classId=' + CLASS_ID)
   if (res.status === 401) { window.location.href = '/teacher/login'; return }
   const data = await res.json()
-  if (!data.students || data.students.length === 0) {
-    content.innerHTML = '<div class="px-5 py-8 text-center text-sm text-slate-400">暂无历史批次数据</div>'
-    return
+  if (!data.students || !data.students.length) {
+    content.innerHTML = '<div class="py-8 text-center text-sm text-slate-400">暂无历史批次数据</div>'; return
   }
-  content.innerHTML = `
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-xs text-slate-400 border-b border-slate-50">
-            <th class="text-left px-5 py-3 font-medium">姓名</th>
-            <th class="text-left px-5 py-3 font-medium">行政班级</th>
-            <th class="text-center px-5 py-3 font-medium">签到次数</th>
-            <th class="text-center px-5 py-3 font-medium">缺勤次数</th>
-            <th class="text-center px-5 py-3 font-medium">出勤率</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${data.students.map(s => {
-            const rate = parseFloat(s.rate)
-            const color = rate >= 80 ? 'text-emerald-600' : rate >= 60 ? 'text-amber-500' : 'text-red-500'
-            return `<tr class="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-              <td class="px-5 py-3 font-medium text-slate-800">${s.name}</td>
-              <td class="px-5 py-3 text-xs text-slate-400">${s.homeClass || ''}</td>
-              <td class="px-5 py-3 text-center text-slate-600">${s.signedCount}</td>
-              <td class="px-5 py-3 text-center text-slate-400">${s.absentCount}</td>
-              <td class="px-5 py-3 text-center font-semibold ${color}">${s.rate}%</td>
-            </tr>`
-          }).join('')}
-        </tbody>
-      </table>
-      <p class="px-5 py-3 text-xs text-slate-400 border-t border-slate-50">共 ${data.totalSessions} 个历史批次</p>
-    </div>`
+  content.innerHTML = `<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="text-xs text-slate-400 border-b border-slate-50">
+        <th class="text-left px-5 py-3 font-medium">姓名</th>
+        <th class="text-left px-5 py-3 font-medium">行政班级</th>
+        <th class="text-center px-5 py-3 font-medium">签到</th>
+        <th class="text-center px-5 py-3 font-medium">缺勤</th>
+        <th class="text-center px-5 py-3 font-medium">出勤率</th>
+      </tr></thead>
+      <tbody>${data.students.map(s => {
+        const rate = parseFloat(s.rate)
+        const color = rate >= 80 ? 'text-emerald-600' : rate >= 60 ? 'text-amber-500' : 'text-red-500'
+        return `<tr class="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+          <td class="px-5 py-3 font-medium text-slate-800">${s.name}</td>
+          <td class="px-5 py-3 text-xs text-slate-400">${s.homeClass||''}</td>
+          <td class="px-5 py-3 text-center text-slate-600">${s.signedCount}</td>
+          <td class="px-5 py-3 text-center text-slate-400">${s.absentCount}</td>
+          <td class="px-5 py-3 text-center font-semibold ${color}">${s.rate}%</td>
+        </tr>`
+      }).join('')}</tbody>
+    </table>
+    <p class="px-5 py-3 text-xs text-slate-400 border-t border-slate-50">共 ${data.totalSessions} 个历史批次</p>
+  </div>`
 }
 
-// 撤销签到记录
+// 撤销签到
 async function revokeRecord(recordId, btn) {
   if (!confirm('确认撤销该签到记录？')) return
   const res = await fetch('/api/signin/' + recordId, { method: 'DELETE' })
   if (res.status === 401) { window.location.href = '/teacher/login'; return }
   const data = await res.json()
   if (!data.ok) { notify(data.message, false); return }
-  const tr = btn.closest('tr')
-  tr.remove()
+  btn.closest('tr').remove()
   notify('已撤销')
   refreshStatus()
 }
 
-// 修改密码面板
+// 修改密码
 document.getElementById('pwdToggle').addEventListener('click', () => {
   document.getElementById('pwdPanel').classList.toggle('hidden')
 })
-
 document.getElementById('changePwdBtn').addEventListener('click', async () => {
   const pwdMsg = document.getElementById('pwdMsg')
   const res = await fetch('/api/change-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      old_password: document.getElementById('oldPwd').value,
-      new_password: document.getElementById('newPwd').value
-    })
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ old_password: document.getElementById('oldPwd').value, new_password: document.getElementById('newPwd').value })
   })
   const data = await parseResponse(res)
   if (!data) return
   pwdMsg.className = `mt-2 text-sm ${data.ok ? 'text-emerald-600' : 'text-red-500'}`
   pwdMsg.textContent = data.message
   pwdMsg.classList.remove('hidden')
-  if (data.ok) {
-    document.getElementById('oldPwd').value = ''
-    document.getElementById('newPwd').value = ''
-  }
+  if (data.ok) { document.getElementById('oldPwd').value = ''; document.getElementById('newPwd').value = '' }
+})
+
+// 签到时间段折叠
+document.getElementById('windowToggle').addEventListener('click', () => {
+  const panel = document.getElementById('windowPanel')
+  const chevron = document.getElementById('windowChevron')
+  panel.classList.toggle('hidden')
+  chevron.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)'
 })
 
 document.getElementById('saveWindow').addEventListener('click', async () => {
   const res = await fetch('/api/window', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      classId: CLASS_ID,
-      start_time: document.getElementById('startTime').value || null,
-      end_time: document.getElementById('endTime').value || null
-    })
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ classId: CLASS_ID, start_time: document.getElementById('startTime').value||null, end_time: document.getElementById('endTime').value||null })
   })
   const data = await parseResponse(res)
   if (!data) return
@@ -415,11 +468,24 @@ document.getElementById('saveWindow').addEventListener('click', async () => {
   refreshStatus()
 })
 
+document.getElementById('clearWindow').addEventListener('click', async () => {
+  document.getElementById('startTime').value = ''
+  document.getElementById('endTime').value = ''
+  const res = await fetch('/api/window', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ classId: CLASS_ID, start_time: null, end_time: null })
+  })
+  const data = await parseResponse(res)
+  if (!data) return
+  notify('已清除时间限制', data.ok)
+  refreshStatus()
+})
+
+// 归档重置
 document.getElementById('resetBtn').addEventListener('click', async () => {
   if (!confirm('确认归档当前签到记录并重置？')) return
   const res = await fetch('/api/reset', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ classId: CLASS_ID })
   })
   const data = await parseResponse(res)
@@ -429,11 +495,11 @@ document.getElementById('resetBtn').addEventListener('click', async () => {
   refreshSessions()
 })
 
+// 清空名单
 document.getElementById('clearRosterBtn').addEventListener('click', async () => {
   if (!confirm('确认清空名单及全部签到记录？此操作不可恢复！')) return
   const res = await fetch('/api/clear-roster', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ classId: CLASS_ID })
   })
   const data = await parseResponse(res)
@@ -442,15 +508,26 @@ document.getElementById('clearRosterBtn').addEventListener('click', async () => 
   refreshStatus()
 })
 
+// 导入名单
 document.getElementById('importForm').addEventListener('submit', async e => {
   e.preventDefault()
+  const btn = e.target.querySelector('button[type=submit]')
+  btn.disabled = true
   const formData = new FormData(e.target)
   formData.append('classId', CLASS_ID)
   const res = await fetch('/api/import', { method: 'POST', body: formData })
   const data = await parseResponse(res)
+  btn.disabled = false
   if (!data) return
   notify(data.message, data.ok)
   refreshStatus()
+})
+
+// 复制学生端链接
+document.querySelector('.student-link').addEventListener('click', e => {
+  if (e.target.closest('a') === e.currentTarget) {
+    // 允许正常跳转
+  }
 })
 
 refreshStatus()
