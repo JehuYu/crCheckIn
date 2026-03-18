@@ -76,11 +76,16 @@ export async function importStudentsFromExcel(teacherId, buffer) {
     const existingSet = new Set(existing.map((s) => s.name))
 
     const seen = new Set()
+    const toInsert = []
     for (const { homeClass, studentName } of students) {
       if (existingSet.has(studentName) || seen.has(studentName)) continue
       seen.add(studentName)
-      await prisma.student.create({ data: { name: studentName, homeClass, classId } })
-      count++
+      toInsert.push({ name: studentName, homeClass, classId })
+    }
+
+    if (toInsert.length > 0) {
+      const res = await prisma.student.createMany({ data: toInsert, skipDuplicates: true })
+      count += res.count
     }
   }
 
