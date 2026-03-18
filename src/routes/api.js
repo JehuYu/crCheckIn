@@ -174,6 +174,19 @@ export default async function apiRoutes(fastify) {
     return reply.send(result)
   })
 
+  // POST /api/teacher-login-form — 教师登录页面用（JSON）
+  fastify.post('/api/teacher-login-form', async (request, reply) => {
+    const { username, password } = request.body ?? {}
+    const { verifyTeacher } = await import('../services/auth.js')
+    const result = await verifyTeacher(username, password)
+    if (result.ok) {
+      request.session.teacherId = result.teacher.id
+      request.session.isAdmin = result.teacher.isAdmin
+      return reply.send({ ok: true, redirect: '/teacher/classes' })
+    }
+    return reply.send({ ok: false, message: '用户名或密码错误，请重试。' })
+  })
+
   // POST /api/teacher-login — 通过密码登录教师端（供学生端入口使用）
   fastify.post('/api/teacher-login', async (request, reply) => {
     const { password } = request.body ?? {}

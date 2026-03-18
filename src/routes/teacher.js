@@ -12,14 +12,7 @@ export default async function teacherRoutes(app) {
   })
 
   app.post('/teacher/login', async (request, reply) => {
-    const { username, password } = request.body ?? {}
-    const result = await verifyTeacher(username, password)
-    if (result.ok) {
-      request.session.teacherId = result.teacher.id
-      request.session.isAdmin = result.teacher.isAdmin
-      return reply.redirect('/teacher/classes')
-    }
-    return reply.view('teacher/login.html', { error: '用户名或密码错误，请重试。' })
+    return reply.redirect('/teacher/login')
   })
 
   app.post('/teacher/logout', async (request, reply) => {
