@@ -48,7 +48,8 @@
           </thead>
           <tbody id="stuBody">
             {% for s in students %}
-            <tr id="row-{{ s.id }}" class="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition" data-id="{{ s.id }}" data-name="{{ s.name }}" data-homeclass="{{ s.homeClass }}">
+            <tr id="row-{{ s.id }}" class="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition"
+              data-id="{{ s.id }}" data-name="{{ s.name }}" data-homeclass="{{ s.homeClass }}">
               <td class="px-5 py-3 font-medium text-slate-800 name-cell">{{ s.name }}</td>
               <td class="px-5 py-3 text-slate-500 text-xs hc-cell">{{ s.homeClass }}</td>
               <td class="px-5 py-3 text-right">
@@ -145,7 +146,6 @@ async function saveEdit(id) {
   row.querySelector('.hc-cell').textContent = data.student.homeClass || ''
   row.dataset.name = data.student.name
   row.dataset.homeclass = data.student.homeClass || ''
-  // 更新编辑框按钮的 onclick 参数（姓名用于删除确认）
   cancelEdit(id)
   notify('已更新')
 }
@@ -156,8 +156,7 @@ async function confirmDelete(id, name) {
   if (res.status === 401) { window.location.href = '/teacher/login'; return }
   const data = await res.json()
   if (!data.ok) { notify(data.message, false); return }
-  const row = document.getElementById(`row-${id}`)
-  row.remove()
+  document.getElementById(`row-${id}`).remove()
   const cnt = document.getElementById('stuCount')
   cnt.textContent = parseInt(cnt.textContent) - 1
   notify('已删除')
@@ -185,8 +184,7 @@ async function doTransfer() {
   const data = await res.json()
   closeTransfer()
   if (!data.ok) { notify(data.message, false); return }
-  const row = document.getElementById(`row-${transferStudentId}`)
-  row.remove()
+  document.getElementById(`row-${transferStudentId}`).remove()
   const cnt = document.getElementById('stuCount')
   cnt.textContent = parseInt(cnt.textContent) - 1
   notify('已转移')
