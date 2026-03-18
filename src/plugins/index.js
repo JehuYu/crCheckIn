@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'url'
 import { join, dirname } from 'path'
 import fastifyStatic from '@fastify/static'
+import fastifyMultipart from '@fastify/multipart'
 import dbPlugin from './db.js'
 import sessionPlugin from './session.js'
 import viewPlugin from './view.js'
@@ -12,6 +13,7 @@ export async function registerPlugins(app) {
     root: join(__dirname, '../../public'),
     prefix: '/public/',
   })
+  await app.register(fastifyMultipart)
   await app.register(dbPlugin)
   await app.register(sessionPlugin)
   await app.register(viewPlugin)
