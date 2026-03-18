@@ -84,7 +84,7 @@ export async function importStudentsFromExcel(teacherId, buffer) {
     }
 
     if (toInsert.length > 0) {
-      const res = await prisma.student.createMany({ data: toInsert, skipDuplicates: true })
+      const res = await prisma.student.createMany({ data: toInsert })
       count += res.count
     }
   }
