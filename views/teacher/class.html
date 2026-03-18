@@ -283,7 +283,7 @@ async function refreshSessions() {
         <p class="text-xs text-slate-400 mt-0.5">签到人数：${s.count}</p>
       </div>
       <div class="flex gap-2">
-        <button onclick="openSession(${s.id}, '${s.label.replace(/'/g, '\\'')}' )"
+        <button onclick="openSession(${s.id}, this.dataset.label)" data-label="${s.label.replace(/"/g, '&quot;')}"
           class="text-xs px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">查看</button>
         <a href="/api/sessions/${s.id}/export"
           class="text-xs px-3 py-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition">导出</a>
