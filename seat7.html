@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{ cls.name }} - 座位表</title>
+  <title>一职B12 - 座位表</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
@@ -115,7 +115,7 @@
   <header class="bg-white border-b border-slate-100 sticky top-0 z-20 no-print">
     <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <a href="/teacher/classes/{{ classId }}"
+        <a href="/teacher/classes/7"
           class="text-sm text-slate-400 hover:text-slate-600 transition flex items-center gap-1">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -123,9 +123,9 @@
           返回
         </a>
         <span class="text-slate-300">/</span>
-        <span class="font-semibold text-slate-800">{{ cls.name }}</span>
+        <span class="font-semibold text-slate-800">一职B12</span>
         <span class="text-xs bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full px-2 py-0.5 ml-1">
-          已签到 {{ signedCount }} 人
+          已签到 0 人
         </span>
       </div>
       <div class="flex items-center gap-2">
@@ -144,7 +144,7 @@
           打印
         </button>
         <!-- 导出 -->
-        <a href="/api/export-seats?classId={{ classId }}"
+        <a href="/api/export-seats?classId=7"
           class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -160,8 +160,8 @@
 
     <!-- 打印时显示的标题 -->
     <div class="print-title mb-4">
-      <div style="font-size:18px;font-weight:700;color:#1e293b;">{{ cls.name }}  座位表</div>
-      <div style="font-size:11px;color:#64748b;margin-top:4px;">已签到 {{ signedCount }} 人</div>
+      <div style="font-size:18px;font-weight:700;color:#1e293b;">一职B12  座位表</div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px;">已签到 0 人</div>
     </div>
 
     <!-- 图例（屏幕显示） -->
@@ -197,8 +197,8 @@
   </main>
 
 <script>
-const TEACHER_GRID = {{ teacherGridJson | safe }}
-const STUDENT_GRID = {{ studentGridJson | safe }}
+const TEACHER_GRID = [[{"seatNo":1,"label":"1","students":[],"dupIp":false},{"seatNo":2,"label":"2","students":[],"dupIp":false},{"seatNo":17,"label":"17","students":[],"dupIp":false},{"seatNo":18,"label":"18","students":[],"dupIp":false},{"seatNo":31,"label":"31","students":[],"dupIp":false},{"seatNo":32,"label":"32","students":[],"dupIp":false},{"seatNo":45,"label":"45","students":[],"dupIp":false},{"seatNo":46,"label":"46","students":[],"dupIp":false}],[{"seatNo":3,"label":"3","students":[],"dupIp":false},{"seatNo":4,"label":"4","students":[],"dupIp":false},{"seatNo":19,"label":"19","students":[],"dupIp":false},{"seatNo":20,"label":"20","students":[],"dupIp":false},{"seatNo":33,"label":"33","students":[],"dupIp":false},{"seatNo":34,"label":"34","students":[],"dupIp":false},{"seatNo":47,"label":"47","students":[],"dupIp":false},{"seatNo":48,"label":"48","students":[],"dupIp":false}],[{"seatNo":5,"label":"5","students":[],"dupIp":false},{"seatNo":6,"label":"6","students":[],"dupIp":false},{"seatNo":21,"label":"21","students":[],"dupIp":false},{"seatNo":22,"label":"22","students":[],"dupIp":false},{"seatNo":35,"label":"35","students":[],"dupIp":false},{"seatNo":36,"label":"36","students":[],"dupIp":false},{"seatNo":49,"label":"49","students":[],"dupIp":false},{"seatNo":50,"label":"50","students":[],"dupIp":false}],[{"seatNo":7,"label":"7","students":[],"dupIp":false},{"seatNo":8,"label":"8","students":[],"dupIp":false},{"seatNo":23,"label":"23","students":[],"dupIp":false},{"seatNo":24,"label":"24","students":[],"dupIp":false},{"seatNo":37,"label":"37","students":[],"dupIp":false},{"seatNo":38,"label":"38","students":[],"dupIp":false},{"seatNo":51,"label":"51","students":[],"dupIp":false},{"seatNo":52,"label":"52","students":[],"dupIp":false}],[{"seatNo":9,"label":"9","students":[],"dupIp":false},{"seatNo":10,"label":"10","students":[],"dupIp":false},{"seatNo":25,"label":"25","students":[],"dupIp":false},{"seatNo":26,"label":"26","students":[],"dupIp":false},{"seatNo":39,"label":"39","students":[],"dupIp":false},{"seatNo":40,"label":"40","students":[],"dupIp":false},{"seatNo":53,"label":"53","students":[],"dupIp":false},{"seatNo":54,"label":"54","students":[],"dupIp":false}],[{"seatNo":11,"label":"11","students":[],"dupIp":false},{"seatNo":12,"label":"12","students":[],"dupIp":false},{"seatNo":27,"label":"27","students":[],"dupIp":false},{"seatNo":28,"label":"28","students":[],"dupIp":false},{"seatNo":41,"label":"41","students":[],"dupIp":false},{"seatNo":42,"label":"42","students":[],"dupIp":false},{"seatNo":55,"label":"55","students":[],"dupIp":false},{"seatNo":56,"label":"56","students":[],"dupIp":false}],[{"seatNo":13,"label":"13","students":[],"dupIp":false},{"seatNo":14,"label":"14","students":[],"dupIp":false},{"seatNo":29,"label":"29","students":[],"dupIp":false},{"seatNo":30,"label":"30","students":[],"dupIp":false},{"seatNo":43,"label":"43","students":[],"dupIp":false},{"seatNo":44,"label":"44","students":[],"dupIp":false},{"seatNo":57,"label":"57","students":[],"dupIp":false},{"seatNo":58,"label":"58","students":[],"dupIp":false}],[{"seatNo":15,"label":"15","students":[],"dupIp":false},{"seatNo":16,"label":"16","students":[],"dupIp":false},{"seatNo":null,"label":"","students":[],"dupIp":false},{"seatNo":null,"label":"","students":[],"dupIp":false},{"seatNo":null,"label":"","students":[],"dupIp":false},{"seatNo":null,"label":"","students":[],"dupIp":false},{"seatNo":59,"label":"59","students":[],"dupIp":false},{"seatNo":60,"label":"60","students":[],"dupIp":false}]]
+const STUDENT_GRID = [[{"seatNo":60,"label":"60","students":[],"dupIp":false},{"seatNo":59,"label":"59","students":[],"dupIp":false},{"seatNo":null,"label":"","students":[],"dupIp":false},{"seatNo":null,"label":"","students":[],"dupIp":false},{"seatNo":null,"label":"","students":[],"dupIp":false},{"seatNo":null,"label":"","students":[],"dupIp":false},{"seatNo":16,"label":"16","students":[],"dupIp":false},{"seatNo":15,"label":"15","students":[],"dupIp":false}],[{"seatNo":58,"label":"58","students":[],"dupIp":false},{"seatNo":57,"label":"57","students":[],"dupIp":false},{"seatNo":44,"label":"44","students":[],"dupIp":false},{"seatNo":43,"label":"43","students":[],"dupIp":false},{"seatNo":30,"label":"30","students":[],"dupIp":false},{"seatNo":29,"label":"29","students":[],"dupIp":false},{"seatNo":14,"label":"14","students":[],"dupIp":false},{"seatNo":13,"label":"13","students":[],"dupIp":false}],[{"seatNo":56,"label":"56","students":[],"dupIp":false},{"seatNo":55,"label":"55","students":[],"dupIp":false},{"seatNo":42,"label":"42","students":[],"dupIp":false},{"seatNo":41,"label":"41","students":[],"dupIp":false},{"seatNo":28,"label":"28","students":[],"dupIp":false},{"seatNo":27,"label":"27","students":[],"dupIp":false},{"seatNo":12,"label":"12","students":[],"dupIp":false},{"seatNo":11,"label":"11","students":[],"dupIp":false}],[{"seatNo":54,"label":"54","students":[],"dupIp":false},{"seatNo":53,"label":"53","students":[],"dupIp":false},{"seatNo":40,"label":"40","students":[],"dupIp":false},{"seatNo":39,"label":"39","students":[],"dupIp":false},{"seatNo":26,"label":"26","students":[],"dupIp":false},{"seatNo":25,"label":"25","students":[],"dupIp":false},{"seatNo":10,"label":"10","students":[],"dupIp":false},{"seatNo":9,"label":"9","students":[],"dupIp":false}],[{"seatNo":52,"label":"52","students":[],"dupIp":false},{"seatNo":51,"label":"51","students":[],"dupIp":false},{"seatNo":38,"label":"38","students":[],"dupIp":false},{"seatNo":37,"label":"37","students":[],"dupIp":false},{"seatNo":24,"label":"24","students":[],"dupIp":false},{"seatNo":23,"label":"23","students":[],"dupIp":false},{"seatNo":8,"label":"8","students":[],"dupIp":false},{"seatNo":7,"label":"7","students":[],"dupIp":false}],[{"seatNo":50,"label":"50","students":[],"dupIp":false},{"seatNo":49,"label":"49","students":[],"dupIp":false},{"seatNo":36,"label":"36","students":[],"dupIp":false},{"seatNo":35,"label":"35","students":[],"dupIp":false},{"seatNo":22,"label":"22","students":[],"dupIp":false},{"seatNo":21,"label":"21","students":[],"dupIp":false},{"seatNo":6,"label":"6","students":[],"dupIp":false},{"seatNo":5,"label":"5","students":[],"dupIp":false}],[{"seatNo":48,"label":"48","students":[],"dupIp":false},{"seatNo":47,"label":"47","students":[],"dupIp":false},{"seatNo":34,"label":"34","students":[],"dupIp":false},{"seatNo":33,"label":"33","students":[],"dupIp":false},{"seatNo":20,"label":"20","students":[],"dupIp":false},{"seatNo":19,"label":"19","students":[],"dupIp":false},{"seatNo":4,"label":"4","students":[],"dupIp":false},{"seatNo":3,"label":"3","students":[],"dupIp":false}],[{"seatNo":46,"label":"46","students":[],"dupIp":false},{"seatNo":45,"label":"45","students":[],"dupIp":false},{"seatNo":32,"label":"32","students":[],"dupIp":false},{"seatNo":31,"label":"31","students":[],"dupIp":false},{"seatNo":18,"label":"18","students":[],"dupIp":false},{"seatNo":17,"label":"17","students":[],"dupIp":false},{"seatNo":2,"label":"2","students":[],"dupIp":false},{"seatNo":1,"label":"1","students":[],"dupIp":false}]]
 const TEACHER_AISLES = new Set([2, 4, 6])
 const STUDENT_AISLES = new Set([1, 3, 5])
 
@@ -213,52 +213,56 @@ function renderGrid(grid, aisles) {
     rowDiv.className = 'flex gap-1.5 items-center'
 
     row.forEach((seat, colIdx) => {
+      // 过道间隔
+      if (aisles.has(colIdx - 1)) {
+        const aisle = document.createElement('div')
+        aisle.className = 'aisle'
+        rowDiv.appendChild(aisle)
+      }
+
       const card = document.createElement('div')
       card.className = 'seat-card'
 
       if (seat.seatNo === null) {
         card.classList.add('empty-slot')
-      } else if (seat.dupIp) {
+        rowDiv.appendChild(card)
+        return
+      }
+
+      if (seat.dupIp) {
         card.classList.add('dup')
       } else if (seat.students.length > 0) {
         card.classList.add('signed')
       }
 
-      if (seat.seatNo !== null) {
-        // 座位编号
-        const noEl = document.createElement('div')
-        noEl.className = 'seat-no'
-        noEl.textContent = `#${seat.label}`
-        card.appendChild(noEl)
+      // 座位编号
+      const noEl = document.createElement('div')
+      noEl.className = 'seat-no'
+      noEl.textContent = `#${seat.label}`
+      card.appendChild(noEl)
 
-        if (seat.students.length > 0) {
-          if (seat.dupIp) {
-            const nameEl = document.createElement('div')
-            nameEl.className = 'stu-name'
-            nameEl.textContent = seat.students.map(s => s.name).join(' / ')
-            card.appendChild(nameEl)
-          } else {
-            const stu = seat.students[0]
-            const nameEl = document.createElement('div')
-            nameEl.className = 'stu-name'
-            nameEl.textContent = stu.name
-            card.appendChild(nameEl)
+      if (seat.students.length > 0) {
+        if (seat.dupIp) {
+          const nameEl = document.createElement('div')
+          nameEl.className = 'stu-name'
+          nameEl.textContent = seat.students.map(s => s.name).join(' / ')
+          card.appendChild(nameEl)
+        } else {
+          const stu = seat.students[0]
+          const nameEl = document.createElement('div')
+          nameEl.className = 'stu-name'
+          nameEl.textContent = stu.name
+          card.appendChild(nameEl)
+          if (stu.homeClass) {
             const hcEl = document.createElement('div')
             hcEl.className = 'home-class'
-            hcEl.textContent = stu.homeClass || '—'
+            hcEl.textContent = stu.homeClass
             card.appendChild(hcEl)
           }
         }
       }
 
       rowDiv.appendChild(card)
-
-      // 过道：在当前列之后插入（列索引在 aisles 集合里）
-      if (aisles.has(colIdx)) {
-        const aisle = document.createElement('div')
-        aisle.className = 'aisle'
-        rowDiv.appendChild(aisle)
-      }
     })
 
     container.appendChild(rowDiv)
