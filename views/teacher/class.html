@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ cls.name }} - 签到管理</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/public/tailwind.min.css">
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .fade { animation: fadeIn .15s ease; }
@@ -30,7 +30,7 @@
         <button id="pwdToggle"
           class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">修改密码</button>
         <form method="post" action="/teacher/logout">
-          <button class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">退出</button>
+          <button class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">退�?/button>
         </form>
       </div>
     </div>
@@ -42,12 +42,12 @@
       <p class="text-sm font-medium text-slate-700 mb-3">修改密码</p>
       <div class="flex flex-wrap gap-2 items-end">
         <div>
-          <label class="block text-xs text-slate-500 mb-1">旧密码</label>
+          <label class="block text-xs text-slate-500 mb-1">旧密�?/label>
           <input id="oldPwd" type="password"
             class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 w-40" />
         </div>
         <div>
-          <label class="block text-xs text-slate-500 mb-1">新密码</label>
+          <label class="block text-xs text-slate-500 mb-1">新密�?/label>
           <input id="newPwd" type="password"
             class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 w-40" />
         </div>
@@ -63,25 +63,25 @@
     <!-- 统计卡片 -->
     <div class="grid grid-cols-3 gap-4">
       <div class="bg-white rounded-2xl border border-slate-100 p-4 text-center">
-        <p class="text-xs text-slate-400 mb-1">总人数</p>
+        <p class="text-xs text-slate-400 mb-1">总人�?/p>
         <p id="totalCount" class="text-3xl font-bold text-slate-800">0</p>
       </div>
       <div class="bg-white rounded-2xl border border-slate-100 p-4 text-center">
-        <p class="text-xs text-slate-400 mb-1">已签到</p>
+        <p class="text-xs text-slate-400 mb-1">已签�?/p>
         <p id="signedCount" class="text-3xl font-bold text-emerald-600">0</p>
       </div>
       <div class="bg-white rounded-2xl border border-slate-100 p-4 text-center">
-        <p class="text-xs text-slate-400 mb-1">未签到</p>
+        <p class="text-xs text-slate-400 mb-1">未签�?/p>
         <p id="absentCount" class="text-3xl font-bold text-slate-400">0</p>
       </div>
     </div>
 
     <!-- 时间窗口 -->
     <div class="bg-white rounded-2xl border border-slate-100 p-5">
-      <p class="text-sm font-medium text-slate-700 mb-3">签到时间段</p>
+      <p class="text-sm font-medium text-slate-700 mb-3">签到时间�?/p>
       <div class="flex flex-wrap gap-3 items-end">
         <div>
-          <label class="block text-xs text-slate-500 mb-1">开始</label>
+          <label class="block text-xs text-slate-500 mb-1">开�?/label>
           <input id="startTime" type="datetime-local"
             class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
         </div>
@@ -96,7 +96,7 @@
       <p id="windowText" class="mt-2 text-xs text-slate-400">当前时间段：不限</p>
     </div>
 
-    <!-- 操作栏 -->
+    <!-- 操作�?-->
     <div class="bg-white rounded-2xl border border-slate-100 p-5">
       <p class="text-sm font-medium text-slate-700 mb-3">名单 / 记录</p>
       <div class="flex flex-wrap gap-2 items-center">
@@ -110,7 +110,7 @@
         <a id="exportLink" href="/api/export?classId={{ cls.id }}"
           class="px-4 py-1.5 bg-slate-700 hover:bg-slate-800 text-white text-sm rounded-lg transition">导出记录</a>
         <a href="/teacher/classes/{{ cls.id }}/seats"
-          class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition">查看座位表</a>
+          class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition">查看座位�?/a>
       </div>
       <div class="flex flex-wrap gap-2 mt-3">
         <button id="resetBtn"
@@ -118,7 +118,7 @@
         <button id="clearRosterBtn"
           class="px-4 py-1.5 border border-red-200 text-red-500 hover:bg-red-50 text-sm rounded-lg transition">清空名单</button>
         <a href="/student"
-          class="px-4 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm rounded-lg transition">学生端</a>
+          class="px-4 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm rounded-lg transition">学生�?/a>
       </div>
     </div>
 
@@ -136,7 +136,7 @@
             <tr class="text-xs text-slate-400 border-b border-slate-50">
               <th class="text-left px-5 py-3 font-medium">姓名</th>
               <th class="text-left px-5 py-3 font-medium">行政班级</th>
-              <th class="text-left px-5 py-3 font-medium">状态</th>
+              <th class="text-left px-5 py-3 font-medium">状�?/th>
               <th class="text-left px-5 py-3 font-medium">计算机IP</th>
               <th class="text-left px-5 py-3 font-medium">签到时间</th>
             </tr>
@@ -162,7 +162,7 @@
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
         <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <p id="modalTitle" class="text-sm font-semibold text-slate-800"></p>
-          <button id="modalClose" class="text-slate-400 hover:text-slate-600 transition text-lg leading-none">✕</button>
+          <button id="modalClose" class="text-slate-400 hover:text-slate-600 transition text-lg leading-none">�?/button>
         </div>
         <div class="overflow-auto flex-1">
           <table class="w-full text-sm">
@@ -210,7 +210,7 @@ async function refreshStatus() {
   document.getElementById('absentCount').textContent = data.absentCount
 
   document.getElementById('windowText').textContent = data.window.start || data.window.end
-    ? `当前时间段：${data.window.start || '不限'} — ${data.window.end || '不限'}`
+    ? `当前时间段：${data.window.start || '不限'} �?${data.window.end || '不限'}`
     : '当前时间段：不限'
 
   const ipCount = {}
@@ -224,7 +224,7 @@ async function refreshStatus() {
   data.roster.forEach(r => {
     const tr = document.createElement('tr')
     tr.className = 'border-b border-slate-50 last:border-0 hover:bg-slate-50 transition'
-    const signed = r.status === '已签到'
+    const signed = r.status === '已签�?
     const dupIp = ipCount[(r.computerName || '').trim()] > 1
     tr.innerHTML = `
       <td class="px-5 py-3 text-slate-800 font-medium">${r.studentName}</td>
@@ -298,7 +298,7 @@ document.getElementById('resetBtn').addEventListener('click', async () => {
 })
 
 document.getElementById('clearRosterBtn').addEventListener('click', async () => {
-  if (!confirm('确认清空名单及全部签到记录？此操作不可恢复。')) return
+  if (!confirm('确认清空名单及全部签到记录？此操作不可恢复�?)) return
   const res = await fetch('/api/clear-roster', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -339,7 +339,7 @@ async function refreshSessions() {
     <div class="flex items-center justify-between px-5 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition">
       <div>
         <p class="text-sm text-slate-800">${s.label}</p>
-        <p class="text-xs text-slate-400 mt-0.5">已签到 ${s.count} 人</p>
+        <p class="text-xs text-slate-400 mt-0.5">已签�?${s.count} �?/p>
       </div>
       <button onclick="viewSession(${s.id}, '${s.label.replace(/'/g, "\\'")}')"
         class="text-xs px-3 py-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition">查看</button>

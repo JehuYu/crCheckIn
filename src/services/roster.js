@@ -295,7 +295,7 @@ export async function exportSeatTableToExcel(classId) {
     })
   })
 
-  // 讲台行
+  // 讲台行（教师视角：讲台在下）
   const podiumRow = teacherLayout.length + 3
   ws.getRow(podiumRow).height = 24
   ws.mergeCells(podiumRow, 1, podiumRow, TOTAL_COLS)
@@ -304,6 +304,96 @@ export async function exportSeatTableToExcel(classId) {
   podiumCell.font = { name: '微软雅黑', bold: true, size: 11, color: { argb: 'FF475569' } }
   podiumCell.alignment = { horizontal: 'center', vertical: 'middle' }
   podiumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+
+  // ── 学生视角工作表 ──────────────────────────────────────────────
+  // 学生视角：原始布局，讲台在下，过道在列索引 1,3,5 之后
+  // Excel 列映射同教师视角（两者过道位置相同）
+  const ws2 = workbook.addWorksheet('座位表（学生视角）', {
+    pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
+  })
+
+  for (let col = 1; col <= TOTAL_COLS; col++) {
+    ws2.getColumn(col).width = [3, 6, 9].includes(col) ? 2 : 11
+  }
+
+  // 标题行
+  ws2.mergeCells(1, 1, 1, TOTAL_COLS)
+  const ws2Title = ws2.getCell(1, 1)
+  ws2Title.value = `${cls.name}  座位表（学生视角）`
+  ws2Title.font = { name: '微软雅黑', bold: true, size: 14, color: { argb: 'FF1E293B' } }
+  ws2Title.alignment = { horizontal: 'center', vertical: 'middle' }
+  ws2Title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+  ws2.getRow(1).height = 34
+
+  // 统计行
+  ws2.mergeCells(2, 1, 2, TOTAL_COLS)
+  const ws2Stat = ws2.getCell(2, 1)
+  ws2Stat.value = `已签到 ${records.length} 人    导出时间：${fmtSecond(new Date())}`
+  ws2Stat.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
+  ws2Stat.alignment = { horizontal: 'center', vertical: 'middle' }
+  ws2.getRow(2).height = 18
+
+  // 讲台行（学生视角：讲台在上，第3行）
+  ws2.getRow(3).height = 24
+  ws2.mergeCells(3, 1, 3, TOTAL_COLS)
+  const ws2Podium = ws2.getCell(3, 1)
+  ws2Podium.value = '▼  讲  台  ▼'
+  ws2Podium.font = { name: '微软雅黑', bold: true, size: 11, color: { argb: 'FF475569' } }
+  ws2Podium.alignment = { horizontal: 'center', vertical: 'middle' }
+  ws2Podium.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+
+  // 座位行（从第4行开始，原始布局）
+  SEAT_LAYOUT.forEach((row, rowIdx) => {
+    const excelRow = rowIdx + 4
+    ws2.getRow(excelRow).height = 42
+
+    row.forEach((seatNo, colIdx) => {
+      const excelCol = COL_MAP[colIdx]
+      const cell = ws2.getCell(excelRow, excelCol)
+
+      if (seatNo === null) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+        return
+      }
+
+      const students = seatMap.get(seatNo) ?? []
+      const signed = students.length > 0
+      const dupIp = students.length > 1
+
+      if (dupIp) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }
+      } else if (signed) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }
+      } else {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } }
+      }
+
+      cell.border = {
+        top: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
+      }
+
+      if (signed) {
+        const stu = students[0]
+        const displayName = dupIp ? students.map((s) => s.name).join('/') : stu.name
+        const hc = dupIp ? '' : fmtHomeClass(stu.homeClass)
+        cell.value = hc ? `${displayName}\n${hc}` : displayName
+        cell.font = {
+          name: '微软雅黑',
+          size: dupIp ? 8 : 10,
+          bold: !dupIp,
+          color: { argb: dupIp ? 'FFDC2626' : 'FF065F46' },
+        }
+      } else {
+        cell.value = `${seatNo}`
+        cell.font = { name: '微软雅黑', size: 9, color: { argb: 'FFCBD5E1' } }
+      }
+
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+    })
+  })
 
   return workbook.xlsx.writeBuffer()
 }

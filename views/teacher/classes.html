@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>班级列表</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/public/tailwind.min.css">
   <style>body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }</style>
 </head>
 <body class="min-h-screen bg-slate-50">
@@ -15,17 +15,17 @@
       <div class="flex items-center gap-3">
         <span class="font-semibold text-slate-800">机房签到</span>
         {% if teacher.isAdmin %}
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">管理员</span>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">管理�?/span>
         {% endif %}
       </div>
       <div class="flex items-center gap-2">
         <span class="text-sm text-slate-500">{{ teacher.username }}</span>
         {% if teacher.isAdmin %}
         <a href="/admin"
-          class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">管理员面板</a>
+          class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">管理员面�?/a>
         {% endif %}
         <form method="post" action="/teacher/logout">
-          <button class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">退出</button>
+          <button class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">退�?/button>
         </form>
       </div>
     </div>
@@ -36,7 +36,7 @@
     <!-- 页面标题 -->
     <div>
       <h1 class="text-xl font-semibold text-slate-800">我的班级</h1>
-      <p class="text-sm text-slate-400 mt-1">管理您的班级和签到记录</p>
+      <p class="text-sm text-slate-400 mt-1">管理您的班级和签到记�?/p>
     </div>
 
     <!-- 通知 -->
@@ -46,7 +46,7 @@
     <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
         <p class="text-sm font-medium text-slate-700">班级列表</p>
-        <span class="text-xs text-slate-400">{{ classes | length }} 个班级</span>
+        <span class="text-xs text-slate-400">{{ classes | length }} 个班�?/span>
       </div>
 
       {% if classes.length === 0 %}
@@ -57,7 +57,7 @@
               d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
           </svg>
         </div>
-        <p class="text-sm text-slate-400">暂无班级，请先创建一个班级</p>
+        <p class="text-sm text-slate-400">暂无班级，请先创建一个班�?/p>
       </div>
       {% else %}
       <ul class="divide-y divide-slate-50">
@@ -65,7 +65,7 @@
         <li class="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition group">
           <a href="/teacher/classes/{{ cls.id }}" class="flex-1 min-w-0">
             <p class="text-sm font-medium text-slate-800 group-hover:text-slate-900">{{ cls.name }}</p>
-            <p class="text-xs text-slate-400 mt-0.5">创建于 {{ cls.createdAt }}</p>
+            <p class="text-xs text-slate-400 mt-0.5">创建�?{{ cls.createdAt }}</p>
           </a>
           <div class="flex items-center gap-2 ml-4">
             <a href="/teacher/classes/{{ cls.id }}"
@@ -81,7 +81,7 @@
 
     <!-- 创建班级 -->
     <div class="bg-white rounded-2xl border border-slate-100 p-5">
-      <p class="text-sm font-medium text-slate-700 mb-3">创建新班级</p>
+      <p class="text-sm font-medium text-slate-700 mb-3">创建新班�?/p>
       <div class="flex gap-2">
         <input id="classNameInput" type="text" placeholder="输入班级名称"
           class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 placeholder-slate-300
@@ -96,7 +96,7 @@
     <!-- 导入名单（自动创建班级） -->
     <div class="bg-white rounded-2xl border border-slate-100 p-5">
       <p class="text-sm font-medium text-slate-700 mb-1">导入名单</p>
-      <p class="text-xs text-slate-400 mb-3">Excel 格式：A列=教学班名，B列=行政班级，C列=学生姓名（无表头）。班级不存在时自动创建。</p>
+      <p class="text-xs text-slate-400 mb-3">Excel 格式：A�?教学班名，B�?行政班级，C�?学生姓名（无表头）。班级不存在时自动创建�?/p>
       <form id="importForm" class="flex flex-wrap gap-2 items-center">
         <input type="file" name="file" accept=".xlsx,.xlsm"
           class="text-sm text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
@@ -122,7 +122,7 @@ function notify(text, ok = true) {
 }
 
 async function deleteClass(id, name) {
-  if (!confirm(`确认删除班级「${name}」？此操作将同时删除该班级的所有学生和签到记录，不可恢复。`)) return
+  if (!confirm(`确认删除班级�?{name}」？此操作将同时删除该班级的所有学生和签到记录，不可恢复。`)) return
   const res = await fetch(`/api/classes/${id}`, { method: 'DELETE' })
   if (res.status === 401) { window.location.href = '/teacher/login'; return }
   const data = await res.json()
@@ -135,7 +135,7 @@ async function deleteClass(id, name) {
 
 document.getElementById('createBtn').addEventListener('click', async () => {
   const name = document.getElementById('classNameInput').value.trim()
-  if (!name) { notify('请输入班级名称', false); return }
+  if (!name) { notify('请输入班级名�?, false); return }
   const res = await fetch('/api/classes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -160,7 +160,7 @@ document.getElementById('importForm').addEventListener('submit', async e => {
   if (!fileInput.files.length) { notify('请先选择 Excel 文件', false); return }
   const btn = e.target.querySelector('button[type=submit]')
   btn.disabled = true
-  btn.textContent = '导入中…'
+  btn.textContent = '导入中�?
   try {
     const formData = new FormData(e.target)
     const res = await fetch('/api/import', { method: 'POST', body: formData })

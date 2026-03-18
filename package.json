@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "build:css": "tailwindcss -i tailwind.input.css -o public/tailwind.min.css --minify --content \"views/**/*.html\""
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -14,6 +15,7 @@
     "@fastify/formbody": "^7.4.0",
     "@fastify/multipart": "^8.0.0",
     "@fastify/session": "^10.0.0",
+    "@fastify/static": "^9.0.0",
     "@fastify/view": "^9.0.0",
     "@prisma/client": "^5.0.0",
     "bcrypt": "^5.1.0",
@@ -22,5 +24,8 @@
     "fastify-plugin": "^5.1.0",
     "nunjucks": "^3.2.4",
     "prisma": "^5.0.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
   }
 }

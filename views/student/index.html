@@ -1,10 +1,10 @@
-ï»¿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>å­¦ç”Ÿç­¾åˆ°</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Ñ§ÉúÇ©µ½</title>
+  <link rel="stylesheet" href="/public/tailwind.min.css">
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     #suggestions { max-height: 200px; overflow-y: auto; }
@@ -19,14 +19,14 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </div>
-      <h1 class="text-2xl font-semibold text-slate-800">æœºæˆ¿ç­¾åˆ°</h1>
-      <p class="text-sm text-slate-400 mt-1">å½“å‰è®¾å¤‡ï¼š<span class="font-mono text-slate-500">{{ computer_name }}</span></p>
+      <h1 class="text-2xl font-semibold text-slate-800">»ú·¿Ç©µ½</h1>
+      <p class="text-sm text-slate-400 mt-1">µ±Ç°Éè±¸£º<span class="font-mono text-slate-500">{{ computer_name }}</span></p>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
       <div class="mb-4 relative">
-        <label class="block text-sm font-medium text-slate-600 mb-1.5">å§“å</label>
-        <input id="nameInput" type="text" autocomplete="off" placeholder="è¯·è¾“å…¥å§“åç‰‡æ®µæœç´¢"
+        <label class="block text-sm font-medium text-slate-600 mb-1.5">ĞÕÃû</label>
+        <input id="nameInput" type="text" autocomplete="off" placeholder="ÇëÊäÈëĞÕÃûÆ¬¶ÎËÑË÷"
           class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 placeholder-slate-300
                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" />
         <div id="suggestions"
@@ -34,22 +34,22 @@
         </div>
       </div>
 
-      <!-- å·²é€‰å­¦ç”Ÿä¿¡æ¯ -->
+      <!-- ÒÑÑ¡Ñ§ÉúĞÅÏ¢ -->
       <div id="selectedInfo" class="hidden mb-4 px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-100 text-sm text-indigo-700">
         <span id="selectedText"></span>
-        <button id="clearSelection" class="ml-2 text-indigo-400 hover:text-indigo-600 transition text-xs">âœ• é‡æ–°é€‰æ‹©</button>
+        <button id="clearSelection" class="ml-2 text-indigo-400 hover:text-indigo-600 transition text-xs">? ÖØĞÂÑ¡Ôñ</button>
       </div>
 
       <button id="signinBtn"
         class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800
                text-white font-medium rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed">
-        æäº¤ç­¾åˆ°
+        Ìá½»Ç©µ½
       </button>
 
       <div id="msg" class="hidden mt-4 px-4 py-3 rounded-xl text-sm font-medium"></div>
 
       <div class="mt-4 text-center">
-        <a href="/teacher/classes" class="text-xs text-slate-400 hover:text-slate-600 transition">è¿›å…¥æ•™å¸ˆç®¡ç†ç«¯ â†’</a>
+        <a href="/teacher/classes" class="text-xs text-slate-400 hover:text-slate-600 transition">½øÈë½ÌÊ¦¹ÜÀí¶Ë ¡ú</a>
       </div>
     </div>
 
@@ -76,8 +76,8 @@ function setMessage(text, ok = false) {
 function selectStudent(studentName, classId, className, homeClass) {
   selectedClassId = classId
   input.value = studentName
-  const homeLabel = homeClass ? `${homeClass} Â· ` : ''
-  selectedText.textContent = `å·²é€‰æ‹©ï¼š${studentName}ï¼ˆ${homeLabel}${className}ï¼‰`
+  const homeLabel = homeClass ? `${homeClass} ¡¤ ` : ''
+  selectedText.textContent = `ÒÑÑ¡Ôñ£º${studentName}£¨${homeLabel}${className}£©`
   selectedInfo.classList.remove('hidden')
   suggestions.classList.add('hidden')
   suggestions.innerHTML = ''
@@ -109,7 +109,7 @@ async function fetchSuggestions() {
     if (!data.length) {
       const empty = document.createElement('div')
       empty.className = 'px-4 py-3 text-sm text-slate-400 text-center'
-      empty.textContent = 'æœªæ‰¾åˆ°åŒ¹é…å­¦ç”Ÿ'
+      empty.textContent = 'Î´ÕÒµ½Æ¥ÅäÑ§Éú'
       suggestions.appendChild(empty)
       suggestions.classList.remove('hidden')
       return
@@ -119,7 +119,7 @@ async function fetchSuggestions() {
       const btn = document.createElement('button')
       btn.type = 'button'
       btn.className = 'w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition border-b border-slate-50 last:border-0'
-      btn.innerHTML = `<span class="font-medium">${item.studentName}</span><span class="text-slate-400 ml-1">ï¼ˆ${item.homeClass ? item.homeClass + ' Â· ' : ''}${item.className}ï¼‰</span>`
+      btn.innerHTML = `<span class="font-medium">${item.studentName}</span><span class="text-slate-400 ml-1">£¨${item.homeClass ? item.homeClass + ' ¡¤ ' : ''}${item.className}£©</span>`
       btn.addEventListener('click', () => selectStudent(item.studentName, item.classId, item.className, item.homeClass))
       suggestions.appendChild(btn)
     })
@@ -130,7 +130,7 @@ async function fetchSuggestions() {
 }
 
 input.addEventListener('input', () => {
-  // è¾“å…¥æ—¶æ¸…é™¤å·²é€‰çŠ¶æ€
+  // ÊäÈëÊ±Çå³ıÒÑÑ¡×´Ì¬
   if (selectedClassId !== null) {
     selectedClassId = null
     selectedInfo.classList.add('hidden')
@@ -148,12 +148,12 @@ document.addEventListener('click', e => {
 const signinBtn = document.getElementById('signinBtn')
 signinBtn.addEventListener('click', async () => {
   const student_name = input.value.trim()
-  if (!student_name) { setMessage('è¯·å…ˆè¾“å…¥å§“åã€‚'); return }
-  if (!selectedClassId) { setMessage('è¯·ä»åˆ—è¡¨ä¸­é€‰æ‹©å­¦ç”Ÿ'); return }
+  if (!student_name) { setMessage('ÇëÏÈÊäÈëĞÕÃû¡£'); return }
+  if (!selectedClassId) { setMessage('Çë´ÓÁĞ±íÖĞÑ¡ÔñÑ§Éú'); return }
   if (signinBtn.disabled) return
 
   signinBtn.disabled = true
-  signinBtn.textContent = 'æäº¤ä¸­â€¦'
+  signinBtn.textContent = 'Ìá½»ÖĞ¡­'
   try {
     const res = await fetch('/api/signin', {
       method: 'POST',
@@ -167,7 +167,7 @@ signinBtn.addEventListener('click', async () => {
     }
   } finally {
     signinBtn.disabled = false
-    signinBtn.textContent = 'æäº¤ç­¾åˆ°'
+    signinBtn.textContent = 'Ìá½»Ç©µ½'
   }
 })
 </script>
