@@ -14,6 +14,14 @@ function fmtSecond(date) {
 }
 
 /**
+ * 行政班级格式化：没有"班"字则补上
+ */
+function fmtHomeClass(hc) {
+  if (!hc) return ''
+  return hc.endsWith('班') ? hc : hc + '班'
+}
+
+/**
  * 从 Excel buffer 导入学生名单
  * Excel 格式（无表头）：A列=教学班名，B列=行政班级，C列=学生姓名
  * @param {number} teacherId
@@ -25,17 +33,14 @@ export async function importStudentsFromExcel(teacherId, buffer) {
   await workbook.xlsx.load(buffer)
   const worksheet = workbook.worksheets[0]
 
-  // 收集每行数据，自动跳过表头（第一列值为"教学班"等文字时跳过）
   const HEADER_KEYWORDS = new Set(['教学班', '班级', '姓名', '行政班', '教学班名'])
   const rows = []
   worksheet.eachRow((row) => {
     const teachingClassName = row.getCell(1).value
     const homeClass = row.getCell(2).value
     const studentName = row.getCell(3).value
-    // 跳过空行
     if (teachingClassName == null || String(teachingClassName).trim() === '') return
     if (studentName == null || String(studentName).trim() === '') return
-    // 跳过表头行（第一列是已知表头关键字）
     if (HEADER_KEYWORDS.has(String(teachingClassName).trim())) return
     rows.push({
       teachingClassName: String(teachingClassName).trim(),
@@ -44,7 +49,6 @@ export async function importStudentsFromExcel(teacherId, buffer) {
     })
   })
 
-  // 按教学班分组
   const classMap = new Map()
   for (const row of rows) {
     if (!classMap.has(row.teachingClassName)) classMap.set(row.teachingClassName, [])
@@ -54,7 +58,6 @@ export async function importStudentsFromExcel(teacherId, buffer) {
   let count = 0
 
   for (const [teachingClassName, students] of classMap) {
-    // upsert 教学班
     const result = await prisma.class.upsert({
       where: { teacherId_name: { teacherId, name: teachingClassName } },
       update: {},
@@ -66,7 +69,6 @@ export async function importStudentsFromExcel(teacherId, buffer) {
     })
     const classId = result.id
 
-    // 查询已有学生
     const existing = await prisma.student.findMany({
       where: { classId },
       select: { name: true },
@@ -103,9 +105,10 @@ export async function exportRecordsToExcel(classId) {
 
   const workbook = new ExcelJS.Workbook()
   workbook.creator = 'Lab Attendance'
-  const ws = workbook.addWorksheet('签到记录', { pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1 } })
+  const ws = workbook.addWorksheet('签到记录', {
+    pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1 },
+  })
 
-  // 列宽
   ws.columns = [
     { key: 'homeClass', width: 16 },
     { key: 'name', width: 12 },
@@ -139,9 +142,7 @@ export async function exportRecordsToExcel(classId) {
     cell.font = { name: '微软雅黑', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
     cell.alignment = { horizontal: 'center', vertical: 'middle' }
-    cell.border = {
-      bottom: { style: 'thin', color: { argb: 'FF475569' } },
-    }
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FF475569' } } }
   })
 
   // 数据行
@@ -164,7 +165,6 @@ export async function exportRecordsToExcel(classId) {
       cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle' }
       cell.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } }
     })
-    // 已签到行姓名列加绿色
     if (signed) {
       dataRow.getCell(2).font = { name: '微软雅黑', size: 10, bold: true, color: { argb: 'FF059669' } }
     }
@@ -215,45 +215,43 @@ export async function exportSeatTableToExcel(classId) {
     pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
   })
 
-  // 过道在教师视角列索引 2,4,6 右侧 → Excel 列号 3,5,7（1-based）
-  // 每个座位占 1 列，过道后插入空列 → 实际列数 = 8座位 + 3过道 = 11列
-  // 列映射：座位列索引 0→1, 1→2, 2→3, [aisle]→4(空), 3→5, 4→6, [aisle]→7(空), 5→8, 6→9, [aisle]→10(空), 7→11
-  const COL_MAP = [1, 2, 3, 5, 6, 8, 9, 11] // 座位列索引 → Excel 列号（1-based）
+  // 布局：[col0,col1] | [col2,col3] | [col4,col5] | [col6,col7]
+  // 过道在座位列索引 1,3,5 之后
+  // Excel 列映射：座位0→1, 座位1→2, 过道→3, 座位2→4, 座位3→5, 过道→6, 座位4→7, 座位5→8, 过道→9, 座位6→10, 座位7→11
+  const COL_MAP = [1, 2, 4, 5, 7, 8, 10, 11]
   const TOTAL_COLS = 11
 
-  // 列宽
-  for (let c = 1; c <= TOTAL_COLS; c++) {
-    ws.getColumn(c).width = [4, 6].includes(c) ? 2.5 : 11 // 过道列窄
+  for (let col = 1; col <= TOTAL_COLS; col++) {
+    ws.getColumn(col).width = [3, 6, 9].includes(col) ? 2 : 11
   }
 
-  // 标题行（跨全列）
+  // 标题行
   ws.mergeCells(1, 1, 1, TOTAL_COLS)
-  const titleCell = ws.getCell(1, 1)
-  titleCell.value = `${cls.name}  座位表（教师视角）`
-  titleCell.font = { name: '微软雅黑', bold: true, size: 14, color: { argb: 'FF1E293B' } }
-  titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
-  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+  const t1Cell = ws.getCell(1, 1)
+  t1Cell.value = `${cls.name}  座位表（教师视角）`
+  t1Cell.font = { name: '微软雅黑', bold: true, size: 14, color: { argb: 'FF1E293B' } }
+  t1Cell.alignment = { horizontal: 'center', vertical: 'middle' }
+  t1Cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
   ws.getRow(1).height = 34
 
   // 统计行
   ws.mergeCells(2, 1, 2, TOTAL_COLS)
-  const statCell = ws.getCell(2, 1)
-  statCell.value = `已签到 ${records.length} 人    导出时间：${fmtSecond(new Date())}`
-  statCell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
-  statCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  const s2Cell = ws.getCell(2, 1)
+  s2Cell.value = `已签到 ${records.length} 人    导出时间：${fmtSecond(new Date())}`
+  s2Cell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
+  s2Cell.alignment = { horizontal: 'center', vertical: 'middle' }
   ws.getRow(2).height = 18
 
   // 座位行（从第3行开始）
   teacherLayout.forEach((row, rowIdx) => {
     const excelRow = rowIdx + 3
-    ws.getRow(excelRow).height = 38
+    ws.getRow(excelRow).height = 42
 
     row.forEach((seatNo, colIdx) => {
       const excelCol = COL_MAP[colIdx]
       const cell = ws.getCell(excelRow, excelCol)
 
       if (seatNo === null) {
-        // 无座位格
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
         return
       }
@@ -262,7 +260,6 @@ export async function exportSeatTableToExcel(classId) {
       const signed = students.length > 0
       const dupIp = students.length > 1
 
-      // 背景色
       if (dupIp) {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }
       } else if (signed) {
@@ -271,7 +268,6 @@ export async function exportSeatTableToExcel(classId) {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } }
       }
 
-      // 边框
       cell.border = {
         top: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
         left: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
@@ -282,8 +278,8 @@ export async function exportSeatTableToExcel(classId) {
       if (signed) {
         const stu = students[0]
         const displayName = dupIp ? students.map((s) => s.name).join('/') : stu.name
-        const homeClass = dupIp ? '' : stu.homeClass
-        cell.value = homeClass ? `${displayName}\n${homeClass}` : displayName
+        const hc = dupIp ? '' : fmtHomeClass(stu.homeClass)
+        cell.value = hc ? `${displayName}\n${hc}` : displayName
         cell.font = {
           name: '微软雅黑',
           size: dupIp ? 8 : 10,
@@ -291,7 +287,6 @@ export async function exportSeatTableToExcel(classId) {
           color: { argb: dupIp ? 'FFDC2626' : 'FF065F46' },
         }
       } else {
-        // 空座位只显示编号
         cell.value = `${seatNo}`
         cell.font = { name: '微软雅黑', size: 9, color: { argb: 'FFCBD5E1' } }
       }
@@ -300,7 +295,7 @@ export async function exportSeatTableToExcel(classId) {
     })
   })
 
-  // 讲台行（最后一行）
+  // 讲台行
   const podiumRow = teacherLayout.length + 3
   ws.getRow(podiumRow).height = 24
   ws.mergeCells(podiumRow, 1, podiumRow, TOTAL_COLS)
