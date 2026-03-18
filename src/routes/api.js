@@ -174,6 +174,24 @@ export default async function apiRoutes(fastify) {
     return reply.send(result)
   })
 
+  // POST /api/teacher-login — 通过密码登录教师端（供学生端入口使用）
+  fastify.post('/api/teacher-login', async (request, reply) => {
+    const { password } = request.body ?? {}
+    if (!password) return reply.send({ ok: false })
+    const { prisma: db } = await import('../plugins/db.js')
+    const { compare } = await import('bcrypt')
+    const teachers = await db.teacher.findMany()
+    for (const teacher of teachers) {
+      const match = await compare(password, teacher.passwordHash)
+      if (match) {
+        request.session.teacherId = teacher.id
+        request.session.isAdmin = teacher.isAdmin
+        return reply.send({ ok: true, redirect: '/teacher/classes' })
+      }
+    }
+    return reply.send({ ok: false })
+  })
+
   // POST /api/classes — 需要 teacherRequired
   fastify.post('/api/classes', { preHandler: teacherRequired }, async (request, reply) => {
     const { name } = request.body

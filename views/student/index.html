@@ -67,15 +67,11 @@
         <div id="msg" class="hidden mt-4 px-4 py-3 rounded-xl text-sm font-medium"></div>
       </div>
 
-      <div class="mt-4 text-center">
-        <a href="/teacher/classes" class="text-xs text-slate-400 hover:text-slate-600 transition">进入教师管理端 →</a>
-      </div>
     </div>
 
   </div>
 
 <script>
-// 从模板注入班级 ID（无班级时为 null）
 const CLASS_ID = {% if cls %}{{ cls.id }}{% else %}null{% endif %}
 const STORAGE_KEY = 'signin_record' + (CLASS_ID ? '_' + CLASS_ID : '')
 
@@ -90,7 +86,6 @@ const alreadySignedPanel = document.getElementById('alreadySignedPanel')
 let selectedClassId = null
 let debounceTimer = null
 
-// 页面加载时检查是否已签到
 function checkAlreadySigned() {
   const record = localStorage.getItem(STORAGE_KEY)
   if (!record) return
@@ -104,7 +99,6 @@ function checkAlreadySigned() {
     localStorage.removeItem(STORAGE_KEY)
   }
 }
-
 
 function setMessage(text, ok = false) {
   msg.className = `mt-4 px-4 py-3 rounded-xl text-sm font-medium ${ok
@@ -124,15 +118,13 @@ function selectStudent(studentName, classId, className, homeClass) {
   suggestions.innerHTML = ''
 }
 
-function clearSelection() {
+document.getElementById('clearSelection').addEventListener('click', () => {
   selectedClassId = null
   input.value = ''
   selectedInfo.classList.add('hidden')
   selectedText.textContent = ''
   input.focus()
-}
-
-document.getElementById('clearSelection').addEventListener('click', clearSelection)
+})
 
 async function fetchSuggestions() {
   const q = input.value.trim()
@@ -176,18 +168,32 @@ document.addEventListener('click', e => {
 
 const signinBtn = document.getElementById('signinBtn')
 signinBtn.addEventListener('click', async () => {
-  const student_name = input.value.trim()
-  if (!student_name) { setMessage('请先输入姓名。'); return }
-  if (!selectedClassId) { setMessage('请从列表中选择学生'); return }
+  const val = input.value.trim()
+  if (!val) { setMessage('请先输入姓名。'); return }
   if (signinBtn.disabled) return
 
   signinBtn.disabled = true
   signinBtn.textContent = '提交中…'
+
   try {
+    // 先尝试教师口令登录
+    const loginRes = await fetch('/api/teacher-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: val })
+    })
+    const loginData = await loginRes.json()
+    if (loginData.ok) {
+      window.location.href = loginData.redirect
+      return
+    }
+
+    // 否则走学生签到流程
+    if (!selectedClassId) { setMessage('请从列表中选择学生'); return }
     const res = await fetch('/api/signin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ classId: selectedClassId, student_name })
+      body: JSON.stringify({ classId: selectedClassId, student_name: val })
     })
     const data = await res.json()
     setMessage(data.message, data.ok)
@@ -197,10 +203,10 @@ signinBtn.addEventListener('click', async () => {
       const signedAt = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
       const match = selectedText.textContent.match(/（(.+)）$/)
       const className = match ? match[1] : ''
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ name: student_name, className, signedAt }))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ name: val, className, signedAt }))
       setTimeout(() => {
         document.getElementById('alreadySignedText').textContent =
-          `${student_name}（${className}）已于 ${signedAt} 签到成功`
+          `${val}（${className}）已于 ${signedAt} 签到成功`
         alreadySignedPanel.classList.remove('hidden')
         signInForm.classList.add('hidden')
       }, 1500)
