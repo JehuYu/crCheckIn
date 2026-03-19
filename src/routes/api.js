@@ -9,6 +9,7 @@ import {
   setSignInWindow,
   getSessions,
   getSessionDetailForTeacher,
+  deleteSession,
   getAttendanceStats,
   deleteSignInRecord,
 } from '../services/attendance.js'
@@ -95,6 +96,16 @@ export default async function apiRoutes(fastify) {
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       .header('Content-Disposition', `attachment; filename="${filename}"`)
     return reply.send(buffer)
+  })
+
+  // DELETE /api/sessions/:sessionId — 删除历史批次，需要 teacherRequired
+  fastify.delete('/api/sessions/:sessionId', { preHandler: teacherRequired }, async (request, reply) => {
+    const sessionId = parseInt(request.params.sessionId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const result = await deleteSession(sessionId, teacherId, isAdmin)
+    if (!result.ok) return reply.code(result.status).send(result)
+    return reply.send(result)
   })
 
   // POST /api/clear-roster — 需要 classOwnerRequired

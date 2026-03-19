@@ -255,6 +255,25 @@ export async function getSessionDetailForTeacher(sessionId, teacherId, isAdmin =
 }
 
 /**
+ * 删除历史批次及其归档记录
+ * @param {number} sessionId
+ * @param {number} teacherId
+ * @param {boolean} isAdmin
+ * @returns {Promise<{ ok: boolean, message?: string, status?: number }>}
+ */
+export async function deleteSession(sessionId, teacherId, isAdmin = false) {
+  const result = await getSessionDetailForTeacher(sessionId, teacherId, isAdmin)
+  if (!result.ok) return result
+
+  await prisma.$transaction(async (tx) => {
+    await tx.archivedRecord.deleteMany({ where: { sessionId } })
+    await tx.signInSession.delete({ where: { id: sessionId } })
+  })
+
+  return { ok: true, message: '历史批次已删除。' }
+}
+
+/**
  * 删除该班级的所有签到记录和所有学生
  * @param {number} classId
  */

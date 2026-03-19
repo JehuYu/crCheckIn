@@ -367,6 +367,8 @@ async function refreshSessions() {
           class="text-xs px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">查看</button>
         <a href="/api/sessions/${s.id}/export"
           class="text-xs px-3 py-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition">导出</a>
+        <button onclick="deleteSessionItem(${s.id}, this.dataset.label)" data-label="${s.label.replace(/"/g,'&quot;')}"
+          class="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 transition">删除</button>
       </div>
     </div>`).join('')
 }
@@ -384,6 +386,20 @@ async function openSession(sessionId, label) {
       <td class="px-5 py-3 text-slate-400 text-xs">${r.signedAt ? new Date(r.signedAt).toLocaleString('zh-CN') : '-'}</td>
     </tr>`).join('')
   document.getElementById('sessionModal').classList.remove('hidden')
+}
+
+async function deleteSessionItem(sessionId, label) {
+  if (!confirm(`确认删除历史批次「${label}」？此操作不可恢复。`)) return
+  const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' })
+  const data = await parseResponse(res)
+  if (!data) return
+  notify(data.message || '历史批次已删除', true)
+  document.getElementById('sessionModal').classList.add('hidden')
+  await refreshSessions()
+  const statsPanel = document.getElementById('statsPanel')
+  if (!statsPanel.classList.contains('hidden')) {
+    await loadStats()
+  }
 }
 
 document.getElementById('modalClose').addEventListener('click', () => {
