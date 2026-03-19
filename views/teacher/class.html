@@ -6,50 +6,190 @@
   <title>{{ cls.name }} - 签到管理</title>
   <link rel="stylesheet" href="/public/tailwind.min.css">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    :root {
+      --page-bg:#f6f8fc;
+      --card-bg:rgba(255,255,255,.78);
+      --card-border:rgba(15,23,42,.08);
+      --card-shadow:0 20px 52px rgba(15,23,42,.08);
+      --soft-shadow:0 10px 24px rgba(15,23,42,.05);
+      --text-main:#0f172a;
+      --text-soft:#64748b;
+      --accent:#4f46e5;
+      --accent-2:#2563eb;
+      --accent-soft:#eef2ff;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      color:var(--text-main);
+      background:
+        radial-gradient(circle at top left, rgba(99,102,241,.10), transparent 26%),
+        radial-gradient(circle at top right, rgba(56,189,248,.10), transparent 24%),
+        linear-gradient(180deg, #fbfcfe 0%, var(--page-bg) 100%);
+    }
     .fade { animation: fadeIn .15s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
     .progress-bar { transition: width 0.4s ease; }
-    .card { background:#fff; border-radius:16px; border:1px solid #f1f5f9; }
-    .btn { display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:500;transition:all .15s;cursor:pointer;border:none;text-decoration:none; }
-    .btn-primary { background:#1e293b;color:#fff; }
-    .btn-primary:hover { background:#0f172a; }
-    .btn-gray { background:#f8fafc;color:#475569;border:1px solid #e2e8f0; }
-    .btn-gray:hover { background:#f1f5f9; }
-    .btn-danger { background:#fff;color:#ef4444;border:1px solid #fecaca; }
-    .btn-danger:hover { background:#fef2f2; }
-    .section-label { font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:8px; }
-    .entry-card { display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#1e293b,#334155);color:#fff;border-radius:14px;text-decoration:none;transition:opacity .15s; }
-    .entry-card:hover { opacity:.88; }
-    .divider { height:1px;background:#f1f5f9;margin:4px 0; }
+    .card {
+      background:var(--card-bg);
+      border-radius:20px;
+      border:1px solid var(--card-border);
+      box-shadow:var(--card-shadow);
+      backdrop-filter:blur(14px);
+    }
+    .btn {
+      display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;font-size:13px;font-weight:500;
+      transition:all .15s;cursor:pointer;border:none;text-decoration:none;box-shadow:var(--soft-shadow);
+    }
+    .btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff; }
+    .btn-primary:hover { transform:translateY(-1px); box-shadow:0 14px 28px rgba(79,70,229,.20); }
+    .btn-gray { background:rgba(255,255,255,.82);color:#334155;border:1px solid rgba(148,163,184,.18); }
+    .btn-gray:hover { background:#fff; }
+    .btn-danger { background:#fff;color:#dc2626;border:1px solid rgba(248,113,113,.26); }
+    .btn-danger:hover { background:#fff5f5; }
+    .section-label { font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:10px; }
+    .entry-card {
+      position:relative;display:flex;align-items:center;justify-content:space-between;padding:18px 22px;
+      background:linear-gradient(135deg,#312e81 0%,#4f46e5 42%,#2563eb 100%);
+      color:#fff;border-radius:20px;text-decoration:none;transition:transform .18s ease, box-shadow .18s ease;
+      box-shadow:0 22px 42px rgba(59,130,246,.18);overflow:hidden;
+    }
+    .entry-card::after {
+      content:'';position:absolute;inset:0;
+      background:linear-gradient(120deg,rgba(255,255,255,.13),transparent 34%,transparent 70%,rgba(255,255,255,.10));
+      pointer-events:none;
+    }
+    .entry-card:hover { transform:translateY(-1px); box-shadow:0 26px 48px rgba(79,70,229,.22); }
+    .divider { height:1px;background:linear-gradient(90deg,transparent,rgba(148,163,184,.2),transparent);margin:8px 0; }
+    .roster-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px; }
+    .roster-list-item {
+      border:1px solid rgba(148,163,184,.16);border-radius:16px;padding:12px;background:rgba(255,255,255,.88);
+      transition:transform .14s ease, background .14s ease, border-color .14s ease, box-shadow .14s ease;
+      box-shadow:0 10px 24px rgba(15,23,42,.04);
+    }
+    .roster-list-item:hover { background:#fff; transform:translateY(-1px); box-shadow:0 16px 30px rgba(15,23,42,.06); }
+    .roster-list-item.signed { border-color:rgba(52,211,153,.26); background:linear-gradient(180deg, rgba(236,253,245,.96), rgba(240,253,244,.78)); }
+    .roster-list-item.unsigned { border-color:rgba(148,163,184,.18); background:rgba(255,255,255,.82); }
+    .roster-list-item.dup { border-color:rgba(239,68,68,.24); background:linear-gradient(180deg, rgba(255,241,242,.98), rgba(255,255,255,.92)); }
+    .roster-dot { width:8px;height:8px;border-radius:9999px;flex-shrink:0; box-shadow:0 0 0 4px rgba(255,255,255,.7); }
+    .roster-dot.signed { background:#10b981; }
+    .roster-dot.unsigned { background:#cbd5e1; }
+    .roster-dot.dup { background:#ef4444; }
+    .roster-line { display:flex;align-items:flex-start;justify-content:space-between;gap:10px; }
+    .roster-name { min-width:0; display:flex;align-items:center;gap:8px; }
+    .roster-student { min-width:0; display:flex;align-items:baseline;gap:6px; }
+    .roster-student strong { display:block;font-size:14px;line-height:1.2;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .roster-student span { display:block;font-size:11px;line-height:1;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0; }
+    .roster-status {
+      flex-shrink:0;display:inline-flex;align-items:center;padding:4px 8px;border-radius:9999px;
+      font-size:11px;line-height:1;font-weight:600;border:1px solid transparent;
+    }
+    .roster-status.signed { color:#047857;background:rgba(209,250,229,.88);border-color:rgba(16,185,129,.16); }
+    .roster-status.unsigned { color:#64748b;background:rgba(241,245,249,.92);border-color:rgba(203,213,225,.5); }
+    .roster-status.dup { color:#dc2626;background:rgba(254,226,226,.92);border-color:rgba(248,113,113,.24); }
+    .roster-meta { margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px; }
+    .roster-meta-text {
+      min-width:0;display:inline-flex;align-items:center;padding:5px 8px;border-radius:10px;
+      font-size:11px;line-height:1.1;color:#64748b;background:rgba(248,250,252,.96);border:1px solid rgba(226,232,240,.9);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .roster-meta-text.signed { color:#334155; background:rgba(255,255,255,.72); }
+    .roster-meta-text.dup { color:#b91c1c; background:rgba(254,242,242,.96); border-color:rgba(248,113,113,.24); }
+    .roster-action {
+      flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:28px;
+      padding:0 8px;border-radius:9px;font-size:11px;line-height:1;font-weight:500;
+    }
+    .roster-action.revoke { color:#dc2626;background:rgba(255,255,255,.86);border:1px solid rgba(248,113,113,.24); }
+    .roster-action.empty { opacity:0;pointer-events:none;border:1px solid transparent; }
+    .subtle-panel { background:linear-gradient(180deg,rgba(248,250,252,.62),rgba(255,255,255,.54)); }
+    .header-blur { background:rgba(255,255,255,.82); backdrop-filter:blur(18px); }
+    .topbar-shell { min-height:84px; padding:16px 0; }
+    .nav-link {
+      display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;
+      color:#475569;font-size:14px;font-weight:500;transition:all .15s ease;
+    }
+    .nav-link:hover { background:rgba(255,255,255,.7); color:#0f172a; }
+    .nav-link svg { color:#64748b; }
+    .nav-title { color:#0f172a;font-size:17px;font-weight:700;letter-spacing:.01em; }
+    .nav-action {
+      display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:12px;
+      color:#475569;font-size:14px;font-weight:500;transition:all .15s ease;
+    }
+    .nav-action:hover { background:rgba(255,255,255,.72); color:#0f172a; }
+    .nav-divider { color:#cbd5e1; }
+    .metric-card { position:relative; overflow:hidden; }
+    .metric-card::before {
+      content:''; position:absolute; inset:auto auto 0 0; width:100%; height:3px;
+      background:linear-gradient(90deg,rgba(31,122,91,.88),rgba(31,122,91,.14));
+    }
+    .metric-card.soft::before { background:linear-gradient(90deg,rgba(148,163,184,.48),rgba(148,163,184,.08)); }
+    .roster-meta-piece.ip { color:#64748b; }
+    .roster-meta-piece.time { color:#0f766e; }
+    .roster-meta-text.unsigned .roster-meta-piece.ip,
+    .roster-meta-text.unsigned .roster-meta-piece.time { color:#94a3b8; }
+    .roster-meta-text.dup .roster-meta-piece.ip,
+    .roster-meta-text.dup .roster-meta-piece.time { color:#b91c1c; }
+    .roster-meta-slash { color:#cbd5e1; margin:0 4px; }
+    .window-card { position:relative; overflow:hidden; }
+    .window-card::after {
+      content:''; position:absolute; inset:0 0 auto 0; height:1px;
+      background:linear-gradient(90deg, rgba(99,102,241,.18), rgba(56,189,248,.14), transparent);
+      pointer-events:none;
+    }
+    .window-trigger {
+      width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px;
+      padding:20px 24px; text-align:left; transition:background .15s ease;
+    }
+    .window-trigger:hover { background:rgba(248,250,252,.66); }
+    .window-info { display:flex; align-items:flex-start; gap:14px; min-width:0; }
+    .window-icon {
+      width:42px; height:42px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+      border-radius:14px; color:#4f46e5; background:linear-gradient(180deg, rgba(238,242,255,.96), rgba(239,246,255,.88));
+      border:1px solid rgba(99,102,241,.12);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+    }
+    .window-copy { min-width:0; }
+    .window-copy strong { display:block; font-size:15px; line-height:1.2; font-weight:600; color:#0f172a; }
+    .window-copy p { margin-top:6px; font-size:12px; line-height:1.5; color:#64748b; }
+    .window-summary {
+      display:inline-flex; align-items:center; gap:8px; flex-shrink:0;
+      padding:10px 12px; border-radius:14px; background:rgba(248,250,252,.9); border:1px solid rgba(226,232,240,.95);
+      color:#475569;
+    }
+    .window-summary span { font-size:12px; color:#94a3b8; }
+    .window-summary strong { font-size:13px; font-weight:600; color:#334155; }
+    .window-chevron { width:16px; height:16px; color:#94a3b8; transition:transform .18s ease; }
+    .window-body { padding:0 24px 22px; border-top:1px solid rgba(241,245,249,.9); }
+    .window-fields { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; padding-top:18px; }
+    .window-field label { display:block; font-size:12px; color:#94a3b8; margin-bottom:6px; }
+    .window-help { margin-top:14px; font-size:12px; color:#94a3b8; }
   </style>
 </head>
-<body class="min-h-screen bg-slate-50">
+<body class="min-h-screen">
 
   <!-- 顶栏 -->
-  <header class="bg-white border-b border-slate-100 sticky top-0 z-20">
-    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+  <header class="header-blur border-b border-white/60 sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-4 topbar-shell flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <a href="/teacher/classes" class="text-sm text-slate-400 hover:text-slate-600 transition flex items-center gap-1">
+        <a href="/teacher/classes" class="nav-link">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
           班级列表
         </a>
-        <span class="text-slate-200">|</span>
-        <span class="font-semibold text-slate-800">{{ cls.name }}</span>
+        <span class="nav-divider">|</span>
+        <span class="nav-title">{{ cls.name }}</span>
       </div>
-      <div class="flex items-center gap-1">
-        <button id="pwdToggle" class="text-sm px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition">修改密码</button>
+      <div class="flex items-center gap-2">
+        <button id="pwdToggle" class="nav-action">修改密码</button>
         <form method="post" action="/teacher/logout">
-          <button class="text-sm px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition">退出</button>
+          <button class="nav-action" type="submit">退出</button>
         </form>
       </div>
     </div>
   </header>
 
   <!-- 修改密码面板 -->
-  <div id="pwdPanel" class="hidden bg-white border-b border-slate-100">
+  <div id="pwdPanel" class="hidden header-blur border-b border-white/60">
     <div class="max-w-5xl mx-auto px-4 py-4 fade">
       <p class="text-sm font-medium text-slate-700 mb-3">修改密码</p>
       <div class="flex flex-wrap gap-2 items-end">
@@ -67,22 +207,22 @@
     </div>
   </div>
 
-  <main class="max-w-5xl mx-auto px-4 py-6 space-y-5">
+  <main class="max-w-5xl mx-auto px-4 py-8 space-y-5">
 
     <!-- 统计卡片 -->
     <div class="grid grid-cols-3 gap-3">
-      <div class="card p-4">
+      <div class="card metric-card p-4">
         <p class="text-xs text-slate-400 mb-1">总人数</p>
         <p id="totalCount" class="text-2xl font-bold text-slate-800">0</p>
       </div>
-      <div class="card p-4">
+      <div class="card metric-card p-4">
         <p class="text-xs text-slate-400 mb-1">已签到</p>
         <p id="signedCount" class="text-2xl font-bold text-emerald-600">0</p>
         <div class="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div id="progressBar" class="progress-bar h-full bg-emerald-400 rounded-full" style="width:0%"></div>
         </div>
       </div>
-      <div class="card p-4">
+      <div class="card metric-card soft p-4">
         <p class="text-xs text-slate-400 mb-1">未签到</p>
         <p id="absentCount" class="text-2xl font-bold text-slate-300">0</p>
       </div>
@@ -178,35 +318,43 @@
     </div>
 
     <!-- 签到时间段（可折叠） -->
-    <div class="card overflow-hidden">
-      <button id="windowToggle" class="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-slate-50 transition">
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <span class="text-sm font-medium text-slate-700">签到时间段</span>
+    <div class="card window-card">
+      <button id="windowToggle" class="window-trigger">
+        <div class="window-info">
+          <div class="window-icon">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div class="window-copy">
+            <strong>签到时间段</strong>
+            <p>设置开始和结束时间后，学生只可在允许的时间范围内完成签到。</p>
+          </div>
         </div>
-        <div class="flex items-center gap-3">
-          <span id="windowText" class="text-xs text-slate-400">不限</span>
-          <svg id="windowChevron" class="w-4 h-4 text-slate-300 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="window-summary">
+          <div class="text-right">
+            <span>当前设置</span>
+            <strong id="windowText">不限</strong>
+          </div>
+          <svg id="windowChevron" class="window-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
           </svg>
         </div>
       </button>
-      <div id="windowPanel" class="hidden px-5 pb-5 border-t border-slate-50">
-        <div class="flex flex-wrap gap-3 items-end pt-4">
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">开始时间</label>
+      <div id="windowPanel" class="hidden window-body">
+        <div class="window-fields">
+          <div class="window-field">
+            <label>开始时间</label>
             <input id="startTime" type="datetime-local" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
           </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">结束时间</label>
+          <div class="window-field">
+            <label>结束时间</label>
             <input id="endTime" type="datetime-local" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800" />
           </div>
           <button id="saveWindow" class="btn btn-primary">保存</button>
           <button id="clearWindow" class="btn btn-gray">清除限制</button>
         </div>
-        <p class="mt-3 text-xs text-slate-400">设置后，仅在该时间段内允许学生签到。留空表示不限制。</p>
+        <p class="window-help">留空表示不限制，设置后会立即对学生签到入口生效。</p>
       </div>
     </div>
 
@@ -224,23 +372,14 @@
     <!-- 签到名单 -->
     <div class="card overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
-        <p class="text-sm font-medium text-slate-700">当前签到名单</p>
-        <span id="rosterBadge" class="text-xs text-slate-400"></span>
+        <div class="flex items-center gap-3">
+          <p class="text-sm font-medium text-slate-700">当前签到名单</p>
+          <span id="rosterBadge" class="text-xs text-slate-400"></span>
+          <span id="rosterDate" class="text-xs text-slate-300"></span>
+        </div>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-xs text-slate-400 border-b border-slate-50">
-              <th class="text-left px-5 py-3 font-medium">姓名</th>
-              <th class="text-left px-5 py-3 font-medium">行政班级</th>
-              <th class="text-left px-5 py-3 font-medium">状态</th>
-              <th class="text-left px-5 py-3 font-medium">计算机 IP</th>
-              <th class="text-left px-5 py-3 font-medium">签到时间</th>
-              <th class="text-left px-5 py-3 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
+      <div class="p-5 subtle-panel">
+        <div id="rosterCompactGrid" class="roster-grid"></div>
       </div>
     </div>
 
@@ -302,6 +441,73 @@ async function parseResponse(res) {
   return res.json()
 }
 
+function formatHomeClass(homeClass) {
+  const value = String(homeClass || '').trim()
+  if (!value) return ''
+  return value.includes('班') ? value : `${value}班`
+}
+
+function formatRosterDate(value) {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatSignedTime(value) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    const match = String(value).match(/(\d{2}:\d{2}:\d{2})/)
+    return match ? match[1] : String(value)
+  }
+  return date.toLocaleTimeString('zh-CN', { hour12: false })
+}
+
+function renderRosterCompact(roster, ipCount) {
+  const grid = document.getElementById('rosterCompactGrid')
+  grid.innerHTML = ''
+
+  roster.forEach(r => {
+    const isSigned = r.status === '已签到'
+    const dupIp = ipCount[(r.computerName || '').trim()] > 1
+    const item = document.createElement('div')
+    item.className = `roster-list-item ${dupIp ? 'dup' : isSigned ? 'signed' : 'unsigned'}`
+    const dotClass = dupIp ? 'dup' : isSigned ? 'signed' : 'unsigned'
+    const statusClass = dupIp ? 'dup' : isSigned ? 'signed' : 'unsigned'
+    const statusText = dupIp ? '重复 IP' : isSigned ? '已签到' : '未签到'
+    const metaClass = dupIp ? 'dup' : isSigned ? 'signed' : 'unsigned'
+    const metaHtml = `<span class="roster-meta-piece ip">${r.computerName || '-'}</span><span class="roster-meta-slash">/</span><span class="roster-meta-piece time">${isSigned ? formatSignedTime(r.signedAt) : '-'}</span>`
+
+    const revokeBtn = (isSigned && r.recordId)
+      ? `<button onclick="revokeRecord(${r.recordId})" class="roster-action revoke">撤销</button>`
+      : '<span class="roster-action empty">占位</span>'
+
+    item.innerHTML = `
+      <div class="roster-line">
+        <div class="roster-name">
+          <span class="roster-dot ${dotClass}"></span>
+          <div class="roster-student">
+            <strong>${r.studentName}</strong>
+            <span>${formatHomeClass(r.homeClass) || '&nbsp;'}</span>
+          </div>
+        </div>
+        <span class="roster-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="roster-meta">
+        <span class="roster-meta-text ${metaClass}">${metaHtml}</span>
+        ${revokeBtn}
+      </div>`
+    grid.appendChild(item)
+  })
+
+  if (!roster.length) {
+    grid.innerHTML = '<div class="col-span-full px-4 py-6 text-sm text-slate-400 text-center bg-white rounded-xl border border-dashed border-slate-200">暂无学生</div>'
+  }
+}
+
 async function refreshStatus() {
   const res = await fetch(`/api/status?classId=${CLASS_ID}`)
   const data = await parseResponse(res)
@@ -314,6 +520,8 @@ async function refreshStatus() {
   document.getElementById('absentCount').textContent = data.absentCount
   document.getElementById('progressBar').style.width = total > 0 ? (signed / total * 100) + '%' : '0%'
   document.getElementById('rosterBadge').textContent = `共 ${total} 人`
+  const firstSignedAt = data.roster.find(r => r.signedAt)?.signedAt
+  document.getElementById('rosterDate').textContent = formatRosterDate(firstSignedAt)
 
   const wt = document.getElementById('windowText')
   wt.textContent = (data.window.start || data.window.end)
@@ -322,31 +530,7 @@ async function refreshStatus() {
 
   const ipCount = {}
   data.roster.forEach(r => { const ip = (r.computerName||'').trim(); if (ip && ip!=='-') ipCount[ip]=(ipCount[ip]||0)+1 })
-
-  const tbody = document.getElementById('tableBody')
-  tbody.innerHTML = ''
-  data.roster.forEach(r => {
-    const tr = document.createElement('tr')
-    tr.className = 'border-b border-slate-50 last:border-0 hover:bg-slate-50 transition'
-    const isSigned = r.status === '已签到'
-    const dupIp = ipCount[(r.computerName||'').trim()] > 1
-    const revokeBtn = (isSigned && r.recordId)
-      ? `<button onclick="revokeRecord(${r.recordId}, this)" class="text-xs px-2 py-0.5 rounded text-red-400 hover:bg-red-50 transition">撤销</button>`
-      : ''
-    tr.innerHTML = `
-      <td class="px-5 py-3 text-slate-800 font-medium">${r.studentName}</td>
-      <td class="px-5 py-3 text-slate-400 text-xs">${r.homeClass||''}</td>
-      <td class="px-5 py-3">
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-          ${isSigned ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}">
-          ${r.status}
-        </span>
-      </td>
-      <td class="px-5 py-3 font-mono text-xs ${dupIp ? 'text-red-500 font-bold' : 'text-slate-400'}">${r.computerName}</td>
-      <td class="px-5 py-3 text-slate-400 text-xs">${r.signedAt}</td>
-      <td class="px-5 py-3">${revokeBtn}</td>`
-    tbody.appendChild(tr)
-  })
+  renderRosterCompact(data.roster, ipCount)
 }
 
 async function refreshSessions() {
@@ -365,6 +549,8 @@ async function refreshSessions() {
       <div class="flex gap-2">
         <button onclick="openSession(${s.id}, this.dataset.label)" data-label="${s.label.replace(/"/g,'&quot;')}"
           class="text-xs px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">查看</button>
+        <a href="/teacher/sessions/${s.id}/seats"
+          class="text-xs px-3 py-1.5 rounded-lg text-sky-600 hover:bg-sky-50 transition">座位表</a>
         <a href="/api/sessions/${s.id}/export"
           class="text-xs px-3 py-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition">导出</a>
         <button onclick="deleteSessionItem(${s.id}, this.dataset.label)" data-label="${s.label.replace(/"/g,'&quot;')}"
@@ -381,7 +567,7 @@ async function openSession(sessionId, label) {
   document.getElementById('modalBody').innerHTML = (data.records||[]).map(r => `
     <tr class="border-b border-slate-50 last:border-0">
       <td class="px-5 py-3 text-slate-800">${r.studentName}</td>
-      <td class="px-5 py-3 text-slate-400 text-xs">${r.homeClass||''}</td>
+      <td class="px-5 py-3 text-slate-400 text-xs">${formatHomeClass(r.homeClass)}</td>
       <td class="px-5 py-3 font-mono text-xs text-slate-400">${r.computerName}</td>
       <td class="px-5 py-3 text-slate-400 text-xs">${r.signedAt ? new Date(r.signedAt).toLocaleString('zh-CN') : '-'}</td>
     </tr>`).join('')
@@ -435,7 +621,7 @@ async function loadStats() {
         const color = rate >= 80 ? 'text-emerald-600' : rate >= 60 ? 'text-amber-500' : 'text-red-500'
         return `<tr class="border-b border-slate-50 last:border-0 hover:bg-slate-50">
           <td class="px-5 py-3 font-medium text-slate-800">${s.name}</td>
-          <td class="px-5 py-3 text-xs text-slate-400">${s.homeClass||''}</td>
+          <td class="px-5 py-3 text-xs text-slate-400">${formatHomeClass(s.homeClass)}</td>
           <td class="px-5 py-3 text-center text-slate-600">${s.signedCount}</td>
           <td class="px-5 py-3 text-center text-slate-400">${s.absentCount}</td>
           <td class="px-5 py-3 text-center font-semibold ${color}">${s.rate}%</td>
@@ -446,13 +632,12 @@ async function loadStats() {
   </div>`
 }
 
-async function revokeRecord(recordId, btn) {
+async function revokeRecord(recordId) {
   if (!confirm('确认撤销该签到记录？')) return
   const res = await fetch('/api/signin/' + recordId, { method: 'DELETE' })
   if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
   if (!data.ok) { notify(data.message, false); return }
-  btn.closest('tr').remove()
   notify('已撤销')
   refreshStatus()
 }

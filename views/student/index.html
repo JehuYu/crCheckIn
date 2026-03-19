@@ -6,19 +6,92 @@
   <title>{% if cls %}{{ cls.name }} - {% endif %}学生签到</title>
   <link rel="stylesheet" href="/public/tailwind.min.css">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    :root {
+      --page-bg:#eef3fb;
+      --card-bg:rgba(255,255,255,.96);
+      --card-border:rgba(203,213,225,.56);
+      --card-shadow:0 22px 50px rgba(148,163,184,.18);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.9), transparent 28%),
+        radial-gradient(circle at top right, rgba(191,219,254,.35), transparent 24%),
+        linear-gradient(180deg, #f8fbff 0%, var(--page-bg) 100%);
+    }
     #suggestions { max-height: 200px; overflow-y: auto; }
+    .sign-card {
+      border-radius:22px;
+      border:1px solid var(--card-border);
+      background:var(--card-bg);
+      box-shadow:var(--card-shadow);
+      padding:24px;
+    }
+    .field-label {
+      display:block;
+      margin-bottom:8px;
+      font-size:14px;
+      line-height:1.2;
+      font-weight:600;
+      color:#334155;
+    }
+    .field-input {
+      width:100%;
+      padding:10px 16px;
+      border-radius:14px;
+      border:1px solid #e2e8f0;
+      font-size:16px;
+      line-height:1.2;
+      color:#334155;
+      background:#fff;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    .field-input::placeholder { color:#cbd5e1; }
+    .field-input:focus {
+      outline:none;
+      border-color:#c7d2fe;
+      box-shadow:0 0 0 4px rgba(79,70,229,.08);
+    }
+    .submit-btn {
+      width:100%;
+      margin-top:0;
+      padding:10px 16px;
+      border:none;
+      border-radius:14px;
+      background:linear-gradient(135deg, #4f46e5 0%, #4f46e5 36%, #4338ca 100%);
+      color:#fff;
+      font-size:16px;
+      line-height:1;
+      font-weight:600;
+      letter-spacing:.01em;
+      transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+      box-shadow:0 12px 22px rgba(79,70,229,.16);
+    }
+    .submit-btn:hover { transform:translateY(-1px); box-shadow:0 16px 26px rgba(79,70,229,.18); }
+    .submit-btn:disabled { opacity:.6; cursor:not-allowed; transform:none; box-shadow:none; }
+    .status-panel {
+      text-align:center;
+      padding:20px 16px;
+      border-radius:16px;
+      border:1px solid #bbf7d0;
+      background:linear-gradient(180deg, rgba(240,253,244,.96), rgba(236,253,245,.84));
+    }
+    .floating-note {
+      margin-top:16px;
+      padding:12px 14px;
+      border-radius:14px;
+      font-size:14px;
+      line-height:1.5;
+    }
+    @media (max-width: 640px) {
+      .sign-card { padding:20px; border-radius:20px; }
+    }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-4">
   <div class="w-full max-w-md">
 
     <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600 mb-4 shadow-lg">
-        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-      </div>
       <h1 class="text-2xl font-semibold text-slate-800">
         {% if cls %}{{ cls.name }}{% else %}机房签到{% endif %}
       </h1>
@@ -28,10 +101,10 @@
       {% endif %}
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+    <div class="sign-card">
 
       <!-- 已签到状态 -->
-      <div id="alreadySignedPanel" class="hidden text-center py-4">
+      <div id="alreadySignedPanel" class="status-panel hidden">
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-100 mb-3">
           <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -44,27 +117,24 @@
       <!-- 签到表单 -->
       <div id="signInForm">
         <div class="mb-4 relative">
-          <label class="block text-sm font-medium text-slate-600 mb-1.5">姓名</label>
+          <label class="field-label">姓名</label>
           <input id="nameInput" type="text" autocomplete="off" placeholder="请输入姓名片段搜索"
-            class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 placeholder-slate-300
-                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" />
+            class="field-input" />
           <div id="suggestions"
             class="absolute z-10 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-lg overflow-hidden hidden">
           </div>
         </div>
 
-        <div id="selectedInfo" class="hidden mb-4 px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-100 text-sm text-indigo-700">
+        <div id="selectedInfo" class="floating-note hidden mb-4 bg-indigo-50 border border-indigo-100 text-indigo-700">
           <span id="selectedText"></span>
           <button id="clearSelection" class="ml-2 text-indigo-400 hover:text-indigo-600 transition text-xs">✕ 重新选择</button>
         </div>
 
-        <button id="signinBtn"
-          class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800
-                 text-white font-medium rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed">
+        <button id="signinBtn" class="submit-btn">
           提交签到
         </button>
 
-        <div id="msg" class="hidden mt-4 px-4 py-3 rounded-xl text-sm font-medium"></div>
+        <div id="msg" class="floating-note hidden font-medium"></div>
       </div>
 
     </div>
@@ -101,7 +171,7 @@ function checkAlreadySigned() {
 }
 
 function setMessage(text, ok = false) {
-  msg.className = `mt-4 px-4 py-3 rounded-xl text-sm font-medium ${ok
+  msg.className = `floating-note font-medium ${ok
     ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
     : 'bg-red-50 text-red-600 border border-red-100'}`
   msg.textContent = text

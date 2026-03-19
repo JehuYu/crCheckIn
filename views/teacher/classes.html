@@ -6,45 +6,165 @@
   <title>班级列表 - 机房签到</title>
   <link rel="stylesheet" href="/public/tailwind.min.css">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    :root {
+      --page-bg:#f6f8fc;
+      --card-bg:rgba(255,255,255,.78);
+      --card-border:rgba(15,23,42,.08);
+      --card-shadow:0 20px 52px rgba(15,23,42,.08);
+      --soft-shadow:0 10px 24px rgba(15,23,42,.05);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(99,102,241,.10), transparent 26%),
+        radial-gradient(circle at top right, rgba(56,189,248,.10), transparent 24%),
+        linear-gradient(180deg, #fbfcfe 0%, var(--page-bg) 100%);
+    }
     .fade { animation: fadeIn .15s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-    .class-card { display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #f8fafc;transition:background .12s; }
+    .header-blur { background:rgba(255,255,255,.82); backdrop-filter:blur(18px); }
+    .topbar-shell { min-height:84px; padding:16px 0; }
+    .nav-link {
+      display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;
+      color:#475569;font-size:14px;font-weight:500;transition:all .15s ease;
+    }
+    .nav-link:hover { background:rgba(255,255,255,.7); color:#0f172a; }
+    .nav-title { color:#0f172a;font-size:18px;font-weight:700;letter-spacing:.01em; }
+    .nav-subtle { color:#64748b;font-size:14px;font-weight:500; }
+    .chip {
+      display:inline-flex;align-items:center;padding:6px 10px;border-radius:9999px;
+      font-size:12px;font-weight:600;border:1px solid rgba(251,191,36,.22);background:rgba(255,251,235,.92);color:#b45309;
+    }
+    .nav-action {
+      display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:12px;
+      color:#475569;font-size:14px;font-weight:500;transition:all .15s ease;
+    }
+    .nav-action:hover { background:rgba(255,255,255,.72); color:#0f172a; }
+    .card {
+      background:var(--card-bg); border-radius:20px; border:1px solid var(--card-border);
+      box-shadow:var(--card-shadow); backdrop-filter:blur(14px);
+    }
+    .btn {
+      display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;font-size:13px;font-weight:500;
+      transition:all .15s;cursor:pointer;text-decoration:none;box-shadow:var(--soft-shadow);border:none;
+    }
+    .btn-primary { background:linear-gradient(135deg,#4f46e5,#2563eb); color:#fff; }
+    .btn-primary:hover { transform:translateY(-1px); box-shadow:0 14px 28px rgba(79,70,229,.18); }
+    .btn-gray { background:rgba(255,255,255,.82); color:#334155; border:1px solid rgba(148,163,184,.18); }
+    .btn-gray:hover { background:#fff; }
+    .btn-danger { color:#dc2626; border:1px solid rgba(248,113,113,.24); background:rgba(255,255,255,.82); }
+    .btn-danger:hover { background:#fff5f5; }
+    .class-card { display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid rgba(241,245,249,.8);transition:background .12s; }
     .class-card:last-child { border-bottom:none; }
-    .class-card:hover { background:#f8fafc; }
+    .class-card:hover { background:rgba(248,250,252,.66); }
+    .chart-card { padding:20px; }
+    .stats-grid {
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:12px;
+      margin-bottom:18px;
+    }
+    .stat-card {
+      padding:16px 18px;
+      border-radius:18px;
+      border:1px solid rgba(226,232,240,.86);
+      background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.82));
+      box-shadow:var(--soft-shadow);
+    }
+    .stat-kicker { font-size:12px; color:#64748b; font-weight:600; }
+    .stat-value { margin-top:10px; font-size:28px; line-height:1; font-weight:700; color:#0f172a; }
+    .stat-note { margin-top:8px; font-size:12px; color:#94a3b8; }
+    .chart-grid { display:grid; gap:14px; }
+    .chart-row { display:grid; grid-template-columns: minmax(110px, 150px) 1fr auto; gap:14px; align-items:center; }
+    .chart-label { min-width:0; }
+    .chart-label strong { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .chart-label span { display:block; margin-top:4px; font-size:11px; color:#94a3b8; }
+    .chart-label-count {
+      display:inline-flex;
+      align-items:center;
+      padding:3px 8px;
+      border-radius:9999px;
+      background:rgba(241,245,249,.96);
+      border:1px solid rgba(226,232,240,.95);
+      color:#64748b;
+      font-size:11px;
+      font-weight:600;
+      line-height:1;
+      flex-shrink:0;
+    }
+    .chart-track {
+      position:relative; height:12px; border-radius:9999px; overflow:hidden;
+      background:linear-gradient(90deg, rgba(226,232,240,.92), rgba(241,245,249,.78));
+      border:1px solid rgba(226,232,240,.95);
+    }
+    .chart-bar-total {
+      position:absolute; inset:0 auto 0 0; border-radius:9999px;
+      background:linear-gradient(90deg, rgba(129,140,248,.36), rgba(96,165,250,.46));
+    }
+    .chart-bar-signed {
+      position:absolute; inset:0 auto 0 0; border-radius:9999px;
+      background:linear-gradient(90deg, #4f46e5, #2563eb);
+      box-shadow:0 6px 14px rgba(79,70,229,.22);
+    }
+    .chart-value { font-size:12px; font-weight:600; color:#475569; white-space:nowrap; }
+    .chart-legend { display:flex; flex-wrap:wrap; gap:12px; margin-top:14px; }
+    .chart-legend-item { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#64748b; }
+    .chart-legend-dot { width:10px; height:10px; border-radius:9999px; }
+    .chart-legend-dot.total { background:linear-gradient(90deg, rgba(129,140,248,.55), rgba(96,165,250,.6)); }
+    .chart-legend-dot.signed { background:linear-gradient(90deg, #4f46e5, #2563eb); }
+    .chart-rate {
+      display:inline-flex;
+      align-items:center;
+      margin-top:8px;
+      padding:4px 8px;
+      border-radius:9999px;
+      font-size:11px;
+      font-weight:600;
+      color:#4f46e5;
+      background:rgba(238,242,255,.95);
+      border:1px solid rgba(165,180,252,.25);
+    }
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .stats-grid { grid-template-columns:1fr; }
+      .chart-row { grid-template-columns:1fr; gap:10px; }
+      .chart-value { justify-self:flex-start; }
+    }
   </style>
 </head>
-<body class="min-h-screen bg-slate-50">
+<body class="min-h-screen">
 
   <!-- 顶栏 -->
-  <header class="bg-white border-b border-slate-100 sticky top-0 z-20">
-    <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+  <header class="header-blur border-b border-white/60 sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-4 topbar-shell flex items-center justify-between gap-4">
       <div class="flex items-center gap-2">
-        <span class="text-lg">🏫</span>
-        <span class="font-semibold text-slate-800">机房签到</span>
+        <span class="text-xl">🏫</span>
+        <span class="nav-title">机房签到</span>
         {% if teacher.isAdmin %}
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">管理员</span>
+        <span class="chip">管理员</span>
         {% endif %}
       </div>
       <div class="flex items-center gap-2">
-        <span class="text-sm text-slate-400">{{ teacher.username }}</span>
+        <span class="nav-subtle">{{ teacher.username }}</span>
         {% if teacher.isAdmin %}
-        <a href="/admin" class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">管理员面板</a>
+        <a href="/admin" class="nav-action">管理员面板</a>
         {% endif %}
         <form method="post" action="/teacher/logout">
-          <button class="text-sm px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition">退出</button>
+          <button class="nav-action" type="submit">退出</button>
         </form>
       </div>
     </div>
   </header>
 
-  <main class="max-w-3xl mx-auto px-4 py-8 space-y-5">
+  <main class="max-w-5xl mx-auto px-4 py-8 space-y-5">
 
     <!-- 通知 -->
     <div id="msg" class="hidden px-4 py-3 rounded-xl text-sm font-medium fade"></div>
 
     <!-- 班级列表 -->
-    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+    <div class="card overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p class="text-sm font-semibold text-slate-800">我的班级</p>
         <span class="text-xs text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">{{ classes | length }} 个</span>
@@ -68,10 +188,9 @@
             <p class="text-xs text-slate-400 mt-0.5">创建于 {{ cls.createdAt }}</p>
           </a>
           <div class="flex items-center gap-1.5 ml-4 opacity-0 group-hover:opacity-100 transition">
-            <a href="/teacher/classes/{{ cls.id }}"
-              class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-white hover:bg-slate-900 transition">进入</a>
+            <a href="/teacher/classes/{{ cls.id }}" class="btn btn-primary text-xs">进入</a>
             <button onclick="deleteClass({{ cls.id }}, '{{ cls.name }}')"
-              class="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-100 transition">删除</button>
+              class="btn btn-danger text-xs">删除</button>
           </div>
         </li>
         {% endfor %}
@@ -80,25 +199,21 @@
     </div>
 
     <!-- 创建班级 -->
-    <div class="bg-white rounded-2xl border border-slate-100 p-5">
+    <div class="card p-5">
       <p class="text-sm font-semibold text-slate-800 mb-3">创建新班级</p>
       <div class="flex gap-2">
         <input id="classNameInput" type="text" placeholder="输入班级名称，如：高一(3)班"
           class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition text-sm" />
-        <button id="createBtn"
-          class="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-xl transition whitespace-nowrap">
-          创建
-        </button>
+        <button id="createBtn" class="btn btn-primary whitespace-nowrap">创建</button>
       </div>
     </div>
 
     <!-- 导入名单 -->
-    <div class="bg-white rounded-2xl border border-slate-100 p-5">
+    <div class="card p-5">
       <p class="text-sm font-semibold text-slate-800 mb-1">从 Excel 导入名单</p>
       <p class="text-xs text-slate-400 mb-3">格式：A列=教学班名，B列=行政班级，C列=学生姓名。会自动创建不存在的班级。</p>
       <div class="flex gap-2 items-center">
-        <label id="importLabel"
-          class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition">
+        <label id="importLabel" class="cursor-pointer btn btn-gray">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
           </svg>
@@ -106,11 +221,79 @@
           <input type="file" id="importFile" accept=".xlsx,.xls" class="hidden" />
         </label>
         <span id="importFileName" class="text-xs text-slate-400">未选择文件</span>
-        <button id="importBtn"
-          class="hidden px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-xl transition whitespace-nowrap">
-          开始导入
-        </button>
+        <button id="importBtn" class="hidden btn btn-primary whitespace-nowrap">开始导入</button>
       </div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="text-sm font-semibold text-slate-800">班级概览图表</p>
+          <p class="text-xs text-slate-400 mt-1">先看整体，再看各班签到进度，导入名单后也能直接核对班级规模。</p>
+        </div>
+      </div>
+
+      {% if classes.length === 0 %}
+      <div class="px-4 py-10 text-center text-sm text-slate-400">暂无班级数据可展示</div>
+      {% else %}
+      {% set totalStudents = 0 %}
+      {% set totalSigned = 0 %}
+      {% set maxStudents = 1 %}
+      {% for cls in classes %}
+      {% set totalStudents = totalStudents + cls.studentCount %}
+      {% set totalSigned = totalSigned + cls.signedCount %}
+      {% if cls.studentCount > maxStudents %}
+      {% set maxStudents = cls.studentCount %}
+      {% endif %}
+      {% endfor %}
+      <div class="stats-grid">
+        <div class="stat-card">
+          <p class="stat-kicker">班级总数</p>
+          <p class="stat-value">{{ classes | length }}</p>
+          <p class="stat-note">当前账号可管理的教学班</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-kicker">学生总数</p>
+          <p class="stat-value">{{ totalStudents }}</p>
+          <p class="stat-note">已导入并在册的全部学生</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-kicker">当前签到</p>
+          <p class="stat-value">{{ totalSigned }}</p>
+          <p class="stat-note">按当前批次实时累计</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-kicker">整体签到率</p>
+          <p class="stat-value">{% if totalStudents %}{{ ((totalSigned / totalStudents) * 100) | round(0) }}%{% else %}0%{% endif %}</p>
+          <p class="stat-note">全部班级当前签到覆盖情况</p>
+        </div>
+      </div>
+      <div class="chart-grid">
+        {% for cls in classes %}
+        <div class="chart-row">
+          <div class="chart-label">
+            <strong>{{ cls.name }}<span class="chart-label-count">{{ cls.studentCount }} 人</span></strong>
+            <span class="chart-rate">
+              {% if cls.studentCount %}
+              签到率 {{ ((cls.signedCount / cls.studentCount) * 100) | round(0) }}%
+              {% else %}
+              签到率 0%
+              {% endif %}
+            </span>
+          </div>
+          <div class="chart-track">
+            <div class="chart-bar-total" style="width: {{ ((cls.studentCount / maxStudents) * 100) | round(2) }}%;"></div>
+            <div class="chart-bar-signed" style="width: {{ ((cls.signedCount / maxStudents) * 100) | round(2) }}%;"></div>
+          </div>
+          <div class="chart-value">{{ cls.signedCount }}/{{ cls.studentCount }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="chart-legend">
+        <span class="chart-legend-item"><span class="chart-legend-dot total"></span>总人数</span>
+        <span class="chart-legend-item"><span class="chart-legend-dot signed"></span>当前签到</span>
+      </div>
+      {% endif %}
     </div>
 
   </main>

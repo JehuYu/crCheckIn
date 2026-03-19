@@ -6,10 +6,24 @@ import { prisma } from '../plugins/db.js'
  * @returns {Promise<object[]>}
  */
 export async function getClasses(teacherId) {
-  return prisma.class.findMany({
+  const classes = await prisma.class.findMany({
     where: { teacherId },
     orderBy: { createdAt: 'asc' },
+    include: {
+      _count: {
+        select: {
+          students: true,
+          signInRecords: true,
+        },
+      },
+    },
   })
+
+  return classes.map((cls) => ({
+    ...cls,
+    studentCount: cls._count.students,
+    signedCount: cls._count.signInRecords,
+  }))
 }
 
 /**

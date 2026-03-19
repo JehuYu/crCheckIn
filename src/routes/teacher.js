@@ -1,6 +1,7 @@
 import { getClasses } from '../services/class.js'
 import { isTeacherLoggedIn, teacherRequired, classOwnerRequired } from '../utils/auth.js'
 import { prisma } from '../plugins/db.js'
+import { getSessionDetailForTeacher } from '../services/attendance.js'
 
 export default async function teacherRoutes(app) {
   app.get('/teacher/login', async (request, reply) => {
@@ -55,9 +56,50 @@ export default async function teacherRoutes(app) {
     return reply.view('teacher/seat_view.html', {
       cls,
       classId,
+      pageTitle: `${cls.name} - 座位表`,
+      subtitle: null,
+      backHref: `/teacher/classes/${classId}`,
+      pollUrl: `/api/seat-grid?classId=${classId}`,
+      pollUrlJson: JSON.stringify(`/api/seat-grid?classId=${classId}`),
       studentGridJson: JSON.stringify(studentGrid),
       teacherGridJson: JSON.stringify(teacherGrid),
       signedCount,
+      showExport: true,
+      exportHref: `/api/export-seats?classId=${classId}`,
+      showRefreshControls: true,
+      showRefreshControlsJson: JSON.stringify(true),
+    })
+  })
+
+  app.get('/teacher/sessions/:sessionId/seats', { preHandler: teacherRequired }, async (request, reply) => {
+    const sessionId = parseInt(request.params.sessionId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const result = await getSessionDetailForTeacher(sessionId, teacherId, isAdmin)
+    if (!result.ok) {
+      return reply.code(result.status).send({ ok: false, message: result.message })
+    }
+
+    const session = result.session
+    const { getSeatGridsFromArchivedRecords } = await import('../services/seat.js')
+    const { studentGrid, teacherGrid } = getSeatGridsFromArchivedRecords(session.records ?? [])
+    const signedCount = teacherGrid.flat().reduce((acc, cell) => acc + cell.students.length, 0)
+
+    return reply.view('teacher/seat_view.html', {
+      cls: session.class,
+      classId: session.classId,
+      pageTitle: `${session.class.name} - 历史批次座位表`,
+      subtitle: session.label,
+      backHref: `/teacher/classes/${session.classId}`,
+      pollUrl: null,
+      pollUrlJson: 'null',
+      studentGridJson: JSON.stringify(studentGrid),
+      teacherGridJson: JSON.stringify(teacherGrid),
+      signedCount,
+      showExport: false,
+      exportHref: null,
+      showRefreshControls: false,
+      showRefreshControlsJson: JSON.stringify(false),
     })
   })
 

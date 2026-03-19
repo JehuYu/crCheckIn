@@ -27,6 +27,24 @@ export const AISLE_AFTER_COLS_STUDENT = new Set([1, 3, 5])
 // 教师视角：同样在列索引 1, 3, 5 右侧留过道
 export const AISLE_AFTER_COLS_TEACHER = new Set([1, 3, 5])
 
+function buildSeatMapFromRecords(records) {
+  const seatToStudents = new Map()
+
+  for (const rec of records) {
+    const parts = (rec.computerName || '').split('.')
+    if (parts.length !== 4) continue
+    const n = Number(parts[parts.length - 1])
+    if (!Number.isInteger(n) || n < 1 || n > 60) continue
+    if (!seatToStudents.has(n)) seatToStudents.set(n, [])
+    seatToStudents.get(n).push({
+      name: rec.studentName,
+      homeClass: rec.homeClass ?? '',
+    })
+  }
+
+  return seatToStudents
+}
+
 /**
  * 从签到记录构建 seatToStudents Map
  */
@@ -37,25 +55,22 @@ async function buildSeatMap(classId) {
     orderBy: { signedAt: 'asc' },
   })
 
-  const seatToStudents = new Map()
+  const normalizedRecords = []
   for (const rec of records) {
-    const parts = (rec.computerName || '').split('.')
-    if (parts.length !== 4) continue
-    const n = Number(parts[parts.length - 1])
-    if (!Number.isInteger(n) || n < 1 || n > 60) continue
-    if (!seatToStudents.has(n)) seatToStudents.set(n, [])
     // studentId 可能为 null（旧记录），fallback 到按姓名查
     let homeClass = rec.student?.homeClass ?? ''
     if (!homeClass && !rec.student) {
       const stu = await prisma.student.findFirst({ where: { classId, name: rec.studentName } })
       homeClass = stu?.homeClass ?? ''
     }
-    seatToStudents.get(n).push({
-      name: rec.studentName,
+    normalizedRecords.push({
+      studentName: rec.studentName,
       homeClass,
+      computerName: rec.computerName,
     })
   }
-  return seatToStudents
+
+  return buildSeatMapFromRecords(normalizedRecords)
 }
 
 function buildCell(seatNo, seatToStudents) {
@@ -64,12 +79,20 @@ function buildCell(seatNo, seatToStudents) {
   return { seatNo, label: String(seatNo), students, dupIp: students.length > 1 }
 }
 
+function buildStudentGridFromSeatMap(seatToStudents) {
+  return STUDENT_SEAT_LAYOUT.map((row) => row.map((seatNo) => buildCell(seatNo, seatToStudents)))
+}
+
+function buildTeacherGridFromSeatMap(seatToStudents) {
+  return TEACHER_SEAT_LAYOUT.map((row) => row.map((seatNo) => buildCell(seatNo, seatToStudents)))
+}
+
 /**
  * 学生视角网格（讲台在上方，按学生查看习惯排列）
  */
 export async function getSeatGrid(classId) {
   const seatToStudents = await buildSeatMap(classId)
-  return STUDENT_SEAT_LAYOUT.map((row) => row.map((seatNo) => buildCell(seatNo, seatToStudents)))
+  return buildStudentGridFromSeatMap(seatToStudents)
 }
 
 /**
@@ -77,5 +100,17 @@ export async function getSeatGrid(classId) {
  */
 export async function getSeatGridTeacher(classId) {
   const seatToStudents = await buildSeatMap(classId)
-  return TEACHER_SEAT_LAYOUT.map((row) => row.map((seatNo) => buildCell(seatNo, seatToStudents)))
+  return buildTeacherGridFromSeatMap(seatToStudents)
+}
+
+/**
+ * 根据历史批次归档记录生成座位表网格
+ * @param {Array<{studentName: string, homeClass?: string, computerName?: string}>} records
+ */
+export function getSeatGridsFromArchivedRecords(records) {
+  const seatToStudents = buildSeatMapFromRecords(records)
+  return {
+    studentGrid: buildStudentGridFromSeatMap(seatToStudents),
+    teacherGrid: buildTeacherGridFromSeatMap(seatToStudents),
+  }
 }

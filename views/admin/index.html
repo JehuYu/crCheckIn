@@ -5,25 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>管理员面板</title>
   <link rel="stylesheet" href="/public/tailwind.min.css">
-  <style>body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }</style>
+  <style>
+    :root {
+      --page-bg:#f6f8fc;
+      --card-bg:rgba(255,255,255,.78);
+      --card-border:rgba(15,23,42,.08);
+      --card-shadow:0 20px 52px rgba(15,23,42,.08);
+      --soft-shadow:0 10px 24px rgba(15,23,42,.05);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(99,102,241,.10), transparent 26%),
+        radial-gradient(circle at top right, rgba(56,189,248,.10), transparent 24%),
+        linear-gradient(180deg, #fbfcfe 0%, var(--page-bg) 100%);
+    }
+    .header-blur { background:rgba(255,255,255,.82); backdrop-filter:blur(18px); }
+    .topbar-shell { min-height:84px; padding:16px 0; }
+    .nav-link {
+      display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;
+      color:#475569;font-size:14px;font-weight:500;transition:all .15s ease;
+    }
+    .nav-link:hover { background:rgba(255,255,255,.7); color:#0f172a; }
+    .nav-title { color:#0f172a;font-size:18px;font-weight:700;letter-spacing:.01em; }
+    .nav-action {
+      display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:12px;
+      color:#475569;font-size:14px;font-weight:500;transition:all .15s ease;
+    }
+    .nav-action:hover { background:rgba(255,255,255,.72); color:#0f172a; }
+    .card {
+      background:var(--card-bg); border-radius:20px; border:1px solid var(--card-border);
+      box-shadow:var(--card-shadow); backdrop-filter:blur(14px);
+    }
+    .btn {
+      display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:12px;font-size:13px;font-weight:500;
+      transition:all .15s;cursor:pointer;text-decoration:none;box-shadow:var(--soft-shadow);border:none;
+    }
+    .btn-primary { background:linear-gradient(135deg,#4f46e5,#2563eb); color:#fff; }
+  </style>
 </head>
-<body class="min-h-screen bg-slate-50">
+<body class="min-h-screen">
 
   <!-- 顶栏 -->
-  <header class="bg-white border-b border-slate-100 sticky top-0 z-20">
-    <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+  <header class="header-blur border-b border-white/60 sticky top-0 z-20">
+    <div class="max-w-3xl mx-auto px-4 topbar-shell flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <a href="/teacher/classes" class="text-sm text-slate-400 hover:text-slate-600 transition flex items-center gap-1">
+        <a href="/teacher/classes" class="nav-link">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
           教师端
         </a>
         <span class="text-slate-300">/</span>
-        <span class="font-semibold text-slate-800">管理员面板</span>
+        <span class="nav-title">管理员面板</span>
       </div>
       <form method="post" action="/teacher/logout">
-        <button class="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">退出</button>
+        <button class="nav-action" type="submit">退出</button>
       </form>
     </div>
   </header>
@@ -37,7 +74,7 @@
     <div id="msg" class="hidden px-4 py-3 rounded-xl text-sm font-medium"></div>
 
     <!-- 教师列表 -->
-    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+    <div class="card overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
         <p class="text-sm font-medium text-slate-700">教师账号</p>
         <span class="text-xs text-slate-400">{{ teachers | length }} 个账号</span>
@@ -70,7 +107,7 @@
     </div>
 
     <!-- 创建教师 -->
-    <div class="bg-white rounded-2xl border border-slate-100 p-5">
+    <div class="card p-5">
       <p class="text-sm font-medium text-slate-700 mb-4">创建教师账号</p>
       <div class="space-y-3">
         <div>
@@ -90,10 +127,7 @@
             class="w-4 h-4 rounded border-slate-300 text-slate-800 focus:ring-slate-800" />
           <label for="isAdminCheck" class="text-sm text-slate-600">设为管理员</label>
         </div>
-        <button id="createTeacherBtn"
-          class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-xl transition">
-          创建账号
-        </button>
+        <button id="createTeacherBtn" class="btn btn-primary w-full py-2.5">创建账号</button>
       </div>
     </div>
 
