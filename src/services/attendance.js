@@ -241,6 +241,19 @@ export async function getSessionDetail(sessionId) {
   })
 }
 
+export async function getSessionDetailForTeacher(sessionId, teacherId, isAdmin = false) {
+  const session = await getSessionDetail(sessionId)
+  if (!session) {
+    return { ok: false, message: '批次不存在', status: 404 }
+  }
+
+  if (!isAdmin && session.class?.teacherId !== teacherId) {
+    return { ok: false, message: '无权限', status: 403 }
+  }
+
+  return { ok: true, session }
+}
+
 /**
  * 删除该班级的所有签到记录和所有学生
  * @param {number} classId

@@ -1,5 +1,14 @@
 import { prisma } from '../plugins/db.js'
 
+function currentSignInRecordWhere(student) {
+  return {
+    OR: [
+      { studentId: student.id },
+      { classId: student.classId, studentName: student.name, studentId: null },
+    ],
+  }
+}
+
 /**
  * 校验 studentId 归属 teacherId 管辖的班级
  */
@@ -30,6 +39,10 @@ export async function updateStudent(studentId, data, teacherId, isAdmin = false)
   const newName = data.name?.trim() ?? student.name
   const newHomeClass = data.homeClass !== undefined ? data.homeClass.trim() : student.homeClass
 
+  if (!newName) {
+    return { ok: false, message: '学生姓名不能为空', status: 400 }
+  }
+
   // 同班姓名唯一性校验
   if (newName !== student.name) {
     const dup = await prisma.student.findFirst({
@@ -38,11 +51,31 @@ export async function updateStudent(studentId, data, teacherId, isAdmin = false)
     if (dup) return { ok: false, message: '该姓名在本班已存在', status: 409 }
   }
 
-  const updated = await prisma.student.update({
-    where: { id: studentId },
-    data: { name: newName, homeClass: newHomeClass },
-  })
-  return { ok: true, student: updated }
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      if (newName !== student.name) {
+        await tx.signInRecord.updateMany({
+          where: currentSignInRecordWhere(student),
+          data: {
+            studentName: newName,
+            studentId: student.id,
+          },
+        })
+      }
+
+      return tx.student.update({
+        where: { id: studentId },
+        data: { name: newName, homeClass: newHomeClass },
+      })
+    })
+
+    return { ok: true, student: updated }
+  } catch (err) {
+    if (err.code === 'P2002') {
+      return { ok: false, message: '当前签到中已存在同名记录，请先处理签到记录后再重试', status: 409 }
+    }
+    throw err
+  }
 }
 
 /**
@@ -57,7 +90,7 @@ export async function deleteStudent(studentId, teacherId, isAdmin = false) {
 
   const { student } = check
   await prisma.$transaction([
-    prisma.signInRecord.deleteMany({ where: { classId: student.classId, studentName: student.name } }),
+    prisma.signInRecord.deleteMany({ where: currentSignInRecordWhere(student) }),
     prisma.student.delete({ where: { id: studentId } }),
   ])
   return { ok: true }
@@ -78,7 +111,7 @@ export async function transferStudent(studentId, targetClassId, teacherId, isAdm
 
   // 校验目标班级归属
   const targetClass = await prisma.class.findUnique({ where: { id: targetClassId } })
-  if (!targetClass) return { ok: false, message: '目标班级不存在', status: 403 }
+  if (!targetClass) return { ok: false, message: '目标班级不存在', status: 404 }
   if (!isAdmin && targetClass.teacherId !== teacherId) {
     return { ok: false, message: '无权限操作目标班级', status: 403 }
   }
@@ -88,7 +121,7 @@ export async function transferStudent(studentId, targetClassId, teacherId, isAdm
   if (dup) return { ok: false, message: '目标班级中已存在同名学生', status: 409 }
 
   await prisma.$transaction([
-    prisma.signInRecord.deleteMany({ where: { classId: student.classId, studentName: student.name } }),
+    prisma.signInRecord.deleteMany({ where: currentSignInRecordWhere(student) }),
     prisma.student.update({ where: { id: studentId }, data: { classId: targetClassId } }),
   ])
   return { ok: true }

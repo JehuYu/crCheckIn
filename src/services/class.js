@@ -63,8 +63,34 @@ export async function assertClassOwner(classId, teacherId, isAdmin = false) {
   return cls
 }
 
+export async function deleteClassesCascadeWithTx(tx, classIds) {
+  if (classIds.length === 0) return
+
+  const sessions = await tx.signInSession.findMany({
+    where: { classId: { in: classIds } },
+    select: { id: true },
+  })
+  const sessionIds = sessions.map((session) => session.id)
+
+  if (sessionIds.length > 0) {
+    await tx.archivedRecord.deleteMany({ where: { sessionId: { in: sessionIds } } })
+  }
+
+  await tx.signInSession.deleteMany({ where: { classId: { in: classIds } } })
+  await tx.signInConfig.deleteMany({ where: { classId: { in: classIds } } })
+  await tx.signInRecord.deleteMany({ where: { classId: { in: classIds } } })
+  await tx.student.deleteMany({ where: { classId: { in: classIds } } })
+  await tx.class.deleteMany({ where: { id: { in: classIds } } })
+}
+
+export async function deleteClassesCascade(classIds) {
+  await prisma.$transaction(async (tx) => {
+    await deleteClassesCascadeWithTx(tx, classIds)
+  })
+}
+
 /**
- * 删除班级，级联删除 SignInConfig → SignInRecord → Student → Class。
+ * 删除班级，级联删除历史归档、当前签到、配置与学生记录。
  * @param {number} classId
  * @param {number} teacherId
  * @param {boolean} [isAdmin=false]
@@ -72,9 +98,5 @@ export async function assertClassOwner(classId, teacherId, isAdmin = false) {
  */
 export async function deleteClass(classId, teacherId, isAdmin = false) {
   await assertClassOwner(classId, teacherId, isAdmin)
-
-  await prisma.signInConfig.deleteMany({ where: { classId } })
-  await prisma.signInRecord.deleteMany({ where: { classId } })
-  await prisma.student.deleteMany({ where: { classId } })
-  await prisma.class.delete({ where: { id: classId } })
+  await deleteClassesCascade([classId])
 }

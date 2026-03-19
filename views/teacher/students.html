@@ -131,7 +131,7 @@ async function saveEdit(id) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, homeClass }),
   })
-  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
   if (!data.ok) { notify(data.message, false); return }
   const row = document.getElementById(`row-${id}`)
@@ -144,7 +144,7 @@ async function saveEdit(id) {
 async function confirmDelete(id, name) {
   if (!confirm(`确认删除学生「${name}」？`)) return
   const res = await fetch(`/api/students/${id}`, { method: 'DELETE' })
-  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
   if (!data.ok) { notify(data.message, false); return }
   document.getElementById(`row-${id}`).remove()
@@ -171,7 +171,7 @@ async function doTransfer() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ targetClassId: parseInt(targetClassId) }),
   })
-  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
   closeTransfer()
   if (!data.ok) { notify(data.message, false); return }

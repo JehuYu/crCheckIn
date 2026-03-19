@@ -297,7 +297,7 @@ function notify(text, ok = true) {
 }
 
 async function parseResponse(res) {
-  if (res.status === 401) { window.location.href = '/teacher/login'; return null }
+  if (res.status === 401) { window.location.href = '/student'; return null }
   if (!res.ok) { const t = await res.text(); console.error('API error', res.status, t); return null }
   return res.json()
 }
@@ -400,7 +400,7 @@ async function loadStats() {
   const content = document.getElementById('statsContent')
   content.innerHTML = '<div class="py-8 text-center text-sm text-slate-400">加载中...</div>'
   const res = await fetch('/api/stats?classId=' + CLASS_ID)
-  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
   if (!data.students || !data.students.length) {
     content.innerHTML = '<div class="py-8 text-center text-sm text-slate-400">暂无历史批次数据</div>'; return
@@ -433,7 +433,7 @@ async function loadStats() {
 async function revokeRecord(recordId, btn) {
   if (!confirm('确认撤销该签到记录？')) return
   const res = await fetch('/api/signin/' + recordId, { method: 'DELETE' })
-  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
   if (!data.ok) { notify(data.message, false); return }
   btn.closest('tr').remove()

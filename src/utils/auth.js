@@ -13,7 +13,7 @@ export function isTeacherLoggedIn(request) {
  * Fastify preHandler 钩子：要求教师登录。
  * - 已登录：继续执行
  * - 未登录 + /api/ 路径：reply 401 JSON
- * - 未登录 + 页面路径：redirect /teacher/login
+ * - 未登录 + 页面路径：redirect /student
  * @param {import('fastify').FastifyRequest} request
  * @param {import('fastify').FastifyReply} reply
  */
@@ -24,7 +24,7 @@ export async function teacherRequired(request, reply) {
   if (request.url.startsWith('/api/')) {
     reply.code(401).send({ ok: false, message: '请先登录教师端。' })
   } else {
-    reply.redirect('/teacher/login')
+    reply.redirect('/student')
   }
 }
 
@@ -54,7 +54,7 @@ export async function classOwnerRequired(request, reply) {
     if (request.url.startsWith('/api/')) {
       return reply.code(401).send({ ok: false, message: '请先登录教师端。' })
     }
-    return reply.redirect('/teacher/login')
+    return reply.redirect('/student')
   }
 
   const rawClassId =

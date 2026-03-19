@@ -1,4 +1,3 @@
-import { verifyTeacher } from '../services/auth.js'
 import { getClasses } from '../services/class.js'
 import { isTeacherLoggedIn, teacherRequired, classOwnerRequired } from '../utils/auth.js'
 import { prisma } from '../plugins/db.js'
@@ -8,17 +7,17 @@ export default async function teacherRoutes(app) {
     if (isTeacherLoggedIn(request)) {
       return reply.redirect('/teacher/classes')
     }
-    return reply.view('teacher/login.html')
+    return reply.redirect('/student')
   })
 
   app.post('/teacher/login', async (request, reply) => {
-    return reply.redirect('/teacher/login')
+    return reply.redirect('/student')
   })
 
   app.post('/teacher/logout', async (request, reply) => {
     request.session.teacherId = null
     request.session.isAdmin = null
-    return reply.redirect('/teacher/login')
+    return reply.redirect('/student')
   })
 
   app.get('/teacher', async (request, reply) => {

@@ -129,7 +129,7 @@ document.getElementById('createTeacherBtn').addEventListener('click', async () =
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password, isAdmin })
   })
-  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
   if (data.ok) {
     window.location.reload()
@@ -141,7 +141,7 @@ document.getElementById('createTeacherBtn').addEventListener('click', async () =
 async function deleteTeacher(id, username) {
   if (!confirm(`确认删除教师账号「${username}」？此操作将同时删除其所有班级和数据，不可恢复。`)) return
   const res = await fetch(`/admin/teachers/${id}`, { method: 'DELETE' })
-  if (res.status === 401) { window.location.href = '/teacher/login'; return }
+  if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
   if (data.ok) {
     window.location.reload()

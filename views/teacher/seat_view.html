@@ -234,7 +234,7 @@ async function pollSeatGrid() {
   if (paused) return
   try {
     const res = await fetch('/api/seat-grid?classId=' + CLASS_ID)
-    if (res.status === 401) { window.location.href = '/teacher/login'; return }
+    if (res.status === 401) { window.location.href = '/student'; return }
     if (!res.ok) throw new Error('HTTP ' + res.status)
     const data = await res.json()
     const badge = document.querySelector('header .bg-emerald-50')

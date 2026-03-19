@@ -1,20 +1,31 @@
 import { prisma } from '../plugins/db.js'
 
-export const SEAT_LAYOUT = [
-  [60, 59, null, null, null, null, 16, 15],
-  [58, 57, 44, 43, 30, 29, 14, 13],
-  [56, 55, 42, 41, 28, 27, 12, 11],
-  [54, 53, 40, 39, 26, 25, 10, 9],
-  [52, 51, 38, 37, 24, 23, 8, 7],
-  [50, 49, 36, 35, 22, 21, 6, 5],
-  [48, 47, 34, 33, 20, 19, 4, 3],
-  [46, 45, 32, 31, 18, 17, 2, 1],
+export const TEACHER_SEAT_LAYOUT = [
+  [60, 59, 44, 43, 30, 29, 16, 15],
+  [58, 57, 42, 41, 28, 27, 14, 13],
+  [56, 55, 40, 39, 26, 25, 12, 11],
+  [54, 53, 38, 37, 24, 23, 10, 9],
+  [52, 51, 36, 35, 22, 21, 8, 7],
+  [50, 49, 34, 33, 20, 19, 6, 5],
+  [48, 47, 32, 31, 18, 17, 4, 3],
+  [46, 45, null, null, null, null, 2, 1],
+]
+
+export const STUDENT_SEAT_LAYOUT = [
+  [1, 2, null, null, null, null, 45, 46],
+  [3, 4, 17, 18, 31, 32, 47, 48],
+  [5, 6, 19, 20, 33, 34, 49, 50],
+  [7, 8, 21, 22, 35, 36, 51, 52],
+  [9, 10, 23, 24, 37, 38, 53, 54],
+  [11, 12, 25, 26, 39, 40, 55, 56],
+  [13, 14, 27, 28, 41, 42, 57, 58],
+  [15, 16, 29, 30, 43, 44, 59, 60],
 ]
 
 // 学生视角：过道在列索引 1, 3, 5 右侧
 export const AISLE_AFTER_COLS_STUDENT = new Set([1, 3, 5])
-// 教师视角（行列均反转后）：过道在列索引 2, 4, 6 右侧
-export const AISLE_AFTER_COLS_TEACHER = new Set([2, 4, 6])
+// 教师视角：同样在列索引 1, 3, 5 右侧留过道
+export const AISLE_AFTER_COLS_TEACHER = new Set([1, 3, 5])
 
 /**
  * 从签到记录构建 seatToStudents Map
@@ -54,20 +65,17 @@ function buildCell(seatNo, seatToStudents) {
 }
 
 /**
- * 学生视角网格（背对讲台，讲台在下方）
+ * 学生视角网格（讲台在上方，按学生查看习惯排列）
  */
 export async function getSeatGrid(classId) {
   const seatToStudents = await buildSeatMap(classId)
-  return SEAT_LAYOUT.map((row) => row.map((seatNo) => buildCell(seatNo, seatToStudents)))
+  return STUDENT_SEAT_LAYOUT.map((row) => row.map((seatNo) => buildCell(seatNo, seatToStudents)))
 }
 
 /**
- * 教师视角网格（面对学生，讲台在上方，行列均反转）
+ * 教师视角网格（讲台在下方，按教师查看习惯排列）
  */
 export async function getSeatGridTeacher(classId) {
   const seatToStudents = await buildSeatMap(classId)
-  // 行反转（最近讲台的行在最上），列反转（左右镜像）
-  return [...SEAT_LAYOUT].reverse().map((row) =>
-    [...row].reverse().map((seatNo) => buildCell(seatNo, seatToStudents))
-  )
+  return TEACHER_SEAT_LAYOUT.map((row) => row.map((seatNo) => buildCell(seatNo, seatToStudents)))
 }

@@ -3,9 +3,15 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
+    "db:deploy": "node prisma/deploy.js",
+    "start": "pm2 startOrRestart ecosystem.config.cjs --env production",
+    "start:direct": "node server.js",
     "dev": "node --watch server.js",
-    "build:css": "tailwindcss -i tailwind.input.css -o public/tailwind.min.css --minify --content \"views/**/*.html\""
+    "build:css": "tailwindcss -i tailwind.input.css -o public/tailwind.min.css --minify --content \"views/**/*.html\"",
+    "pm2:restart": "pm2 restart crCheckIn --update-env",
+    "pm2:stop": "pm2 delete crCheckIn",
+    "pm2:logs": "pm2 logs crCheckIn",
+    "pm2:status": "pm2 status"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -23,6 +29,7 @@
     "fastify": "^4.0.0",
     "fastify-plugin": "^5.1.0",
     "nunjucks": "^3.2.4",
+    "pm2": "^6.0.14",
     "prisma": "^5.0.0"
   },
   "devDependencies": {

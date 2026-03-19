@@ -26,6 +26,7 @@ Thumbs.db
 # 日志
 *.log
 npm-debug.log*
+.pm2/
 
 # 构建产物
 dist/

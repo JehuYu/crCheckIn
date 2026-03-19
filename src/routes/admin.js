@@ -1,4 +1,5 @@
 import { createTeacher } from '../services/auth.js'
+import { deleteClassesCascadeWithTx } from '../services/class.js'
 import { adminRequired } from '../utils/auth.js'
 import { prisma } from '../plugins/db.js'
 
@@ -40,15 +41,14 @@ export default async function adminRoutes(app) {
       return reply.code(403).send({ ok: false, message: '不允许删除管理员账号' })
     }
 
-    // 级联删除：SignInConfig、SignInRecord、Student、Class，再删 Teacher
+    // 级联删除班级下的归档/当前签到/学生数据，再删 Teacher
     const classes = await prisma.class.findMany({ where: { teacherId: id }, select: { id: true } })
     const classIds = classes.map(c => c.id)
 
-    await prisma.signInConfig.deleteMany({ where: { classId: { in: classIds } } })
-    await prisma.signInRecord.deleteMany({ where: { classId: { in: classIds } } })
-    await prisma.student.deleteMany({ where: { classId: { in: classIds } } })
-    await prisma.class.deleteMany({ where: { teacherId: id } })
-    await prisma.teacher.delete({ where: { id } })
+    await prisma.$transaction(async (tx) => {
+      await deleteClassesCascadeWithTx(tx, classIds)
+      await tx.teacher.delete({ where: { id } })
+    })
 
     return reply.send({ ok: true })
   })

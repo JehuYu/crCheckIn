@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs'
 import { prisma } from '../plugins/db.js'
-import { SEAT_LAYOUT } from './seat.js'
+import { STUDENT_SEAT_LAYOUT, TEACHER_SEAT_LAYOUT } from './seat.js'
 
 /**
  * 格式化 Date 为 "YYYY-MM-DD HH:mm:ss"
@@ -181,7 +181,7 @@ export async function exportRecordsToExcel(classId) {
 
 /**
  * 导出教学班座位表 — 按实际座位网格排列，可直接打印
- * 教师视角（行列均反转），讲台在下方
+ * 教师视角，讲台在下方
  * @param {number} classId
  * @returns {Promise<Buffer>}
  */
@@ -211,8 +211,7 @@ export async function exportSeatTableToExcel(classId) {
     seatMap.get(n).push({ name: rec.studentName, homeClass })
   }
 
-  // 教师视角：行列均反转
-  const teacherLayout = [...SEAT_LAYOUT].reverse().map((row) => [...row].reverse())
+  const teacherLayout = TEACHER_SEAT_LAYOUT
 
   const workbook = new ExcelJS.Workbook()
   workbook.creator = 'Lab Attendance'
@@ -311,7 +310,7 @@ export async function exportSeatTableToExcel(classId) {
   podiumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
 
   // ── 学生视角工作表 ──────────────────────────────────────────────
-  // 学生视角：原始布局，讲台在下，过道在列索引 1,3,5 之后
+  // 学生视角：讲台在上，过道在列索引 1,3,5 之后
   // Excel 列映射同教师视角（两者过道位置相同）
   const ws2 = workbook.addWorksheet('座位表（学生视角）', {
     pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
@@ -347,8 +346,8 @@ export async function exportSeatTableToExcel(classId) {
   ws2Podium.alignment = { horizontal: 'center', vertical: 'middle' }
   ws2Podium.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
 
-  // 座位行（从第4行开始，原始布局）
-  SEAT_LAYOUT.forEach((row, rowIdx) => {
+  // 座位行（从第4行开始）
+  STUDENT_SEAT_LAYOUT.forEach((row, rowIdx) => {
     const excelRow = rowIdx + 4
     ws2.getRow(excelRow).height = 42
 
@@ -410,22 +409,30 @@ export async function exportSeatTableToExcel(classId) {
  * @returns {Promise<{studentId, studentName, homeClass, classId, className}[]>}
  */
 export async function matchStudents(query, limit = 15, classId = null) {
-  const where = classId ? { classId } : {}
+  const keyword = query.trim()
+  if (!keyword) return []
+
+  const where = {
+    ...(classId ? { classId } : {}),
+    name: { contains: keyword },
+  }
+
   const students = await prisma.student.findMany({
     where,
     include: { class: true },
+    orderBy: [
+      { name: 'asc' },
+      { id: 'asc' },
+    ],
+    take: limit,
   })
-  const lower = query.toLowerCase()
-  return students
-    .filter((s) => s.name.toLowerCase().includes(lower))
-    .slice(0, limit)
-    .map((s) => ({
-      studentId: s.id,
-      studentName: s.name,
-      homeClass: s.homeClass,
-      classId: s.classId,
-      className: s.class.name,
-    }))
+  return students.map((s) => ({
+    studentId: s.id,
+    studentName: s.name,
+    homeClass: s.homeClass,
+    classId: s.classId,
+    className: s.class.name,
+  }))
 }
 
 /**

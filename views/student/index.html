@@ -176,7 +176,7 @@ signinBtn.addEventListener('click', async () => {
   signinBtn.textContent = '提交中…'
 
   try {
-    // 先尝试教师口令登录
+    // 先尝试教师/管理员口令登录
     const loginRes = await fetch('/api/teacher-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
