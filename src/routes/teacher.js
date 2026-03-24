@@ -96,8 +96,8 @@ export default async function teacherRoutes(app) {
       studentGridJson: JSON.stringify(studentGrid),
       teacherGridJson: JSON.stringify(teacherGrid),
       signedCount,
-      showExport: false,
-      exportHref: null,
+      showExport: true,
+      exportHref: `/api/sessions/${sessionId}/export-seats`,
       showRefreshControls: false,
       showRefreshControlsJson: JSON.stringify(false),
     })

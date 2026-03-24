@@ -1,17 +1,7 @@
 import ExcelJS from 'exceljs'
 import { prisma } from '../plugins/db.js'
 import { STUDENT_SEAT_LAYOUT, TEACHER_SEAT_LAYOUT } from './seat.js'
-
-/**
- * 格式化 Date 为 "YYYY-MM-DD HH:mm:ss"
- */
-function fmtSecond(date) {
-  const pad = (n) => String(n).padStart(2, '0')
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-  )
-}
+import { formatSecond } from '../utils/time.js'
 
 /**
  * 行政班级格式化：没有"班"字则补上
@@ -134,7 +124,7 @@ export async function exportRecordsToExcel(classId) {
   // 统计行
   ws.mergeCells('A2:E2')
   const statCell = ws.getCell('A2')
-  statCell.value = `共 ${totalCount} 人 · 已签到 ${signedCount} 人 · 未签到 ${totalCount - signedCount} 人    导出时间：${fmtSecond(new Date())}`
+  statCell.value = `共 ${totalCount} 人 · 已签到 ${signedCount} 人 · 未签到 ${totalCount - signedCount} 人    导出时间：${formatSecond(new Date())}`
   statCell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
   statCell.alignment = { horizontal: 'center', vertical: 'middle' }
   statCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } }
@@ -160,7 +150,7 @@ export async function exportRecordsToExcel(classId) {
       student.name,
       signed ? '✓ 已签到' : '✗ 未签到',
       rec ? rec.computerName : '',
-      rec ? fmtSecond(new Date(rec.signedAt)) : '',
+      rec ? formatSecond(new Date(rec.signedAt)) : '',
     ])
     dataRow.height = 20
     const isEven = rowIdx % 2 === 0
@@ -241,7 +231,7 @@ export async function exportSeatTableToExcel(classId) {
   // 统计行
   ws.mergeCells(2, 1, 2, TOTAL_COLS)
   const s2Cell = ws.getCell(2, 1)
-  s2Cell.value = `已签到 ${records.length} 人    导出时间：${fmtSecond(new Date())}`
+  s2Cell.value = `已签到 ${records.length} 人    导出时间：${formatSecond(new Date())}`
   s2Cell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
   s2Cell.alignment = { horizontal: 'center', vertical: 'middle' }
   ws.getRow(2).height = 18
@@ -332,7 +322,7 @@ export async function exportSeatTableToExcel(classId) {
   // 统计行
   ws2.mergeCells(2, 1, 2, TOTAL_COLS)
   const ws2Stat = ws2.getCell(2, 1)
-  ws2Stat.value = `已签到 ${records.length} 人    导出时间：${fmtSecond(new Date())}`
+  ws2Stat.value = `已签到 ${records.length} 人    导出时间：${formatSecond(new Date())}`
   ws2Stat.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
   ws2Stat.alignment = { horizontal: 'center', vertical: 'middle' }
   ws2.getRow(2).height = 18
@@ -438,10 +428,20 @@ export async function matchStudents(query, limit = 15, classId = null) {
 /**
  * 导出历史批次签到记录为 Excel
  * @param {import('@prisma/client').SignInSession & { records: ArchivedRecord[], class: { name: string } }} session
+ * @param {Array<{studentName: string, homeClass: string, status: string, signedAt: string, computerName: string}>} [roster]
  * @returns {Promise<Buffer>}
  */
-export async function exportSessionToExcel(session) {
+export async function exportSessionToExcel(session, roster = null) {
   const records = session.records ?? []
+  const rows = Array.isArray(roster)
+    ? roster
+    : records.map((rec) => ({
+      studentName: rec.studentName,
+      homeClass: rec.homeClass || '',
+      status: '已签到',
+      signedAt: rec.signedAt ? formatSecond(new Date(rec.signedAt)) : '-',
+      computerName: rec.computerName ?? '-',
+    }))
   const className = session.class?.name ?? ''
 
   const workbook = new ExcelJS.Workbook()
@@ -453,12 +453,13 @@ export async function exportSessionToExcel(session) {
   ws.columns = [
     { key: 'homeClass', width: 16 },
     { key: 'name', width: 12 },
+    { key: 'status', width: 10 },
     { key: 'signedAt', width: 22 },
     { key: 'computerName', width: 22 },
   ]
 
-  // 第1行：标题行，合并 A1:D1
-  ws.mergeCells('A1:D1')
+  // 第1行：标题行，合并 A1:E1
+  ws.mergeCells('A1:E1')
   const titleCell = ws.getCell('A1')
   titleCell.value = `${className}  ${session.label}`
   titleCell.font = { name: '微软雅黑', bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
@@ -466,17 +467,18 @@ export async function exportSessionToExcel(session) {
   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
   ws.getRow(1).height = 36
 
-  // 第2行：统计行，合并 A2:D2
-  ws.mergeCells('A2:D2')
+  // 第2行：统计行，合并 A2:E2
+  ws.mergeCells('A2:E2')
   const statCell = ws.getCell('A2')
-  statCell.value = `共签到 ${records.length} 人    归档时间：${fmtSecond(new Date(session.archivedAt))}`
+  const signedCount = rows.filter(r => r.status === '已签到').length
+  statCell.value = `共 ${rows.length} 人 · 已签到 ${signedCount} 人 · 未签到 ${rows.length - signedCount} 人    归档时间：${formatSecond(new Date(session.archivedAt))}`
   statCell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
   statCell.alignment = { horizontal: 'center', vertical: 'middle' }
   statCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } }
   ws.getRow(2).height = 20
 
   // 第3行：表头
-  const headerRow = ws.addRow(['行政班级', '姓名', '签到时间', '计算机 IP'])
+  const headerRow = ws.addRow(['行政班级', '姓名', '签到状态', '签到时间', '计算机 IP'])
   headerRow.height = 24
   headerRow.eachCell((cell) => {
     cell.font = { name: '微软雅黑', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
@@ -486,24 +488,139 @@ export async function exportSessionToExcel(session) {
   })
 
   // 第4行起：数据行
-  records.forEach((rec, idx) => {
+  rows.forEach((rec, idx) => {
     const isEven = idx % 2 === 0
+    const isSigned = rec.status === '已签到'
     const dataRow = ws.addRow([
       fmtHomeClass(rec.homeClass),
       rec.studentName,
-      rec.signedAt ? fmtSecond(new Date(rec.signedAt)) : '',
-      rec.computerName ?? '',
+      isSigned ? '✓ 已签到' : '✗ 未签到',
+      isSigned ? (rec.signedAt || '-') : '-',
+      isSigned ? (rec.computerName ?? '-') : '-',
     ])
     dataRow.height = 20
     dataRow.eachCell((cell, colNumber) => {
-      cell.font = { name: '微软雅黑', size: 10, color: { argb: 'FF1E293B' } }
+      cell.font = { name: '微软雅黑', size: 10, color: { argb: isSigned ? 'FF1E293B' : 'FF94A3B8' } }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' } }
       cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle' }
       cell.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } }
     })
-    // 姓名列绿色加粗
-    dataRow.getCell(2).font = { name: '微软雅黑', size: 10, bold: true, color: { argb: 'FF059669' } }
+    if (isSigned) {
+      dataRow.getCell(2).font = { name: '微软雅黑', size: 10, bold: true, color: { argb: 'FF059669' } }
+    }
   })
+
+  return workbook.xlsx.writeBuffer()
+}
+
+/**
+ * 导出历史批次座位表（教师/学生双视角）
+ * @param {import('@prisma/client').SignInSession & { records: ArchivedRecord[], class: { name: string } }} session
+ * @returns {Promise<Buffer>}
+ */
+export async function exportSessionSeatTableToExcel(session) {
+  const className = session.class?.name ?? ''
+  const records = session.records ?? []
+
+  const seatMap = new Map()
+  for (const rec of records) {
+    const parts = (rec.computerName || '').split('.')
+    if (parts.length !== 4) continue
+    const n = Number(parts[parts.length - 1])
+    if (!Number.isInteger(n) || n < 1 || n > 60) continue
+    if (!seatMap.has(n)) seatMap.set(n, [])
+    seatMap.get(n).push({ name: rec.studentName, homeClass: rec.homeClass ?? '' })
+  }
+
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'Lab Attendance'
+
+  const buildSeatSheet = (sheetName, layout, title, podiumText, seatStartRow) => {
+    const TOTAL_COLS = 11
+    const COL_MAP = [1, 2, 4, 5, 7, 8, 10, 11]
+    const ws = workbook.addWorksheet(sheetName, {
+      pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
+    })
+
+    for (let col = 1; col <= TOTAL_COLS; col++) {
+      ws.getColumn(col).width = [3, 6, 9].includes(col) ? 2 : 11
+    }
+
+    ws.mergeCells(1, 1, 1, TOTAL_COLS)
+    const titleCell = ws.getCell(1, 1)
+    titleCell.value = title
+    titleCell.font = { name: '微软雅黑', bold: true, size: 14, color: { argb: 'FF1E293B' } }
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+    ws.getRow(1).height = 34
+
+    ws.mergeCells(2, 1, 2, TOTAL_COLS)
+    const statCell = ws.getCell(2, 1)
+    statCell.value = `已签到 ${records.length} 人    导出时间：${formatSecond(new Date())}`
+    statCell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
+    statCell.alignment = { horizontal: 'center', vertical: 'middle' }
+    ws.getRow(2).height = 18
+
+    if (seatStartRow === 4) {
+      ws.getRow(3).height = 24
+      ws.mergeCells(3, 1, 3, TOTAL_COLS)
+      const podiumCell = ws.getCell(3, 1)
+      podiumCell.value = podiumText
+      podiumCell.font = { name: '微软雅黑', bold: true, size: 11, color: { argb: 'FF475569' } }
+      podiumCell.alignment = { horizontal: 'center', vertical: 'middle' }
+      podiumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+    }
+
+    layout.forEach((row, rowIdx) => {
+      const excelRow = rowIdx + seatStartRow
+      ws.getRow(excelRow).height = 42
+      row.forEach((seatNo, colIdx) => {
+        const excelCol = COL_MAP[colIdx]
+        const cell = ws.getCell(excelRow, excelCol)
+        if (seatNo === null) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+          return
+        }
+        const students = seatMap.get(seatNo) ?? []
+        const signed = students.length > 0
+        const dupIp = students.length > 1
+        if (dupIp) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }
+        else if (signed) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }
+        else cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } }
+        cell.border = {
+          top: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: signed ? 'FF6EE7B7' : 'FFE2E8F0' } },
+        }
+        if (signed) {
+          const stu = students[0]
+          const displayName = dupIp ? students.map((s) => s.name).join('/') : stu.name
+          const hc = dupIp ? '' : fmtHomeClass(stu.homeClass)
+          cell.value = hc ? `${displayName}\n${hc}` : displayName
+          cell.font = { name: '微软雅黑', size: dupIp ? 8 : 10, bold: !dupIp, color: { argb: dupIp ? 'FFDC2626' : 'FF065F46' } }
+        } else {
+          cell.value = `${seatNo}`
+          cell.font = { name: '微软雅黑', size: 9, color: { argb: 'FFCBD5E1' } }
+        }
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+      })
+    })
+
+    if (seatStartRow === 3) {
+      const podiumRow = layout.length + 3
+      ws.getRow(podiumRow).height = 24
+      ws.mergeCells(podiumRow, 1, podiumRow, TOTAL_COLS)
+      const podiumCell = ws.getCell(podiumRow, 1)
+      podiumCell.value = podiumText
+      podiumCell.font = { name: '微软雅黑', bold: true, size: 11, color: { argb: 'FF475569' } }
+      podiumCell.alignment = { horizontal: 'center', vertical: 'middle' }
+      podiumCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+    }
+  }
+
+  buildSeatSheet('座位表（教师视角）', TEACHER_SEAT_LAYOUT, `${className}  ${session.label}（教师视角）`, '▲  讲  台  ▲', 3)
+  buildSeatSheet('座位表（学生视角）', STUDENT_SEAT_LAYOUT, `${className}  ${session.label}（学生视角）`, '▼  讲  台  ▼', 4)
 
   return workbook.xlsx.writeBuffer()
 }
@@ -543,7 +660,7 @@ export async function exportStatsToExcel(stats, cls) {
   // 统计行
   ws.mergeCells('A2:E2')
   const statCell = ws.getCell('A2')
-  statCell.value = `共 ${students.length} 名学生    导出时间：${fmtSecond(new Date())}`
+  statCell.value = `共 ${students.length} 名学生    导出时间：${formatSecond(new Date())}`
   statCell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
   statCell.alignment = { horizontal: 'center', vertical: 'middle' }
   statCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } }
