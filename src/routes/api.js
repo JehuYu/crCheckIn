@@ -1,5 +1,5 @@
 import { teacherRequired, classOwnerRequired } from '../utils/auth.js'
-import { parseDt } from '../utils/time.js'
+import { parseDt, nowParts } from '../utils/time.js'
 import { resolveClientName } from '../utils/ip.js'
 import {
   signIn,
@@ -12,6 +12,7 @@ import {
   deleteSession,
   getAttendanceStats,
   deleteSignInRecord,
+  getSessionRosterForTeacher,
 } from '../services/attendance.js'
 import {
   importStudentsFromExcel,
@@ -20,6 +21,7 @@ import {
   matchStudents,
   exportSessionToExcel,
   exportStatsToExcel,
+  exportSessionSeatTableToExcel,
 } from '../services/roster.js'
 import { createClass, deleteClass } from '../services/class.js'
 import { changePassword, verifyTeacherByPassword } from '../services/auth.js'
@@ -31,11 +33,11 @@ import { updateStudent, deleteStudent, transferStudent } from '../services/stude
  * @returns {string}
  */
 function nowTimestamp() {
-  const d = new Date()
+  const d = nowParts()
   const pad = (n) => String(n).padStart(2, '0')
   return (
-    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_` +
-    `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+    `${d.year}${pad(d.month)}${pad(d.day)}_` +
+    `${pad(d.hour)}${pad(d.minute)}${pad(d.second)}`
   )
 }
 
@@ -79,7 +81,15 @@ export default async function apiRoutes(fastify) {
     const isAdmin = request.session.isAdmin === true
     const result = await getSessionDetailForTeacher(sessionId, teacherId, isAdmin)
     if (!result.ok) return reply.code(result.status).send(result)
-    return reply.send(result.session)
+    const rosterResult = await getSessionRosterForTeacher(sessionId, teacherId, isAdmin)
+    if (!rosterResult.ok) return reply.code(rosterResult.status).send(rosterResult)
+    return reply.send({
+      ...result.session,
+      roster: rosterResult.roster,
+      signedCount: rosterResult.signedCount,
+      totalCount: rosterResult.totalCount,
+      absentCount: rosterResult.absentCount,
+    })
   })
 
   // GET /api/sessions/:sessionId/export — 导出历史批次 Excel，需要 teacherRequired
@@ -90,8 +100,26 @@ export default async function apiRoutes(fastify) {
     const result = await getSessionDetailForTeacher(sessionId, teacherId, isAdmin)
     if (!result.ok) return reply.code(result.status).send(result)
 
-    const buffer = await exportSessionToExcel(result.session)
+    const rosterResult = await getSessionRosterForTeacher(sessionId, teacherId, isAdmin)
+    if (!rosterResult.ok) return reply.code(rosterResult.status).send(rosterResult)
+    const buffer = await exportSessionToExcel(result.session, rosterResult.roster)
     const filename = `session_${sessionId}_${nowTimestamp()}.xlsx`
+    reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+    return reply.send(buffer)
+  })
+
+  // GET /api/sessions/:sessionId/export-seats — 导出历史批次座位表 Excel，需要 teacherRequired
+  fastify.get('/api/sessions/:sessionId/export-seats', { preHandler: teacherRequired }, async (request, reply) => {
+    const sessionId = parseInt(request.params.sessionId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const result = await getSessionDetailForTeacher(sessionId, teacherId, isAdmin)
+    if (!result.ok) return reply.code(result.status).send(result)
+
+    const buffer = await exportSessionSeatTableToExcel(result.session)
+    const filename = `session_seats_${sessionId}_${nowTimestamp()}.xlsx`
     reply
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       .header('Content-Disposition', `attachment; filename="${filename}"`)

@@ -1,31 +1,5 @@
 import { prisma } from '../plugins/db.js'
-
-/**
- * 格式化 Date 为 "YYYY-MM-DD HH:mm"
- * @param {Date|null} date
- * @returns {string|null}
- */
-function fmtMinute(date) {
-  if (!date) return null
-  const pad = (n) => String(n).padStart(2, '0')
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}`
-  )
-}
-
-/**
- * 格式化 Date 为 "YYYY-MM-DD HH:mm:ss"
- * @param {Date} date
- * @returns {string}
- */
-function fmtSecond(date) {
-  const pad = (n) => String(n).padStart(2, '0')
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-  )
-}
+import { formatMinute, formatSecond, nowParts } from '../utils/time.js'
 
 /**
  * 学生签到
@@ -116,7 +90,7 @@ export async function getClassStatus(classId) {
         homeClass: s.homeClass || '',
         status: '已签到',
         computerName: rec.computerName,
-        signedAt: fmtSecond(new Date(rec.signedAt)),
+        signedAt: formatSecond(new Date(rec.signedAt)),
       })
     } else {
       unsigned.push({
@@ -144,8 +118,8 @@ export async function getClassStatus(classId) {
     totalCount,
     absentCount,
     window: {
-      start: config ? fmtMinute(config.startTime ? new Date(config.startTime) : null) : null,
-      end: config ? fmtMinute(config.endTime ? new Date(config.endTime) : null) : null,
+      start: config ? formatMinute(config.startTime ? new Date(config.startTime) : null) : null,
+      end: config ? formatMinute(config.endTime ? new Date(config.endTime) : null) : null,
     },
   }
 }
@@ -154,13 +128,13 @@ export async function getClassStatus(classId) {
  * 生成批次标签，格式：2025-03-18 周二 上午 · 班级名
  */
 function makeSessionLabel(className) {
-  const now = new Date()
+  const now = nowParts()
   const pad = (n) => String(n).padStart(2, '0')
-  const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  const date = `${now.year}-${pad(now.month)}-${pad(now.day)}`
   const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-  const day = days[now.getDay()]
-  const hour = now.getHours()
-  const period = hour < 12 ? '上午' : hour < 18 ? '下午' : '晚上'
+  const day = days[now.weekDay]
+  const hour = now.hour
+  const period = hour < 12 ? '上午' : '下午'
   return `${date} ${day} ${period} · ${className}`
 }
 
@@ -252,6 +226,71 @@ export async function getSessionDetailForTeacher(sessionId, teacherId, isAdmin =
   }
 
   return { ok: true, session }
+}
+
+/**
+ * 获取历史批次点名名单（含已签到/未签到）
+ * 说明：未签到基于“当前班级学生名单 - 历史已签到名单”计算。
+ * @param {number} sessionId
+ * @param {number} teacherId
+ * @param {boolean} isAdmin
+ */
+export async function getSessionRosterForTeacher(sessionId, teacherId, isAdmin = false) {
+  const result = await getSessionDetailForTeacher(sessionId, teacherId, isAdmin)
+  if (!result.ok) return result
+
+  const session = result.session
+  const students = await prisma.student.findMany({
+    where: { classId: session.classId },
+    orderBy: [{ homeClass: 'asc' }, { name: 'asc' }],
+  })
+
+  const signedMap = new Map()
+  for (const rec of (session.records ?? [])) {
+    signedMap.set(rec.studentName, rec)
+  }
+  const studentNameSet = new Set(students.map(stu => stu.name))
+
+  const roster = students.map((stu) => {
+    const rec = signedMap.get(stu.name)
+    if (rec) {
+      return {
+        studentName: stu.name,
+        homeClass: stu.homeClass || '',
+        status: '已签到',
+        signedAt: rec.signedAt ? formatSecond(new Date(rec.signedAt)) : '-',
+        computerName: rec.computerName || '-',
+      }
+    }
+    return {
+      studentName: stu.name,
+      homeClass: stu.homeClass || '',
+      status: '未签到',
+      signedAt: '-',
+      computerName: '-',
+    }
+  })
+
+  const snapshotOnlySigned = (session.records ?? [])
+    .filter(rec => !studentNameSet.has(rec.studentName))
+    .map(rec => ({
+      studentName: rec.studentName,
+      homeClass: rec.homeClass || '',
+      status: '已签到',
+      signedAt: rec.signedAt ? formatSecond(new Date(rec.signedAt)) : '-',
+      computerName: rec.computerName || '-',
+    }))
+
+  roster.push(...snapshotOnlySigned)
+
+  return {
+    ok: true,
+    session,
+    roster,
+    signedCount: (session.records ?? []).length,
+    totalCount: roster.length,
+    absentCount: roster.filter(r => r.status === '未签到').length,
+  }
 }
 
 /**
