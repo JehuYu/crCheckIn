@@ -410,6 +410,7 @@
               <tr class="text-xs text-slate-400 border-b border-slate-100">
                 <th class="text-left px-5 py-3 font-medium">姓名</th>
                 <th class="text-left px-5 py-3 font-medium">行政班级</th>
+                <th class="text-left px-5 py-3 font-medium">签到状态</th>
                 <th class="text-left px-5 py-3 font-medium">计算机 IP</th>
                 <th class="text-left px-5 py-3 font-medium">签到时间</th>
               </tr>
@@ -564,12 +565,13 @@ async function openSession(sessionId, label) {
   const data = await parseResponse(res)
   if (!data) return
   document.getElementById('modalTitle').textContent = label
-  document.getElementById('modalBody').innerHTML = (data.records||[]).map(r => `
+  document.getElementById('modalBody').innerHTML = (data.roster||[]).map(r => `
     <tr class="border-b border-slate-50 last:border-0">
       <td class="px-5 py-3 text-slate-800">${r.studentName}</td>
       <td class="px-5 py-3 text-slate-400 text-xs">${formatHomeClass(r.homeClass)}</td>
-      <td class="px-5 py-3 font-mono text-xs text-slate-400">${r.computerName}</td>
-      <td class="px-5 py-3 text-slate-400 text-xs">${r.signedAt ? new Date(r.signedAt).toLocaleString('zh-CN') : '-'}</td>
+      <td class="px-5 py-3 text-xs ${r.status === '已签到' ? 'text-emerald-600' : 'text-slate-400'}">${r.status === '已签到' ? '✓ 已签到' : '✗ 未签到'}</td>
+      <td class="px-5 py-3 font-mono text-xs text-slate-400">${r.computerName || '-'}</td>
+      <td class="px-5 py-3 text-slate-400 text-xs">${r.signedAt || '-'}</td>
     </tr>`).join('')
   document.getElementById('sessionModal').classList.remove('hidden')
 }

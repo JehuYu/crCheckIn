@@ -2,6 +2,11 @@
 
 一个面向机房场景的本地签到系统，支持学生签到、教师班级管理、历史批次归档、座位表查看与 Excel 导入导出。
 
+
+## 项目导览
+
+如果你是第一次接触此项目，建议先阅读：[`docs/PROJECT_OVERVIEW.zh-CN.md`](./docs/PROJECT_OVERVIEW.zh-CN.md)。
+
 ## 功能特性
 
 - 学生端姓名搜索签到

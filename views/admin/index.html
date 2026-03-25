@@ -97,10 +97,14 @@
               <p class="text-xs text-slate-400 mt-0.5">{{ t.classCount }} 个班级</p>
             </div>
           </div>
-          {% if not t.isAdmin %}
-          <button onclick="deleteTeacher({{ t.id }}, '{{ t.username }}')"
-            class="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 transition flex-shrink-0 ml-4">删除</button>
-          {% endif %}
+          <div class="flex items-center gap-2 ml-4">
+            <button onclick="resetTeacherPassword({{ t.id }}, '{{ t.username }}')"
+              class="text-xs px-3 py-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition flex-shrink-0">改密</button>
+            {% if not t.isAdmin %}
+            <button onclick="deleteTeacher({{ t.id }}, '{{ t.username }}')"
+              class="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 transition flex-shrink-0">删除</button>
+            {% endif %}
+          </div>
         </li>
         {% endfor %}
       </ul>
@@ -181,6 +185,28 @@ async function deleteTeacher(id, username) {
     window.location.reload()
   } else {
     notify(data.message || '删除失败', false)
+  }
+}
+
+async function resetTeacherPassword(id, username) {
+  const password = prompt(`请输入教师账号「${username}」的新密码`)
+  if (password == null) return
+  const val = password.trim()
+  if (!val) {
+    notify('新密码不能为空', false)
+    return
+  }
+  const res = await fetch(`/admin/teachers/${id}/password`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: val }),
+  })
+  if (res.status === 401) { window.location.href = '/student'; return }
+  const data = await res.json()
+  if (data.ok) {
+    notify(`已重置 ${username} 的密码`, true)
+  } else {
+    notify(data.message || '重置密码失败', false)
   }
 }
 </script>
