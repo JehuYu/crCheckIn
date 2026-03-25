@@ -1,4 +1,4 @@
-import { createTeacher } from '../services/auth.js'
+import { createTeacher, resetTeacherPasswordByAdmin } from '../services/auth.js'
 import { deleteClassesCascadeWithTx } from '../services/class.js'
 import { adminRequired } from '../utils/auth.js'
 import { prisma } from '../plugins/db.js'
@@ -29,6 +29,16 @@ export default async function adminRoutes(app) {
       }
       throw err
     }
+  })
+
+  app.patch('/admin/teachers/:id/password', { preHandler: adminRequired }, async (request, reply) => {
+    const id = parseInt(request.params.id, 10)
+    const { password } = request.body ?? {}
+    const result = await resetTeacherPasswordByAdmin(id, password)
+    if (!result.ok) {
+      return reply.code(400).send(result)
+    }
+    return reply.send(result)
   })
 
   app.delete('/admin/teachers/:id', { preHandler: adminRequired }, async (request, reply) => {

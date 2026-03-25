@@ -55,10 +55,6 @@ export async function createTeacher(username, password, isAdmin = false) {
  * @returns {Promise<{ok: boolean, message: string}>}
  */
 export async function changePassword(teacherId, oldPassword, newPassword) {
-  if (newPassword.length < 6) {
-    return { ok: false, message: '新密码长度不能少于 6 位' }
-  }
-
   const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } })
   if (!teacher) return { ok: false, message: '教师不存在' }
 
@@ -72,4 +68,23 @@ export async function changePassword(teacherId, oldPassword, newPassword) {
   })
 
   return { ok: true, message: '密码修改成功' }
+}
+
+/**
+ * 管理员重置教师密码（无需旧密码）。
+ * @param {number} targetTeacherId
+ * @param {string} newPassword
+ * @returns {Promise<{ok: boolean, message: string}>}
+ */
+export async function resetTeacherPasswordByAdmin(targetTeacherId, newPassword) {
+  const teacher = await prisma.teacher.findUnique({ where: { id: targetTeacherId } })
+  if (!teacher) return { ok: false, message: '教师不存在' }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+  await prisma.teacher.update({
+    where: { id: targetTeacherId },
+    data: { passwordHash },
+  })
+
+  return { ok: true, message: '教师密码已重置' }
 }
