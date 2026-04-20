@@ -29,9 +29,11 @@ export default async function teacherRoutes(app) {
     const teacherId = request.session.teacherId
     const classes = await getClasses(teacherId)
     const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } })
+    const maxStudentCount = Math.max(...classes.map(c => c.studentCount), 1)
     return reply.view('teacher/classes.html', {
       classes,
       teacher: { id: teacher.id, username: teacher.username, isAdmin: teacher.isAdmin },
+      maxStudentCount,
     })
   })
 
@@ -41,6 +43,13 @@ export default async function teacherRoutes(app) {
     const isAdmin = request.session.isAdmin === true
     const cls = await prisma.class.findUnique({ where: { id: classId } })
     return reply.view('teacher/class.html', { cls, teacherId, isAdmin })
+  })
+
+  // 信息收集管理页
+  app.get('/teacher/info', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const cls = await prisma.class.findUnique({ where: { id: classId } })
+    return reply.view('teacher/info.html', { cls })
   })
 
   // 座位预览页（默认教师视角，支持前端切换）

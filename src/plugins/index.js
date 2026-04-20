@@ -8,9 +8,15 @@ import viewPlugin from './view.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export async function registerPlugins(app) {
+  // 注册静态文件服务（public 和 uploads 目录）
   await app.register(fastifyStatic, {
     root: join(__dirname, '../../public'),
     prefix: '/public/',
+    decorateReply: false,  // 避免重复装饰器错误
+  })
+  await app.register(fastifyStatic, {
+    root: join(__dirname, '../../uploads'),
+    prefix: '/uploads/',
   })
   await app.register(dbPlugin)
   await app.register(sessionPlugin)

@@ -26,6 +26,7 @@ model Class {
   signInConfig  SignInConfig?
   signInRecords SignInRecord[]
   sessions      SignInSession[]
+  infoCollection InfoCollection?
 
   @@unique([teacherId, name])
 }
@@ -53,6 +54,7 @@ model Student {
   id            Int           @id @default(autoincrement())
   name          String
   homeClass     String        @default("")   // 行政班级，如"高一3班"
+  remark        String        @default("")   // 学生备注，如"体育生"
   classId       Int
   class         Class         @relation(fields: [classId], references: [id])
   signInRecords SignInRecord[]
@@ -79,4 +81,49 @@ model SignInConfig {
   class     Class     @relation(fields: [classId], references: [id])
   startTime DateTime?
   endTime   DateTime?
+}
+
+// 信息收集配置
+model InfoCollection {
+  id        Int       @id @default(autoincrement())
+  classId   Int       @unique
+  class     Class     @relation(fields: [classId], references: [id])
+  enabled   Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  fields    InfoField[]
+}
+
+// 收集字段定义
+model InfoField {
+  id          Int           @id @default(autoincrement())
+  collectionId Int
+  collection  InfoCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name        String        // 字段名，如"成绩"、"作业文件"
+  type        String        // "text" 或 "attachment"
+  required    Boolean       @default(false)
+  sortOrder   Int           @default(0)
+  responses   InfoResponse[]
+}
+
+// 学生提交记录
+model InfoSubmission {
+  id          Int       @id @default(autoincrement())
+  classId     Int
+  studentId   Int?
+  studentName String
+  submittedAt DateTime  @default(now())
+  responses   InfoResponse[]
+}
+
+// 字段响应值
+model InfoResponse {
+  id           Int           @id @default(autoincrement())
+  submissionId Int
+  submission   InfoSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  fieldId      Int
+  field        InfoField      @relation(fields: [fieldId], references: [id])
+  textValue    String?        // 文本值
+  fileUrl      String?        // 附件路径
+  createdAt    DateTime       @default(now())
 }

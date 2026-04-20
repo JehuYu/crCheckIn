@@ -27,6 +27,20 @@ import { createClass, deleteClass } from '../services/class.js'
 import { changePassword, verifyTeacherByPassword } from '../services/auth.js'
 import { getSeatGrid, getSeatGridTeacher } from '../services/seat.js'
 import { updateStudent, deleteStudent, transferStudent } from '../services/student.js'
+import {
+  getInfoCollection,
+  updateInfoCollection,
+  createInfoField,
+  updateInfoField,
+  deleteInfoField,
+  updateFieldSortOrder,
+  submitInfo,
+  getSubmissions,
+  getSubmissionDetail,
+  deleteSubmission,
+  getSubmissionsStats,
+  uploadAttachment,
+} from '../services/infoCollection.js'
 
 /**
  * 格式化当前时间为 YYYYMMDD_HHmmss
@@ -333,5 +347,179 @@ export default async function apiRoutes(fastify) {
     const result = await transferStudent(studentId, targetClassId, teacherId, isAdmin)
     if (!result.ok) return reply.code(result.status || 400).send(result)
     return reply.send(result)
+  })
+
+  // ========== 信息收集功能 ==========
+
+  // GET /api/info-collection — 获取信息收集配置，需要 classOwnerRequired
+  fastify.get('/api/info-collection', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const collection = await getInfoCollection(classId)
+    return reply.send({
+      enabled: collection?.enabled ?? false,
+      fields: collection?.fields ?? [],
+    })
+  })
+
+  // POST /api/info-collection — 更新信息收集开关，需要 classOwnerRequired
+  fastify.post('/api/info-collection', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const { classId, enabled } = request.body
+    const collection = await updateInfoCollection(parseInt(classId, 10), Boolean(enabled))
+    return reply.send({ ok: true, enabled: collection.enabled })
+  })
+
+  // POST /api/info-collection/fields — 创建字段，需要 classOwnerRequired
+  fastify.post('/api/info-collection/fields', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const { name, type, required } = request.body
+    // classId 已在 middleware 中验证
+    const classId = parseInt(request.body.classId || request.query.classId, 10)
+
+    const { prisma } = await import('../plugins/db.js')
+    // Get or create collection
+    let collection = await prisma.infoCollection.findUnique({ where: { classId } })
+    if (!collection) {
+      collection = await prisma.infoCollection.create({
+        data: { classId, enabled: false },
+      })
+    }
+
+    try {
+      const field = await createInfoField(collection.id, {
+        name,
+        type,
+        required: Boolean(required),
+      })
+      return reply.send({ ok: true, field })
+    } catch (err) {
+      return reply.code(400).send({ ok: false, message: err.message })
+    }
+  })
+
+  // PATCH /api/info-collection/fields/:fieldId — 更新字段，需要 classOwnerRequired
+  fastify.patch('/api/info-collection/fields/:fieldId', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const fieldId = parseInt(request.params.fieldId, 10)
+    const { name, required } = request.body
+    const classId = parseInt(request.query.classId || request.body.classId, 10)
+
+    const { prisma } = await import('../plugins/db.js')
+    // Verify field belongs to this class
+    const field = await prisma.infoField.findUnique({
+      where: { id: fieldId },
+      include: { collection: true },
+    })
+    if (!field || field.collection.classId !== classId) {
+      return reply.code(404).send({ ok: false, message: '字段不存在或不属于当前班级' })
+    }
+
+    try {
+      const updated = await updateInfoField(fieldId, { name, required })
+      return reply.send({ ok: true, field: updated })
+    } catch (err) {
+      return reply.code(400).send({ ok: false, message: err.message })
+    }
+  })
+
+  // DELETE /api/info-collection/fields/:fieldId — 删除字段，需要 classOwnerRequired
+  fastify.delete('/api/info-collection/fields/:fieldId', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const fieldId = parseInt(request.params.fieldId, 10)
+    const classId = parseInt(request.query.classId, 10)
+
+    const { prisma } = await import('../plugins/db.js')
+    // Verify field belongs to this class
+    const field = await prisma.infoField.findUnique({
+      where: { id: fieldId },
+      include: { collection: true },
+    })
+    if (!field || field.collection.classId !== classId) {
+      return reply.code(404).send({ ok: false, message: '字段不存在或不属于当前班级' })
+    }
+
+    await deleteInfoField(fieldId)
+    return reply.send({ ok: true })
+  })
+
+  // POST /api/info-submit — 学生提交信息（无需登录）
+  fastify.post('/api/info-submit', async (request, reply) => {
+    const { classId, studentName, studentId, responses } = request.body
+    try {
+      const submission = await submitInfo(
+        parseInt(classId, 10),
+        String(studentName).trim(),
+        studentId ? parseInt(studentId, 10) : null,
+        responses
+      )
+      return reply.send({ ok: true, submission })
+    } catch (err) {
+      return reply.code(400).send({ ok: false, message: err.message })
+    }
+  })
+
+  // GET /api/info-submissions — 获取提交列表，需要 classOwnerRequired
+  fastify.get('/api/info-submissions', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const submissions = await getSubmissions(classId)
+    return reply.send(submissions)
+  })
+
+  // GET /api/info-submissions/stats — 获取提交统计，需要 classOwnerRequired
+  fastify.get('/api/info-submissions/stats', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const stats = await getSubmissionsStats(classId)
+    return reply.send(stats)
+  })
+
+  // GET /api/info-submissions/:submissionId — 获取提交详情，需要 classOwnerRequired
+  fastify.get('/api/info-submissions/:submissionId', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const submissionId = parseInt(request.params.submissionId, 10)
+    const submission = await getSubmissionDetail(submissionId)
+    if (!submission) {
+      return reply.code(404).send({ ok: false, message: '提交不存在' })
+    }
+    return reply.send({ ok: true, submission })
+  })
+
+  // DELETE /api/info-submissions/:submissionId — 删除提交，需要 classOwnerRequired
+  fastify.delete('/api/info-submissions/:submissionId', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const submissionId = parseInt(request.params.submissionId, 10)
+    await deleteSubmission(submissionId)
+    return reply.send({ ok: true })
+  })
+
+  // POST /api/info-upload — 上传附件，需要 classOwnerRequired（用于教师端测试）
+  fastify.post('/api/info-upload', { preHandler: classOwnerRequired }, async (request, reply) => {
+    try {
+      let fileBuffer = null
+      let filename = 'unknown'
+      for await (const part of request.parts()) {
+        if (part.type === 'file' && part.fieldname === 'file') {
+          const chunks = []
+          for await (const chunk of part.file) {
+            chunks.push(chunk)
+          }
+          fileBuffer = Buffer.concat(chunks)
+          filename = part.filename
+        }
+      }
+      if (!fileBuffer) {
+        return reply.code(400).send({ ok: false, message: '请上传文件' })
+      }
+      const classId = parseInt(request.body.classId, 10)
+      const result = await uploadAttachment(classId, fileBuffer, filename)
+      return reply.send({ ok: true, url: result.url })
+    } catch (err) {
+      return reply.code(400).send({ ok: false, message: err.message })
+    }
+  })
+
+  // GET /api/info-export — 导出信息收集数据，需要 classOwnerRequired
+  fastify.get('/api/info-export', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.query.classId, 10)
+    const { exportInfoSubmissionsToExcel } = await import('../services/infoCollection.js')
+    const buffer = await exportInfoSubmissionsToExcel(classId)
+    const filename = `info_collection_${nowTimestamp()}.xlsx`
+    reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+    return reply.send(buffer)
   })
 }

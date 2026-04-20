@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>提交信息 - {{ className }}</title>
+  <link rel="stylesheet" href="/public/design-system.css">
+  <link rel="stylesheet" href="/public/tailwind.min.css">
+  <style>
+    .field-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 500;
+      color: var(--slate-600);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .field-input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--slate-200);
+      font-size: 14px;
+      color: var(--slate-800);
+      background: #fff;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    .field-input:focus {
+      outline: none;
+      border-color: var(--brand-500);
+      box-shadow: 0 0 0 3px rgba(223, 138, 92, 0.1);
+    }
+    .submit-btn {
+      width: 100%;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      background: var(--brand-600);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.12s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+    .submit-btn:hover { background: var(--brand-700); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 5px;
+      color: var(--slate-500); text-decoration: none; font-size: 13px;
+      margin-bottom: 14px;
+      transition: color 0.12s;
+    }
+    .back-link:hover { color: var(--slate-700); }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-lg">
+
+    <a href="/student?classId={{ classId }}" class="back-link">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      返回签到
+    </a>
+
+    <div class="sign-card card">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-brand-50 mb-3">
+          <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <h1 class="text-lg font-semibold text-slate-800">提交信息</h1>
+        <p class="text-sm text-slate-500">{{ className }} · {{ studentName }}</p>
+      </div>
+
+      <form id="submitForm">
+        <div id="fieldsContainer" class="space-y-4"></div>
+
+        <div id="msg" class="hidden mt-4 px-4 py-3 rounded-xl text-sm font-medium"></div>
+
+        <button type="submit" id="submitBtn" class="submit-btn" style="margin-top:20px">
+          提交
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+<script>
+const CLASS_ID = {{ classId }}
+const STUDENT_NAME = '{{ studentName | escape }}'
+const STUDENT_ID = {{ studentId | default('null') }}
+
+const fieldsContainer = document.getElementById('fieldsContainer')
+const submitBtn = document.getElementById('submitBtn')
+const msg = document.getElementById('msg')
+
+let fields = []
+
+function setMessage(text, ok = false) {
+  msg.className = `toast ${ok ? 'toast-success' : 'toast-error'} fade`
+  msg.textContent = text
+  msg.classList.remove('hidden')
+}
+
+async function loadFields() {
+  try {
+    const res = await fetch(`/api/info-collection?classId=${CLASS_ID}`)
+    const data = await res.json()
+    if (!data.enabled) {
+      setMessage('信息收集已关闭', false)
+      submitBtn.disabled = true
+      return
+    }
+    fields = data.fields || []
+    if (!fields.length) {
+      setMessage('暂无需收集的信息', false)
+      submitBtn.disabled = true
+      return
+    }
+    renderFields()
+  } catch (e) {
+    setMessage('加载失败：' + e.message, false)
+  }
+}
+
+function renderFields() {
+  if (!fields.length) {
+    fieldsContainer.innerHTML = '<p class="text-sm text-slate-400 text-center">暂无字段</p>'
+    return
+  }
+  fieldsContainer.innerHTML = fields.map(f => {
+    const requiredMark = f.required ? '<span class="text-red-500 ml-1">*</span>' : ''
+    if (f.type === 'attachment') {
+      return `
+        <div>
+          <label class="field-label">${f.name}${requiredMark}</label>
+          <div class="file-upload" onclick="this.querySelector('input').click()">
+            <svg class="w-8 h-8 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            <p class="text-sm text-slate-500 mt-2">点击上传</p>
+            <p class="text-xs text-slate-400">支持 jpg, png, pdf, doc, xlsx 格式，最大 10MB</p>
+            <input type="file" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xlsx,.xls" data-field-id="${f.id}" onchange="updateFileName(this)" />
+          </div>
+          <div class="file-name" id="fileName_${f.id}"></div>
+        </div>
+      `
+    }
+    return `
+      <div>
+        <label class="field-label">${f.name}${requiredMark}</label>
+        <input type="${f.name.includes('成绩') || f.name.includes('分数') ? 'number' : 'text'}"
+               class="field-input"
+               data-field-id="${f.id}"
+               placeholder="请输入${f.name}"
+               ${f.required ? 'required' : ''} />
+      </div>
+    `
+  }).join('')
+}
+
+function updateFileName(input) {
+  const file = input.files[0]
+  const fileNameEl = document.getElementById(`fileName_${input.dataset.fieldId}`)
+  if (file) {
+    fileNameEl.textContent = `已选择：${file.name}`
+    fileNameEl.classList.add('text-emerald-600')
+  } else {
+    fileNameEl.textContent = ''
+    fileNameEl.classList.remove('text-emerald-600')
+  }
+}
+
+async function handleSubmit(e) {
+  e.preventDefault()
+  submitBtn.disabled = true
+  submitBtn.textContent = '提交中...'
+
+  const responses = []
+  let valid = true
+
+  for (const field of fields) {
+    if (field.type === 'attachment') {
+      const input = document.querySelector(`input[data-field-id="${field.id}"]`)
+      const file = input?.files[0]
+      if (field.required && !file) {
+        setMessage(`请上传${field.name}`, false)
+        valid = false
+        break
+      }
+      if (file) {
+        // 上传文件
+        try {
+          const fd = new FormData()
+          fd.append('file', file)
+          fd.append('classId', CLASS_ID)
+          const uploadRes = await fetch('/api/info-upload', { body: fd })
+          const uploadData = await uploadRes.json()
+          if (uploadData.ok) {
+            responses.push({ fieldId: field.id, fileUrl: uploadData.url })
+          } else {
+            setMessage(`文件上传失败：${uploadData.message}`, false)
+            valid = false
+            break
+          }
+        } catch (err) {
+          setMessage(`文件上传失败：${err.message}`, false)
+          valid = false
+          break
+        }
+      } else {
+        responses.push({ fieldId: field.id, fileUrl: null })
+      }
+    } else {
+      const input = document.querySelector(`input[data-field-id="${field.id}"]`)
+      const value = input?.value?.trim() || ''
+      if (field.required && !value) {
+        setMessage(`请填写${field.name}`, false)
+        valid = false
+        break
+      }
+      responses.push({ fieldId: field.id, textValue: value || null })
+    }
+  }
+
+  if (!valid) {
+    submitBtn.disabled = false
+    submitBtn.textContent = '提交'
+    return
+  }
+
+  try {
+    const res = await fetch('/api/info-submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        classId: CLASS_ID,
+        studentName: STUDENT_NAME,
+        studentId: STUDENT_ID,
+        responses,
+      })
+    })
+    const data = await res.json()
+    if (data.ok) {
+      setMessage('提交成功！', true)
+      setTimeout(() => {
+        window.location.href = `/student?classId=${CLASS_ID}`
+      }, 1500)
+    } else {
+      setMessage(data.message || '提交失败', false)
+      submitBtn.disabled = false
+      submitBtn.textContent = '提交'
+    }
+  } catch (err) {
+    setMessage('提交失败：' + err.message, false)
+    submitBtn.disabled = false
+    submitBtn.textContent = '提交'
+  }
+}
+
+document.getElementById('submitForm').addEventListener('submit', handleSubmit)
+
+loadFields()
+</script>
+</body>
+</html>

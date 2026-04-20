@@ -1,0 +1,342 @@
+import { prisma } from '../plugins/db.js'
+import path from 'node:path'
+import fs from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
+import ExcelJS from 'exceljs'
+
+const UPLOAD_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../uploads')
+
+/**
+ * 确保上传目录存在
+ */
+async function ensureUploadDir(classId) {
+  const dir = path.join(UPLOAD_DIR, String(classId))
+  await fs.mkdir(dir, { recursive: true })
+  return dir
+}
+
+/**
+ * 获取班级的信息收集配置
+ * @param {number} classId
+ */
+export async function getInfoCollection(classId) {
+  const collection = await prisma.infoCollection.findUnique({
+    where: { classId },
+    include: { fields: { orderBy: { sortOrder: 'asc' } } },
+  })
+  return collection
+}
+
+/**
+ * 更新信息收集开关状态
+ * @param {number} classId
+ * @param {boolean} enabled
+ */
+export async function updateInfoCollection(classId, enabled) {
+  const collection = await prisma.infoCollection.upsert({
+    where: { classId },
+    update: { enabled },
+    create: { classId, enabled },
+  })
+  return collection
+}
+
+/**
+ * 创建收集字段
+ * @param {number} collectionId
+ * @param {{ name: string, type: 'text'|'attachment', required: boolean }} data
+ */
+export async function createInfoField(collectionId, data) {
+  const maxOrder = await prisma.infoField.aggregate({
+    where: { collectionId },
+    _max: { sortOrder: true },
+  })
+  return prisma.infoField.create({
+    data: {
+      collectionId,
+      name: data.name.trim(),
+      type: data.type,
+      required: data.required ?? false,
+      sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
+    },
+  })
+}
+
+/**
+ * 更新字段
+ * @param {number} fieldId
+ * @param {{ name?: string, required?: boolean }} data
+ */
+export async function updateInfoField(fieldId, data) {
+  const updateData = {}
+  if (data.name !== undefined) updateData.name = data.name.trim()
+  if (data.required !== undefined) updateData.required = data.required
+  return prisma.infoField.update({
+    where: { id: fieldId },
+    data: updateData,
+  })
+}
+
+/**
+ * 删除字段
+ * @param {number} fieldId
+ */
+export async function deleteInfoField(fieldId) {
+  return prisma.infoField.delete({
+    where: { id: fieldId },
+  })
+}
+
+/**
+ * 更新字段排序
+ * @param {number} fieldId
+ * @param {number} newOrder
+ */
+export async function updateFieldSortOrder(fieldId, newOrder) {
+  return prisma.infoField.update({
+    where: { id: fieldId },
+    data: { sortOrder: newOrder },
+  })
+}
+
+/**
+ * 提交信息（学生端）
+ * @param {number} classId
+ * @param {string} studentName
+ * @param {number} studentId
+ * @param {Array<{ fieldId: number, textValue?: string, fileUrl?: string }>} responses
+ */
+export async function submitInfo(classId, studentName, studentId, responses) {
+  const collection = await prisma.infoCollection.findUnique({
+    where: { classId },
+    include: { fields: true },
+  })
+  if (!collection || !collection.enabled) {
+    throw new Error('信息收集未启用')
+  }
+
+  // 检查必填字段
+  const fieldMap = new Map(collection.fields.map(f => [f.id, f]))
+  for (const resp of responses) {
+    const field = fieldMap.get(resp.fieldId)
+    if (field?.required && !resp.textValue && !resp.fileUrl) {
+      throw new Error(`必填字段 "${field.name}" 不能为空`)
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const submission = await tx.infoSubmission.create({
+      data: {
+        classId,
+        studentId: studentId ?? null,
+        studentName,
+        responses: {
+          create: responses.map(r => ({
+            fieldId: r.fieldId,
+            textValue: r.textValue ?? null,
+            fileUrl: r.fileUrl ?? null,
+          })),
+        },
+      },
+      include: { responses: { include: { field: true } } },
+    })
+    return submission
+  })
+}
+
+/**
+ * 获取班级所有提交（按提交时间倒序）
+ * @param {number} classId
+ */
+export async function getSubmissions(classId) {
+  return prisma.infoSubmission.findMany({
+    where: { classId },
+    orderBy: { submittedAt: 'desc' },
+    include: {
+      responses: {
+        include: { field: true },
+        orderBy: { field: { sortOrder: 'asc' } },
+      },
+    },
+  })
+}
+
+/**
+ * 获取单个提交详情
+ * @param {number} submissionId
+ */
+export async function getSubmissionDetail(submissionId) {
+  return prisma.infoSubmission.findUnique({
+    where: { id: submissionId },
+    include: {
+      responses: {
+        include: { field: true },
+        orderBy: { field: { sortOrder: 'asc' } },
+      },
+    },
+  })
+}
+
+/**
+ * 删除提交
+ * @param {number} submissionId
+ */
+export async function deleteSubmission(submissionId) {
+  return prisma.infoSubmission.delete({
+    where: { id: submissionId },
+  })
+}
+
+/**
+ * 上传附件文件
+ * @param {number} classId
+ * @param {Buffer} buffer
+ * @param {string} originalFilename
+ * @returns {{ url: string, path: string }}
+ */
+export async function uploadAttachment(classId, buffer, originalFilename) {
+  const ext = path.extname(originalFilename).toLowerCase()
+  const allowedExts = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx', '.xlsx', '.xls']
+  if (!allowedExts.includes(ext)) {
+    throw new Error('不支持的文件类型')
+  }
+  if (buffer.length > 10 * 1024 * 1024) {
+    throw new Error('文件大小不能超过 10MB')
+  }
+
+  const dir = await ensureUploadDir(classId)
+  const randomName = randomBytes(8).toString('hex')
+  const filename = `${Date.now()}_${randomName}${ext}`
+  const filePath = path.join(dir, filename)
+  const url = `/uploads/${classId}/${filename}`
+
+  await fs.writeFile(filePath, buffer)
+  return { url, path: filePath }
+}
+
+/**
+ * 获取提交统计信息
+ * @param {number} classId
+ */
+export async function getSubmissionsStats(classId) {
+  const [collection, submissions] = await Promise.all([
+    prisma.infoCollection.findUnique({
+      where: { classId },
+      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+    }),
+    prisma.infoSubmission.findMany({
+      where: { classId },
+      select: { studentName: true, studentId: true },
+    }),
+  ])
+
+  const submittedStudents = new Set(submissions.map(s => s.studentId ?? s.studentName))
+  return {
+    enabled: collection?.enabled ?? false,
+    fields: collection?.fields ?? [],
+    submittedCount: submittedStudents.size,
+  }
+}
+
+/**
+ * 导出信息收集数据为 Excel
+ * @param {number} classId
+ * @returns {Promise<Buffer>}
+ */
+export async function exportInfoSubmissionsToExcel(classId) {
+  const [collection, submissions] = await Promise.all([
+    prisma.infoCollection.findUnique({
+      where: { classId },
+      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+    }),
+    prisma.infoSubmission.findMany({
+      where: { classId },
+      orderBy: { submittedAt: 'desc' },
+      include: {
+        responses: {
+          include: { field: true },
+          orderBy: { field: { sortOrder: 'asc' } },
+        },
+      },
+    }),
+  ])
+
+  if (!collection || !collection.fields.length) {
+    throw new Error('没有可导出的数据')
+  }
+
+  const fields = collection.fields
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'Lab Attendance'
+  const ws = workbook.addWorksheet('信息收集', {
+    pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1 },
+  })
+
+  // 设置列
+  const columns = [
+    { key: 'studentName', header: '学生姓名', width: 14 },
+    { key: 'submittedAt', header: '提交时间', width: 20 },
+  ]
+  fields.forEach(f => {
+    columns.push({
+      key: `field_${f.id}`,
+      header: f.name,
+      width: f.type === 'attachment' ? 16 : 14,
+    })
+  })
+  ws.columns = columns
+
+  // 标题行
+  ws.mergeCells(1, 1, 1, columns.length)
+  const titleCell = ws.getCell(1, 1)
+  titleCell.value = `信息收集数据导出`
+  titleCell.font = { name: '微软雅黑', bold: true, size: 14, color: { argb: 'FFFFFFFF' } }
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
+  ws.getRow(1).height = 36
+
+  // 统计行
+  ws.mergeCells(2, 1, 2, columns.length)
+  const statCell = ws.getCell(2, 1)
+  statCell.value = `共 ${submissions.length} 条提交记录    导出时间：${new Date().toLocaleString('zh-CN')}`
+  statCell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
+  statCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  statCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } }
+  ws.getRow(2).height = 20
+
+  // 表头
+  const headerRow = ws.addRow(['学生姓名', '提交时间', ...fields.map(f => f.name)])
+  headerRow.height = 24
+  headerRow.eachCell((cell) => {
+    cell.font = { name: '微软雅黑', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FF475569' } } }
+  })
+
+  // 数据行
+  submissions.forEach((s, idx) => {
+    const isEven = idx % 2 === 0
+    const row = ws.addRow([
+      s.studentName,
+      new Date(s.submittedAt).toLocaleString('zh-CN'),
+      ...fields.map(f => {
+        const resp = s.responses.find(r => r.fieldId === f.id)
+        if (!resp) return '-'
+        if (f.type === 'attachment') {
+          return resp.fileUrl ? `[附件] ${resp.fileUrl}` : '-'
+        }
+        return resp.textValue || '-'
+      }),
+    ])
+    row.height = 20
+    row.eachCell((cell, colNumber) => {
+      cell.font = { name: '微软雅黑', size: 10, color: { argb: 'FF1E293B' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' } }
+      cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle' }
+      cell.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } }
+    })
+  })
+
+  return workbook.xlsx.writeBuffer()
+}

@@ -4,47 +4,50 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ cls.name }} - 学生管理</title>
-  <link rel="stylesheet" href="/public/tailwind.min.css">
+  <link rel="stylesheet" href="/public/design-system.css?v=20260420">
+  <link rel="stylesheet" href="/public/tailwind.min.css?v=20260420">
   <style>
     :root {
-      --page-bg:#f6f8fc;
-      --card-bg:rgba(255,255,255,.78);
-      --card-border:rgba(15,23,42,.08);
-      --card-shadow:0 20px 52px rgba(15,23,42,.08);
-      --soft-shadow:0 10px 24px rgba(15,23,42,.05);
+      --page-bg: var(--slate-50);
+      --card-bg: rgba(255, 255, 255, 0.95);
+      --card-border: var(--slate-200);
+      --card-shadow: var(--shadow-lg);
+      --soft-shadow: var(--shadow-md);
     }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-family: var(--font-sans);
       background:
-        radial-gradient(circle at top left, rgba(99,102,241,.10), transparent 26%),
-        radial-gradient(circle at top right, rgba(56,189,248,.10), transparent 24%),
+        radial-gradient(circle at top left, rgba(201,109,58,.06), transparent 26%),
+        radial-gradient(circle at top right, rgba(223,138,92,.06), transparent 24%),
         linear-gradient(180deg, #fbfcfe 0%, var(--page-bg) 100%);
     }
-    .fade { animation: fadeIn .15s ease; }
+    .fade { animation: fadeIn 0.15s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-    .header-blur { background:rgba(255,255,255,.82); backdrop-filter:blur(18px); }
-    .topbar-shell { min-height:84px; padding:16px 0; }
+    .header-blur { background: var(--glass-bg-strong); backdrop-filter: var(--glass-blur); }
+    .topbar-shell { min-height: 70px; padding: 12px 0; }
     .nav-link {
-      display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;
-      color:#475569;font-size:14px;font-weight:500;transition:all .15s ease;
+      display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;
+      color:var(--slate-600);font-size:13px;font-weight:500;transition:all .15s ease;
     }
-    .nav-link:hover { background:rgba(255,255,255,.7); color:#0f172a; }
-    .nav-title { color:#0f172a;font-size:17px;font-weight:700;letter-spacing:.01em; }
+    .nav-link:hover { background: var(--slate-100); color: var(--slate-800); }
+    .nav-title { color:var(--slate-800);font-size:16px;font-weight:600;letter-spacing:-0.01em; }
     .chip {
-      display:inline-flex;align-items:center;padding:6px 10px;border-radius:9999px;
-      font-size:12px;font-weight:600;border:1px solid rgba(148,163,184,.18);background:rgba(248,250,252,.92);color:#475569;
+      display:inline-flex;align-items:center;padding:5px 9px;border-radius:9999px;
+      font-size:11px;font-weight:600;border:1px solid var(--slate-200);background:var(--slate-50);color:var(--slate-600);
     }
     .card {
-      background:var(--card-bg); border-radius:20px; border:1px solid var(--card-border);
+      background:var(--card-bg); border-radius:var(--card-radius-lg); border:1px solid var(--card-border);
       box-shadow:var(--card-shadow); backdrop-filter:blur(14px);
     }
     .btn {
       display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;font-size:13px;font-weight:500;
       transition:all .15s;cursor:pointer;text-decoration:none;box-shadow:var(--soft-shadow);border:none;
     }
-    .btn-primary { background:linear-gradient(135deg,#6366f1,#5b6ee8); color:#fff; }
-    .btn-gray { background:rgba(255,255,255,.82); color:#334155; border:1px solid rgba(148,163,184,.18); }
-    .btn-danger { color:#dc2626; border:1px solid rgba(248,113,113,.24); background:rgba(255,255,255,.82); }
+    .btn-primary { background:linear-gradient(135deg,var(--brand-600),var(--brand-700)); color:#fff; }
+    .btn-gray { background:var(--card-bg); color:var(--slate-600); border:1px solid var(--slate-200); }
+    .btn-gray:hover { background:var(--slate-50); border-color:var(--slate-300); }
+    .btn-danger { color:var(--error-600); border:1px solid var(--error-200); background:var(--card-bg); }
+    .btn-danger:hover { background:var(--error-50); border-color:var(--error-500); }
     .student-grid {
       display:grid;
       grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -52,17 +55,17 @@
       padding:18px;
     }
     .student-item {
-      border:1px solid rgba(226,232,240,.86);
-      border-radius:18px;
-      background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.82));
+      border:1px solid var(--slate-200);
+      border-radius:var(--card-radius-lg);
+      background:linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.85));
       box-shadow:var(--soft-shadow);
       padding:16px;
       transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
     }
     .student-item:hover {
       transform:translateY(-1px);
-      border-color:rgba(165,180,252,.35);
-      box-shadow:0 14px 30px rgba(15,23,42,.08);
+      border-color:var(--brand-200);
+      box-shadow:var(--shadow-md);
     }
     .student-head {
       display:flex;
@@ -77,16 +80,28 @@
       flex-wrap:wrap;
       gap:8px;
     }
-    .student-name { font-size:15px; font-weight:600; color:#0f172a; }
+    .student-name { font-size:15px; font-weight:600; color:var(--slate-800); }
     .student-homeclass {
       display:inline-flex;
       align-items:center;
       padding:4px 10px;
       border-radius:9999px;
-      background:rgba(241,245,249,.96);
-      border:1px solid rgba(226,232,240,.92);
-      color:#475569;
+      background:var(--slate-50);
+      border:1px solid var(--slate-200);
+      color:var(--slate-600);
       font-size:12px;
+      font-weight:600;
+      line-height:1;
+    }
+    .student-remark {
+      display:inline-flex;
+      align-items:center;
+      padding:4px 10px;
+      border-radius:9999px;
+      background:var(--brand-50);
+      border:1px solid var(--brand-200);
+      color:var(--brand-700);
+      font-size:11px;
       font-weight:600;
       line-height:1;
     }
@@ -105,8 +120,14 @@
       font-weight:600;
       line-height:1;
       transition:all .15s ease;
+      background: transparent;
+      border: none;
+      cursor: pointer;
     }
     .student-action:hover { transform:translateY(-1px); }
+    .student-action.text-slate-500:hover { background:var(--slate-100); color:var(--slate-700); }
+    .student-action.text-indigo-600:hover { background:var(--brand-50); color:var(--brand-700); }
+    .student-action.text-red-400:hover { background:var(--error-50); color:var(--error-700); }
     @media (max-width: 900px) {
       .student-grid { grid-template-columns:1fr; }
     }
@@ -143,7 +164,7 @@
       <ul id="stuList" class="student-grid">
         {% for s in students %}
         <li id="row-{{ s.id }}" class="student-item"
-          data-id="{{ s.id }}" data-name="{{ s.name }}" data-homeclass="{{ s.homeClass }}">
+          data-id="{{ s.id }}" data-name="{{ s.name }}" data-homeclass="{{ s.homeClass }}" data-remark="{{ s.remark }}">
           <!-- 查看态 -->
           <div class="view-mode">
             <div class="student-head">
@@ -151,6 +172,7 @@
                 <p class="student-title">
                   <span class="student-name name-cell truncate">{{ s.name }}</span>
                   <span class="student-homeclass hc-cell {% if s.homeClass %}{% else %}hidden{% endif %}">{{ s.homeClass }}</span>
+                  {% if s.remark %}<span class="student-remark remark-cell ml-2">{{ s.remark }}</span>{% endif %}
                 </p>
               </div>
               <div class="student-actions">
@@ -185,6 +207,12 @@
           <input id="editStudentHomeClass" type="text"
             class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm min-w-0 focus:outline-none focus:ring-2 focus:ring-slate-400"
             placeholder="如：1 或 1班" />
+        </div>
+        <div>
+          <label for="editStudentRemark" class="block text-xs text-slate-500 mb-1">备注说明</label>
+          <input id="editStudentRemark" type="text"
+            class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm min-w-0 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            placeholder="如：体育生" />
         </div>
       </div>
       <div class="flex gap-2 justify-end mt-5">
@@ -235,6 +263,23 @@ function syncHomeClass(row, homeClass) {
   cell.classList.toggle('hidden', !formatted)
 }
 
+function syncRemark(row, remark) {
+  let remarkCell = row.querySelector('.remark-cell')
+  const formatted = (remark || '').trim()
+  if (!formatted) {
+    if (remarkCell) remarkCell.remove()
+    return
+  }
+  if (!remarkCell) {
+    // 创建备注徽章
+    remarkCell = document.createElement('span')
+    remarkCell.className = 'student-remark remark-cell ml-2'
+    const titleEl = row.querySelector('.student-title')
+    titleEl.appendChild(remarkCell)
+  }
+  remarkCell.textContent = formatted
+}
+
 function notify(text, ok = true) {
   msg.className = `mb-4 px-4 py-3 rounded-xl text-sm font-medium fade ${ok
     ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
@@ -250,6 +295,7 @@ function openEdit(id) {
   document.getElementById('editStudentHint').textContent = `当前学生：${row.dataset.name}`
   document.getElementById('editStudentName').value = row.dataset.name || ''
   document.getElementById('editStudentHomeClass').value = row.dataset.homeclass || ''
+  document.getElementById('editStudentRemark').value = row.dataset.remark || ''
   document.getElementById('editModal').classList.remove('hidden')
 }
 
@@ -262,11 +308,12 @@ async function saveEdit() {
   const id = editStudentId
   const name = document.getElementById('editStudentName').value.trim()
   const homeClass = document.getElementById('editStudentHomeClass').value.trim()
+  const remark = document.getElementById('editStudentRemark').value.trim()
   if (!name) { notify('姓名不能为空', false); return }
   const res = await fetch(`/api/students/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, homeClass }),
+    body: JSON.stringify({ name, homeClass, remark }),
   })
   if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
@@ -274,8 +321,11 @@ async function saveEdit() {
   const row = document.getElementById(`row-${id}`)
   row.dataset.name = data.student.name
   row.dataset.homeclass = data.student.homeClass || ''
+  row.dataset.remark = data.student.remark || ''
   row.querySelector('.name-cell').textContent = data.student.name
   syncHomeClass(row, data.student.homeClass)
+  // 更新备注徽章
+  syncRemark(row, data.student.remark)
   closeEdit()
   notify('已更新')
 }
@@ -322,6 +372,7 @@ async function doTransfer() {
 
 document.querySelectorAll('#stuList > li').forEach(row => {
   syncHomeClass(row, row.dataset.homeclass)
+  syncRemark(row, row.dataset.remark)
 })
 </script>
 </body>

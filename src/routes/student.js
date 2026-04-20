@@ -17,4 +17,21 @@ export default async function studentRoutes(app) {
       cls,
     })
   })
+
+  // 学生信息提交页面
+  app.get('/student/info-submit', async (request, reply) => {
+    const classId = request.query.classId ? parseInt(request.query.classId, 10) : null
+    const studentName = request.query.studentName || ''
+    const studentId = request.query.studentId ? parseInt(request.query.studentId, 10) : null
+    let cls = null
+    if (classId) {
+      cls = await prisma.class.findUnique({ where: { id: classId }, select: { id: true, name: true } })
+    }
+    return reply.view('student/info-submit.html', {
+      classId,
+      studentName,
+      studentId,
+      className: cls?.name || '',
+    })
+  })
 }

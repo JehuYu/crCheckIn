@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ cls.name }} - 信息收集</title>
+  <link rel="stylesheet" href="/public/design-system.css">
+  <link rel="stylesheet" href="/public/tailwind.min.css">
+  <style>
+    .fade { animation: fadeIn .12s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .btn {
+      display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;
+      transition:all .12s;cursor:pointer;border:none;text-decoration:none;box-shadow:var(--shadow-xs);
+    }
+    .btn-primary { background:var(--brand);color:#fff; }
+    .btn-primary:hover { background:var(--brand-dark); box-shadow:var(--shadow-sm); }
+    .btn-gray { background:#fff;color:var(--slate-700);border:1px solid var(--slate-200); }
+    .btn-gray:hover { background:var(--slate-50); border-color:var(--slate-300); }
+    .btn-danger { background:#fff;color:var(--error);border:1px solid rgba(217, 110, 110, 0.3); }
+    .btn-danger:hover { background:var(--error-light); border-color:var(--error); }
+    .btn-success { background:var(--success-600);color:#fff; }
+    .btn-success:hover { background:var(--success-700); }
+    .section-label { font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--slate-500);margin-bottom:8px; }
+    .header-blur { background:rgba(255,255,255,.85); backdrop-filter:blur(12px); border-bottom:1px solid var(--slate-200); }
+    .nav-link {
+      display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;
+      color:var(--slate-600);font-size:13px;font-weight:500;transition:all .12s ease;
+    }
+    .nav-link:hover { background:var(--slate-50); color:var(--slate-800); }
+    .nav-title { color:var(--slate-800);font-size:15px;font-weight:600; }
+    .switch {
+      position:relative;width:44px;height:24px;border-radius:9999px;
+      background:var(--slate-200);cursor:pointer;transition:background .2s;
+    }
+    .switch.on { background:var(--brand); }
+    .switch-knob {
+      position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+      background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:transform .2s;
+    }
+    .switch.on .switch-knob { transform:translateX(20px); }
+    .field-item {
+      display:flex;align-items:center;justify-content:space-between;
+      padding:12px 14px;background:var(--slate-50);
+      border-radius:8px;border:1px solid var(--slate-200);
+      margin-bottom:8px;
+    }
+    .field-item:hover { background:#fff; border-color:var(--slate-300); }
+    .field-info { display:flex;align-items:center;gap:8px; }
+    .field-badge {
+      padding:3px 7px;border-radius:6px;font-size:10px;font-weight:600;
+      background:var(--brand-50);color:var(--brand-dark);border:1px solid rgba(201, 109, 58, 0.15);
+    }
+    .field-badge.attachment { background:var(--success-light);color:var(--success-dark);border-color:rgba(87, 167, 120, 0.2); }
+    .field-required { color:var(--error);font-size:10px;margin-left:4px; }
+    .submission-row {
+      display:grid;grid-template-columns:1.2fr repeat(var(--field-count), 1fr);
+      gap:10px;align-items:center;
+      padding:10px 14px;border-bottom:1px solid var(--slate-100);
+    }
+    .submission-row:hover { background:var(--slate-50); }
+    .submission-row.header {
+      background:var(--slate-50);font-weight:600;font-size:11px;color:var(--slate-500);
+      text-transform:uppercase;letter-spacing:0.05em;
+    }
+    .file-link { color:var(--brand);text-decoration:none; }
+    .file-link:hover { text-decoration:underline; }
+    .empty-state {
+      text-align:center;padding:40px 24px;color:var(--slate-400);
+      background:var(--slate-50);border-radius:10px;
+      border:1px dashed var(--slate-200);
+    }
+    .modal-overlay {
+      position:fixed;inset:0;background:rgba(0,0,0,.4);
+      display:flex;align-items:center;justify-content:center;z-index:100;
+    }
+    .modal-content {
+      background:#fff;border-radius:12px;max-width:460px;width:90%;
+      max-height:80vh;overflow-y:auto;
+      box-shadow:0 24px 48px rgba(0,0,0,.2);
+    }
+    .modal-header {
+      padding:18px 20px;border-bottom:1px solid var(--slate-100);
+      display:flex;justify-content:space-between;align-items:center;
+    }
+    .modal-title { font-size:16px;font-weight:600;color:var(--slate-800); }
+    .modal-body { padding:20px; }
+    .modal-footer {
+      padding:16px 20px;border-top:1px solid var(--slate-100);
+      display:flex;justify-content:flex-end;gap:10px;
+    }
+    .modal-footer .btn { min-width:80px;justify-content:center; }
+    .input-field {
+      width:100%;padding:11px 13px;border-radius:8px;
+      border:1px solid var(--slate-200);font-size:14px;
+      transition:border-color .15s,box-shadow .15s;
+    }
+    .input-field:focus {
+      outline:none;border-color:var(--brand-500);box-shadow:0 0 0 3px rgba(223, 138, 92, 0.15);
+    }
+    .form-label { display:block;font-size:13px;font-weight:500;color:var(--slate-700);margin-bottom:6px; }
+    .form-hint { font-size:12px;color:var(--slate-500);margin-top:4px; }
+    .stat-card {
+      padding:14px;border-radius:10px;
+      background:var(--success-light);
+      border:1px solid rgba(87, 167, 120, 0.2);
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- 顶栏 -->
+  <header class="header-blur border-b border-white/60 sticky top-0 z-20">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <a href="/teacher/classes" class="nav-link">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+          班级列表
+        </a>
+        <span class="nav-divider" style="color:#cbd5e1">|</span>
+        <a href="/teacher/classes/{{ cls.id }}" class="nav-link">{{ cls.name }}</a>
+        <span class="nav-divider" style="color:#cbd5e1">|</span>
+        <span class="nav-title">信息收集</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 space-y-5">
+
+    <!-- 启用开关 -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-base font-semibold text-slate-800">信息收集</p>
+          <p class="text-sm text-slate-500 mt-1">启用后，学生签到后可提交指定信息（如成绩、作业等）</p>
+        </div>
+        <div id="enabledSwitch" class="switch" onclick="toggleEnabled()">
+          <div class="switch-knob"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 字段管理 -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <p class="section-label" style="margin:0">收集字段</p>
+        <button onclick="openFieldModal()" class="btn btn-primary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          添加字段
+        </button>
+      </div>
+      <div id="fieldsList"></div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stat-card">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-emerald-800">已提交人数</p>
+          <p id="submittedCount" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+        </div>
+        <a href="/api/info-export?classId={{ cls.id }}" class="btn btn-success">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          导出数据
+        </a>
+      </div>
+    </div>
+
+    <!-- 提交列表 -->
+    <div class="card overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
+        <p class="text-sm font-medium text-slate-700">提交记录</p>
+        <button id="refreshBtn" onclick="loadSubmissions()" class="btn btn-gray">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          刷新
+        </button>
+      </div>
+      <div id="submissionsList"></div>
+    </div>
+
+  </main>
+
+  <!-- 字段模态框 -->
+  <div id="fieldModal" class="hidden modal-overlay">
+    <div class="modal-content fade">
+      <div class="modal-header">
+        <p class="text-base font-semibold" id="modalTitle">添加字段</p>
+        <button onclick="closeFieldModal()" class="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+      </div>
+      <div class="modal-body space-y-4">
+        <input type="hidden" id="editFieldId" />
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">字段名称</label>
+          <input id="fieldName" type="text" class="input-field" placeholder="如：成绩、作业文件" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">字段类型</label>
+          <select id="fieldType" class="input-field">
+            <option value="text">文本输入</option>
+            <option value="attachment">附件上传</option>
+          </select>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input id="fieldRequired" type="checkbox" class="w-4 h-4" />
+          <span class="text-sm text-slate-700">必填</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeFieldModal()" class="btn btn-gray">取消</button>
+        <button onclick="saveField()" class="btn btn-primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通知 -->
+  <div id="msg" class="hidden fixed bottom-6 right-6 px-5 py-3 rounded-xl text-sm font-medium fade shadow-lg"></div>
+
+<script>
+const CLASS_ID = {{ cls.id }}
+let state = { enabled: false, fields: [], submissions: [] }
+
+function notify(text, ok = true) {
+  const msg = document.getElementById('msg')
+  msg.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl text-sm font-medium fade shadow-lg ${ok
+    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+    : 'bg-red-50 text-red-600 border border-red-100'}`
+  msg.textContent = text
+  msg.classList.remove('hidden')
+  setTimeout(() => msg.classList.add('hidden'), 2500)
+}
+
+async function parseResponse(res) {
+  if (res.status === 401) { window.location.href = '/student'; return null }
+  if (!res.ok) { const t = await res.text(); console.error('API error', res.status, t); return null }
+  return res.json()
+}
+
+async function loadInfoCollection() {
+  const res = await fetch(`/api/info-collection?classId=${CLASS_ID}`)
+  const data = await parseResponse(res)
+  if (!data) return
+  state.enabled = data.enabled
+  state.fields = data.fields || []
+
+  // 更新开关状态
+  const sw = document.getElementById('enabledSwitch')
+  if (state.enabled) sw.classList.add('on')
+  else sw.classList.remove('on')
+
+  renderFields()
+  renderSubmissions()
+  loadStats()
+}
+
+function renderFields() {
+  const container = document.getElementById('fieldsList')
+  if (!state.fields.length) {
+    container.innerHTML = '<div class="empty-state">暂无字段，点击"添加字段"开始配置</div>'
+    return
+  }
+  container.innerHTML = state.fields.map(f => `
+    <div class="field-item">
+      <div class="field-info">
+        <span class="field-badge ${f.type === 'attachment' ? 'attachment' : ''}">
+          ${f.type === 'attachment' ? '附件' : '文本'}
+        </span>
+        <span class="text-sm font-medium text-slate-700">${f.name}</span>
+        ${f.required ? '<span class="field-required">必填</span>' : ''}
+      </div>
+      <div class="flex gap-2">
+        <button onclick="editField(${f.id})" class="text-xs px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition">编辑</button>
+        <button onclick="deleteField(${f.id}, '${f.name.replace(/'/g, "\\'")}')" class="text-xs px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-50 transition">删除</button>
+      </div>
+    </div>
+  `).join('')
+}
+
+async function toggleEnabled() {
+  const newEnabled = !state.enabled
+  const res = await fetch('/api/info-collection', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ classId: CLASS_ID, enabled: newEnabled })
+  })
+  const data = await parseResponse(res)
+  if (!data) return
+  state.enabled = newEnabled
+  document.getElementById('enabledSwitch').classList.toggle('on', newEnabled)
+  notify(newEnabled ? '已启用信息收集' : '已禁用信息收集')
+}
+
+function openFieldModal(field = null) {
+  document.getElementById('editFieldId').value = field?.id || ''
+  document.getElementById('fieldName').value = field?.name || ''
+  document.getElementById('fieldType').value = field?.type || 'text'
+  document.getElementById('fieldRequired').checked = field?.required || false
+  document.getElementById('modalTitle').textContent = field ? '编辑字段' : '添加字段'
+  document.getElementById('fieldModal').classList.remove('hidden')
+}
+
+function closeFieldModal() {
+  document.getElementById('fieldModal').classList.add('hidden')
+}
+
+function editField(id) {
+  const field = state.fields.find(f => f.id === id)
+  openFieldModal(field)
+}
+
+async function saveField() {
+  const fieldId = document.getElementById('editFieldId').value
+  const name = document.getElementById('fieldName').value.trim()
+  const type = document.getElementById('fieldType').value
+  const required = document.getElementById('fieldRequired').checked
+
+  if (!name) { notify('请输入字段名称', false); return }
+
+  if (fieldId) {
+    // 编辑
+    const res = await fetch(`/api/info-collection/fields/${fieldId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classId: CLASS_ID, name, required })
+    })
+    const data = await parseResponse(res)
+    if (!data) return
+    notify('字段已更新')
+  } else {
+    // 新建 - API 会自动获取或创建 collection
+    const res = await fetch('/api/info-collection/fields', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classId: CLASS_ID, name, type, required })
+    })
+    const data = await parseResponse(res)
+    if (!data) return
+    notify('字段已添加')
+  }
+
+  closeFieldModal()
+  await loadInfoCollection()
+}
+
+async function deleteField(fieldId, fieldName) {
+  if (!confirm(`确认删除字段"${fieldName}"？已提交的数据将一并删除。`)) return
+  const res = await fetch(`/api/info-collection/fields/${fieldId}`, { method: 'DELETE' })
+  const data = await parseResponse(res)
+  if (!data) return
+  notify('字段已删除')
+  await loadInfoCollection()
+}
+
+async function loadSubmissions() {
+  const res = await fetch(`/api/info-submissions?classId=${CLASS_ID}`)
+  if (!res.ok) { state.submissions = []; renderSubmissions(); return }
+  state.submissions = await res.json()
+  renderSubmissions()
+}
+
+function renderSubmissions() {
+  const container = document.getElementById('submissionsList')
+  if (!state.fields.length || !state.submissions.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        ${!state.fields.length ? '请先添加收集字段' : '暂无提交记录'}
+      </div>
+    `
+    return
+  }
+
+  const fieldCount = state.fields.length
+  container.innerHTML = `
+    <div class="submission-row header" style="--field-count:${fieldCount}">
+      <div>学生</div>
+      ${state.fields.map(f => `<div>${f.name}</div>`).join('')}
+      <div>提交时间</div>
+    </div>
+    ${state.submissions.map(s => `
+      <div class="submission-row" style="--field-count:${fieldCount}">
+        <div class="font-medium text-slate-800">${s.studentName}</div>
+        ${s.responses.map(r => {
+          if (r.field.type === 'attachment') {
+            return r.fileUrl
+              ? `<a href="${r.fileUrl}" target="_blank" class="file-link text-xs">下载附件</a>`
+              : '<span class="text-slate-400 text-xs">-</span>'
+          }
+          return `<span class="text-sm text-slate-600">${r.textValue || '-'}</span>`
+        }).join('')}
+        <div class="text-xs text-slate-400">${formatTime(s.submittedAt)}</div>
+      </div>
+    `).join('')}
+  `
+}
+
+async function loadStats() {
+  const res = await fetch(`/api/info-submissions/stats?classId=${CLASS_ID}`)
+  if (!res.ok) return
+  const data = await res.json()
+  document.getElementById('submittedCount').textContent = data.submittedCount
+}
+
+function formatTime(iso) {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+// 初始化
+loadInfoCollection()
+</script>
+</body>
+</html>

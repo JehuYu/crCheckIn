@@ -25,9 +25,9 @@ async function assertStudentOwner(studentId, teacherId, isAdmin = false) {
 }
 
 /**
- * 更新学生信息（姓名 / 行政班级）
+ * 更新学生信息（姓名 / 行政班级 / 备注）
  * @param {number} studentId
- * @param {{ name?: string, homeClass?: string }} data
+ * @param {{ name?: string, homeClass?: string, remark?: string }} data
  * @param {number} teacherId
  * @param {boolean} isAdmin
  */
@@ -38,6 +38,7 @@ export async function updateStudent(studentId, data, teacherId, isAdmin = false)
   const { student } = check
   const newName = data.name?.trim() ?? student.name
   const newHomeClass = data.homeClass !== undefined ? data.homeClass.trim() : student.homeClass
+  const newRemark = data.remark !== undefined ? data.remark.trim() : student.remark
 
   if (!newName) {
     return { ok: false, message: '学生姓名不能为空', status: 400 }
@@ -65,7 +66,7 @@ export async function updateStudent(studentId, data, teacherId, isAdmin = false)
 
       return tx.student.update({
         where: { id: studentId },
-        data: { name: newName, homeClass: newHomeClass },
+        data: { name: newName, homeClass: newHomeClass, remark: newRemark },
       })
     })
 

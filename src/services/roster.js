@@ -107,13 +107,14 @@ export async function exportRecordsToExcel(classId) {
   ws.columns = [
     { key: 'homeClass', width: 16 },
     { key: 'name', width: 12 },
+    { key: 'remark', width: 14 },
     { key: 'status', width: 10 },
     { key: 'ip', width: 22 },
     { key: 'time', width: 22 },
   ]
 
   // 标题行
-  ws.mergeCells('A1:E1')
+  ws.mergeCells('A1:F1')
   const titleCell = ws.getCell('A1')
   titleCell.value = `${cls.name}  签到记录`
   titleCell.font = { name: '微软雅黑', bold: true, size: 14, color: { argb: 'FF1E293B' } }
@@ -122,7 +123,7 @@ export async function exportRecordsToExcel(classId) {
   ws.getRow(1).height = 36
 
   // 统计行
-  ws.mergeCells('A2:E2')
+  ws.mergeCells('A2:F2')
   const statCell = ws.getCell('A2')
   statCell.value = `共 ${totalCount} 人 · 已签到 ${signedCount} 人 · 未签到 ${totalCount - signedCount} 人    导出时间：${formatSecond(new Date())}`
   statCell.font = { name: '微软雅黑', size: 9, color: { argb: 'FF64748B' } }
@@ -131,7 +132,7 @@ export async function exportRecordsToExcel(classId) {
   ws.getRow(2).height = 20
 
   // 表头
-  const headerRow = ws.addRow(['行政班级', '姓名', '签到状态', '计算机 IP', '签到时间'])
+  const headerRow = ws.addRow(['行政班级', '姓名', '备注', '签到状态', '计算机 IP', '签到时间'])
   headerRow.height = 24
   headerRow.eachCell((cell) => {
     cell.font = { name: '微软雅黑', bold: true, size: 10, color: { argb: 'FFFFFFFF' } }
@@ -148,6 +149,7 @@ export async function exportRecordsToExcel(classId) {
     const dataRow = ws.addRow([
       fmtHomeClass(student.homeClass),
       student.name,
+      student.remark || '',
       signed ? '✓ 已签到' : '✗ 未签到',
       rec ? rec.computerName : '',
       rec ? formatSecond(new Date(rec.signedAt)) : '',
@@ -157,7 +159,7 @@ export async function exportRecordsToExcel(classId) {
     dataRow.eachCell((cell, colNumber) => {
       cell.font = { name: '微软雅黑', size: 10, color: { argb: signed ? 'FF1E293B' : 'FF94A3B8' } }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' } }
-      cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle' }
+      cell.alignment = { horizontal: colNumber <= 3 ? 'left' : 'center', vertical: 'middle' }
       cell.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } }
     })
     if (signed) {
@@ -396,7 +398,7 @@ export async function exportSeatTableToExcel(classId) {
  * 跨教学班模糊匹配学生姓名
  * @param {string} query
  * @param {number} limit
- * @returns {Promise<{studentId, studentName, homeClass, classId, className}[]>}
+ * @returns {Promise<{studentId, studentName, homeClass, classId, className, remark}[]>}
  */
 export async function matchStudents(query, limit = 15, classId = null) {
   const keyword = query.trim()
@@ -422,6 +424,7 @@ export async function matchStudents(query, limit = 15, classId = null) {
     homeClass: s.homeClass,
     classId: s.classId,
     className: s.class.name,
+    remark: s.remark || '',
   }))
 }
 
