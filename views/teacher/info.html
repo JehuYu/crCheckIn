@@ -7,77 +7,95 @@
   <link rel="stylesheet" href="/public/design-system.css">
   <link rel="stylesheet" href="/public/tailwind.min.css">
   <style>
+    body { font-family: var(--font-sans); background: var(--slate-50); min-height: 100vh; }
     .fade { animation: fadeIn .12s ease; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* 顶栏 */
+    .header-blur { background:rgba(255,255,255,.85); backdrop-filter:blur(12px); border-bottom:1px solid var(--slate-200); }
+    .nav-link {
+      display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;
+      color:var(--slate-600);font-size:13px;font-weight:500;transition:all .12s ease;text-decoration:none;
+    }
+    .nav-link:hover { background:var(--slate-50); color:var(--slate-800); }
+    .nav-title { color:var(--slate-800);font-size:15px;font-weight:600; }
+
+    /* 按钮 */
     .btn {
       display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;
       transition:all .12s;cursor:pointer;border:none;text-decoration:none;box-shadow:var(--shadow-xs);
     }
-    .btn-primary { background:var(--brand);color:#fff; }
-    .btn-primary:hover { background:var(--brand-dark); box-shadow:var(--shadow-sm); }
+    .btn-primary { background:var(--brand-600);color:#fff; }
+    .btn-primary:hover { background:var(--brand-700); box-shadow:var(--shadow-sm); }
     .btn-gray { background:#fff;color:var(--slate-700);border:1px solid var(--slate-200); }
     .btn-gray:hover { background:var(--slate-50); border-color:var(--slate-300); }
-    .btn-danger { background:#fff;color:var(--error);border:1px solid rgba(217, 110, 110, 0.3); }
-    .btn-danger:hover { background:var(--error-light); border-color:var(--error); }
+    .btn-danger { background:#fff;color:var(--error-600);border:1px solid rgba(217, 110, 110, 0.3); }
+    .btn-danger:hover { background:var(--error-50); border-color:var(--error-500); }
     .btn-success { background:var(--success-600);color:#fff; }
     .btn-success:hover { background:var(--success-700); }
-    .section-label { font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--slate-500);margin-bottom:8px; }
-    .header-blur { background:rgba(255,255,255,.85); backdrop-filter:blur(12px); border-bottom:1px solid var(--slate-200); }
-    .nav-link {
-      display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;
-      color:var(--slate-600);font-size:13px;font-weight:500;transition:all .12s ease;
-    }
-    .nav-link:hover { background:var(--slate-50); color:var(--slate-800); }
-    .nav-title { color:var(--slate-800);font-size:15px;font-weight:600; }
+    .btn-xs { padding:5px 10px;font-size:11px;border-radius:5px; }
+
+    /* 卡片 */
+    .card { background:#fff;border:1px solid var(--slate-200);border-radius:10px;box-shadow:var(--shadow-sm); }
+
+    /* 开关 */
     .switch {
       position:relative;width:44px;height:24px;border-radius:9999px;
       background:var(--slate-200);cursor:pointer;transition:background .2s;
     }
-    .switch.on { background:var(--brand); }
+    .switch.on { background:var(--brand-600); }
     .switch-knob {
       position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
       background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:transform .2s;
     }
     .switch.on .switch-knob { transform:translateX(20px); }
+
+    /* 字段列表 */
     .field-item {
       display:flex;align-items:center;justify-content:space-between;
       padding:12px 14px;background:var(--slate-50);
       border-radius:8px;border:1px solid var(--slate-200);
-      margin-bottom:8px;
+      margin-bottom:8px;transition:all 0.12s;
     }
     .field-item:hover { background:#fff; border-color:var(--slate-300); }
     .field-info { display:flex;align-items:center;gap:8px; }
     .field-badge {
       padding:3px 7px;border-radius:6px;font-size:10px;font-weight:600;
-      background:var(--brand-50);color:var(--brand-dark);border:1px solid rgba(201, 109, 58, 0.15);
+      background:var(--brand-50);color:var(--brand-700);border:1px solid rgba(201, 109, 58, 0.15);
     }
-    .field-badge.attachment { background:var(--success-light);color:var(--success-dark);border-color:rgba(87, 167, 120, 0.2); }
-    .field-required { color:var(--error);font-size:10px;margin-left:4px; }
+    .field-badge.attachment { background:var(--success-50);color:var(--success-700);border-color:rgba(87, 167, 120, 0.2); }
+    .field-required { color:var(--error-500);font-size:10px;margin-left:4px; }
+
+    /* 提交列表 */
     .submission-row {
       display:grid;grid-template-columns:1.2fr repeat(var(--field-count), 1fr);
       gap:10px;align-items:center;
       padding:10px 14px;border-bottom:1px solid var(--slate-100);
     }
+    .submission-row:last-child { border-bottom:none; }
     .submission-row:hover { background:var(--slate-50); }
     .submission-row.header {
       background:var(--slate-50);font-weight:600;font-size:11px;color:var(--slate-500);
-      text-transform:uppercase;letter-spacing:0.05em;
+      text-transform:uppercase;letter-spacing:0.05em;border-radius:8px;margin-bottom:6px;
     }
-    .file-link { color:var(--brand);text-decoration:none; }
+    .file-link { color:var(--brand-600);text-decoration:none;font-size:12px; }
     .file-link:hover { text-decoration:underline; }
+
+    /* 空状态 */
     .empty-state {
       text-align:center;padding:40px 24px;color:var(--slate-400);
       background:var(--slate-50);border-radius:10px;
       border:1px dashed var(--slate-200);
     }
+
+    /* 模态框 */
     .modal-overlay {
-      position:fixed;inset:0;background:rgba(0,0,0,.4);
+      position:fixed;inset:0;background:rgba(0,0,0,.3);
       display:flex;align-items:center;justify-content:center;z-index:100;
     }
     .modal-content {
       background:#fff;border-radius:12px;max-width:460px;width:90%;
-      max-height:80vh;overflow-y:auto;
-      box-shadow:0 24px 48px rgba(0,0,0,.2);
+      box-shadow:0 24px 48px rgba(0,0,0,.15);border:1px solid var(--slate-200);
     }
     .modal-header {
       padding:18px 20px;border-bottom:1px solid var(--slate-100);
@@ -89,7 +107,8 @@
       padding:16px 20px;border-top:1px solid var(--slate-100);
       display:flex;justify-content:flex-end;gap:10px;
     }
-    .modal-footer .btn { min-width:80px;justify-content:center; }
+
+    /* 表单 */
     .input-field {
       width:100%;padding:11px 13px;border-radius:8px;
       border:1px solid var(--slate-200);font-size:14px;
@@ -98,11 +117,21 @@
     .input-field:focus {
       outline:none;border-color:var(--brand-500);box-shadow:0 0 0 3px rgba(223, 138, 92, 0.15);
     }
-    .form-label { display:block;font-size:13px;font-weight:500;color:var(--slate-700);margin-bottom:6px; }
-    .form-hint { font-size:12px;color:var(--slate-500);margin-top:4px; }
+
+    /* 通知 */
+    .toast {
+      position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:8px;
+      font-size:13px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.1);
+      border:1px solid;z-index:1000;animation:slideIn 0.25s;
+    }
+    .toast-success { background:#f0fdf4;color:var(--success-700);border-color:var(--success-200); }
+    .toast-error { background:#fef2f2;color:var(--error-600);border-color:var(--error-200); }
+    @keyframes slideIn { from { transform:translateX(100%);opacity:0; } to { transform:translateX(0);opacity:1; } }
+
+    /* 统计卡片 */
     .stat-card {
-      padding:14px;border-radius:10px;
-      background:var(--success-light);
+      padding:16px;border-radius:10px;
+      background:linear-gradient(135deg,#f0fdf4,#ecfdf5);
       border:1px solid rgba(87, 167, 120, 0.2);
     }
   </style>
@@ -119,9 +148,9 @@
           </svg>
           班级列表
         </a>
-        <span class="nav-divider" style="color:#cbd5e1">|</span>
+        <span style="color:#cbd5e1">|</span>
         <a href="/teacher/classes/{{ cls.id }}" class="nav-link">{{ cls.name }}</a>
-        <span class="nav-divider" style="color:#cbd5e1">|</span>
+        <span style="color:#cbd5e1">|</span>
         <span class="nav-title">信息收集</span>
       </div>
     </div>
@@ -145,7 +174,7 @@
     <!-- 字段管理 -->
     <div class="card p-5">
       <div class="flex items-center justify-between mb-4">
-        <p class="section-label" style="margin:0">收集字段</p>
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">收集字段</p>
         <button onclick="openFieldModal()" class="btn btn-primary">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -176,7 +205,7 @@
     <div class="card overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
         <p class="text-sm font-medium text-slate-700">提交记录</p>
-        <button id="refreshBtn" onclick="loadSubmissions()" class="btn btn-gray">
+        <button id="refreshBtn" onclick="loadSubmissions()" class="btn btn-gray btn-xs">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
@@ -221,7 +250,7 @@
   </div>
 
   <!-- 通知 -->
-  <div id="msg" class="hidden fixed bottom-6 right-6 px-5 py-3 rounded-xl text-sm font-medium fade shadow-lg"></div>
+  <div id="msg" class="hidden toast"></div>
 
 <script>
 const CLASS_ID = {{ cls.id }}
@@ -229,9 +258,7 @@ let state = { enabled: false, fields: [], submissions: [] }
 
 function notify(text, ok = true) {
   const msg = document.getElementById('msg')
-  msg.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl text-sm font-medium fade shadow-lg ${ok
-    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-    : 'bg-red-50 text-red-600 border border-red-100'}`
+  msg.className = `toast ${ok ? 'toast-success' : 'toast-error'}`
   msg.textContent = text
   msg.classList.remove('hidden')
   setTimeout(() => msg.classList.add('hidden'), 2500)
