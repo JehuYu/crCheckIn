@@ -322,6 +322,59 @@
     .btn-primary { background: var(--primary); color: var(--on-primary); }
     .btn-primary:hover { background: var(--primary-active); }
 
+    /* === Modal === */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(20,20,19,.35);
+    }
+    .modal-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 16px 48px rgba(20,20,19,.15);
+      width: 100%;
+      max-width: 400px;
+      margin: 0 16px;
+      padding: 28px;
+      border: 1px solid var(--hairline);
+    }
+    .modal-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .modal-icon.error {
+      background: #fef2f2;
+      color: var(--error);
+    }
+    .modal-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--ink);
+      margin: 0 0 8px;
+      letter-spacing: -0.3px;
+    }
+    .modal-desc {
+      font-size: 14px;
+      color: var(--body);
+      margin: 0 0 24px;
+      line-height: 1.55;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
     /* === Toast === */
     .toast {
       position: fixed;
@@ -369,6 +422,9 @@
       .compact-banner { flex-direction: column; gap: 12px; align-items: flex-start; }
       .banner-stats { margin-left: 0; width: 100%; justify-content: center; flex-wrap: wrap; }
     }
+
+    /* Force hidden class */
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -483,6 +539,24 @@
 
   </main>
 
+  <!-- Delete Teacher Modal -->
+  <div id="deleteModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-icon error">
+        <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+      </div>
+      <p class="modal-title">删除教师账号</p>
+      <p id="deleteModalDesc" class="modal-desc"></p>
+      <div class="modal-actions">
+        <button onclick="closeDeleteModal()"
+          style="padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--body); background: none; border: 1px solid var(--hairline); cursor: pointer; height: 40px; transition: all .15s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button id="confirmDeleteBtn" class="btn btn-primary" style="height: 40px; background: var(--error);">确认删除</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const params = new URLSearchParams(window.location.search)
 const error = params.get('error')
@@ -518,11 +592,25 @@ document.getElementById('createTeacherBtn').addEventListener('click', async () =
   }
 })
 
-async function deleteTeacher(id, username) {
-  if (!confirm(`确认删除教师账号「${username}」？此操作将同时删除其所有班级和数据，不可恢复。`)) return
-  const res = await fetch(`/admin/teachers/${id}`, { method: 'DELETE' })
+let deleteTeacherId = null
+
+function deleteTeacher(id, username) {
+  deleteTeacherId = id
+  document.getElementById('deleteModalDesc').textContent = `确认删除教师账号「${username}」？此操作将同时删除其所有班级和数据，不可恢复。`
+  document.getElementById('deleteModal').classList.remove('hidden')
+}
+
+function closeDeleteModal() {
+  deleteTeacherId = null
+  document.getElementById('deleteModal').classList.add('hidden')
+}
+
+document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+  if (!deleteTeacherId) return
+  const res = await fetch(`/admin/teachers/${deleteTeacherId}`, { method: 'DELETE' })
   if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
+  closeDeleteModal()
   if (data.ok) {
     window.location.reload()
   } else {

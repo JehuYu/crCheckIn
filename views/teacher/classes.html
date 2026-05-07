@@ -293,6 +293,9 @@
     }
     .class-action-delete:hover { background: #fef2f2; }
 
+    /* Force hidden class regardless of Tailwind */
+    .hidden { display: none !important; }
+
     /* === Sidebar Card === */
     .sidebar-card {
       background: #fff;
@@ -396,6 +399,59 @@
       border-radius: 12px;
       background: var(--surface-card);
       margin-bottom: 12px;
+    }
+
+    /* === Modal === */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(20,20,19,.35);
+    }
+    .modal-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 16px 48px rgba(20,20,19,.15);
+      width: 100%;
+      max-width: 400px;
+      margin: 0 16px;
+      padding: 28px;
+      border: 1px solid var(--hairline);
+    }
+    .modal-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .modal-icon.error {
+      background: #fef2f2;
+      color: var(--error);
+    }
+    .modal-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--ink);
+      margin: 0 0 8px;
+      letter-spacing: -0.3px;
+    }
+    .modal-desc {
+      font-size: 14px;
+      color: var(--body);
+      margin: 0 0 24px;
+      line-height: 1.55;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
     }
 
     /* === Toast === */
@@ -602,6 +658,24 @@
 
   </main>
 
+  <!-- Delete Class Modal -->
+  <div id="deleteModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-icon error">
+        <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+      </div>
+      <p class="modal-title">删除班级</p>
+      <p id="deleteModalDesc" class="modal-desc"></p>
+      <div class="modal-actions">
+        <button onclick="closeDeleteModal()"
+          style="padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--body); background: none; border: 1px solid var(--hairline); cursor: pointer; height: 40px; transition: all .15s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button id="confirmDeleteBtn" class="btn btn-primary" style="height: 40px; background: var(--error);">确认删除</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 function showToast(text, ok = true) {
   const t = document.getElementById('toast')
@@ -628,13 +702,27 @@ document.getElementById('changePwdBtn').addEventListener('click', async () => {
   if (data.ok) { document.getElementById('oldPwd').value = ''; document.getElementById('newPwd').value = '' }
 })
 
-async function deleteClass(id, name) {
-  if (!confirm(`确认删除班级「${name}」？此操作将同时删除该班级的所有学生和签到记录，不可恢复。`)) return
-  const res = await fetch(`/api/classes/${id}`, { method: 'DELETE' })
+let deleteClassId = null
+
+function deleteClass(id, name) {
+  deleteClassId = id
+  document.getElementById('deleteModalDesc').textContent = `确认删除班级「${name}」？此操作将同时删除该班级的所有学生和签到记录，不可恢复。`
+  document.getElementById('deleteModal').classList.remove('hidden')
+}
+
+function closeDeleteModal() {
+  deleteClassId = null
+  document.getElementById('deleteModal').classList.add('hidden')
+}
+
+document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+  if (!deleteClassId) return
+  const res = await fetch(`/api/classes/${deleteClassId}`, { method: 'DELETE' })
   if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
+  closeDeleteModal()
   if (data.ok) { window.location.reload() } else { showToast(data.message || '删除失败', false) }
-}
+})
 
 document.getElementById('createBtn').addEventListener('click', async () => {
   const name = document.getElementById('classNameInput').value.trim()
