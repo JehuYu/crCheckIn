@@ -81,6 +81,9 @@
       border-radius: 12px;
       padding: 20px 24px;
       margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
     }
     .banner-title {
       font-family: Georgia, 'Times New Roman', serif;
@@ -97,12 +100,12 @@
     }
     .banner-stats {
       display: flex;
-      gap: 20px;
-      margin-top: 14px;
+      gap: 12px;
+      margin-left: auto;
+      flex-shrink: 0;
     }
     .banner-stat {
-      display: inline-flex;
-      flex-direction: column;
+      text-align: center;
       padding: 8px 14px;
       border-radius: 8px;
       background: rgba(255,255,255,.06);
@@ -115,12 +118,14 @@
     }
     .banner-stat-value {
       font-family: Georgia, serif;
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 400;
       color: var(--on-dark);
-      margin: 2px 0 0;
+      margin: 4px 0 0;
       line-height: 1;
     }
+    .banner-stat-value.accent { color: var(--primary); }
+    .banner-stat-value.muted { color: #8e8b82; }
 
     /* === Two Column Layout === */
     .page-layout {
@@ -396,7 +401,8 @@
     }
     @media (max-width: 640px) {
       .class-grid { grid-template-columns: 1fr; }
-      .banner-stats { flex-wrap: wrap; }
+      .compact-banner { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .banner-stats { margin-left: 0; width: 100%; justify-content: center; flex-wrap: wrap; }
     }
   </style>
 </head>

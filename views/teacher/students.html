@@ -80,7 +80,7 @@
       margin-bottom: 20px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 20px;
     }
     .banner-title {
       font-family: Georgia, 'Times New Roman', serif;
@@ -95,6 +95,12 @@
       color: #a09d96;
       margin: 4px 0 0;
     }
+    .banner-stats {
+      display: flex;
+      gap: 12px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
     .banner-stat {
       text-align: center;
       padding: 8px 14px;
@@ -104,7 +110,7 @@
     }
     .banner-stat-value {
       font-family: Georgia, serif;
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 400;
       color: var(--on-dark);
       margin: 0;
@@ -116,6 +122,8 @@
       margin: 4px 0 0;
       letter-spacing: 0.3px;
     }
+    .banner-stat-value.accent { color: var(--primary); }
+    .banner-stat-value.muted { color: #8e8b82; }
 
     /* === Two Column Layout === */
     .page-layout {
@@ -406,7 +414,8 @@
     @media (max-width: 640px) {
       .student-grid { grid-template-columns: 1fr; }
       .student-actions { opacity: 1; }
-      .compact-banner { flex-direction: column; gap: 12px; text-align: center; }
+      .compact-banner { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .banner-stats { margin-left: 0; width: 100%; justify-content: center; }
     }
 
     /* Force hidden class regardless of Tailwind */
@@ -441,9 +450,11 @@
         <h1 class="banner-title">{{ cls.name }}</h1>
         <p class="banner-sub">管理学生名单，支持编辑、转移和删除操作</p>
       </div>
-      <div class="banner-stat">
-        <p id="stuCount" class="banner-stat-value">{{ students | length }}</p>
-        <p class="banner-stat-label">名学生</p>
+      <div class="banner-stats">
+        <div class="banner-stat">
+          <p id="stuCount" class="banner-stat-value">{{ students | length }}</p>
+          <p class="banner-stat-label">名学生</p>
+        </div>
       </div>
     </div>
 

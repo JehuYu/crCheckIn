@@ -79,15 +79,15 @@
     .compact-banner {
       background: var(--surface-dark);
       border-radius: 12px;
-      padding: 16px 24px;
+      padding: 20px 24px;
       margin-bottom: 20px;
       display: flex;
       align-items: center;
-      gap: 24px;
+      gap: 20px;
     }
     .banner-title {
-      font-family: Georgia, serif;
-      font-size: 20px;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 22px;
       font-weight: 400;
       color: var(--on-dark);
       margin: 0;
@@ -95,25 +95,32 @@
     }
     .banner-stats {
       display: flex;
-      gap: 20px;
+      gap: 12px;
       margin-left: auto;
+      flex-shrink: 0;
     }
     .banner-stat {
       text-align: center;
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
     }
     .banner-stat-label {
       font-size: 11px;
       color: #8e8b82;
-      font-weight: 500;
+      margin: 0;
     }
     .banner-stat-value {
       font-family: Georgia, serif;
-      font-size: 24px;
+      font-size: 22px;
+      font-weight: 400;
       color: var(--on-dark);
-      line-height: 1.2;
+      margin: 4px 0 0;
+      line-height: 1;
     }
     .banner-stat-value.accent { color: var(--primary); }
-    .banner-stat-value.muted { color: #6c6a64; }
+    .banner-stat-value.muted { color: #8e8b82; }
 
     /* === Layout === */
     .page-layout {
@@ -535,7 +542,8 @@
       .banner-stats { margin-left: 0; }
     }
     @media (max-width: 640px) {
-      .banner-stats { gap: 12px; }
+      .compact-banner { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .banner-stats { margin-left: 0; width: 100%; justify-content: center; gap: 12px; }
       .roster-grid { grid-template-columns: 1fr; }
     }
   </style>

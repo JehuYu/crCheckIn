@@ -80,6 +80,9 @@
       border-radius: 12px;
       padding: 20px 24px;
       margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
     }
     .banner-title {
       font-family: Georgia, 'Times New Roman', serif;
@@ -94,24 +97,34 @@
       color: #a09d96;
       margin: 4px 0 0;
     }
+    .banner-stats {
+      display: flex;
+      gap: 12px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
     .banner-stat {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 14px;
+      text-align: center;
       padding: 8px 14px;
       border-radius: 8px;
       background: rgba(255,255,255,.06);
       border: 1px solid rgba(255,255,255,.08);
-      font-size: 13px;
-      color: #a09d96;
     }
-    .banner-stat strong {
+    .banner-stat-label {
+      font-size: 11px;
+      color: #8e8b82;
+      margin: 0;
+    }
+    .banner-stat-value {
       font-family: Georgia, serif;
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 400;
       color: var(--on-dark);
+      margin: 4px 0 0;
+      line-height: 1;
     }
+    .banner-stat-value.accent { color: var(--primary); }
+    .banner-stat-value.muted { color: #8e8b82; }
 
     /* === Two Column Layout === */
     .page-layout {
@@ -328,6 +341,12 @@
     /* === Responsive === */
     @media (max-width: 900px) {
       .page-layout { grid-template-columns: 1fr; }
+      .compact-banner { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .banner-stats { margin-left: 0; width: 100%; justify-content: center; }
+    }
+    @media (max-width: 640px) {
+      .compact-banner { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .banner-stats { margin-left: 0; width: 100%; justify-content: center; flex-wrap: wrap; }
     }
   </style>
 </head>
@@ -359,11 +378,15 @@
 
     <!-- Compact Banner -->
     <div class="compact-banner">
-      <h1 class="banner-title">管理员面板</h1>
-      <p class="banner-sub">管理教师账号，创建新账号或重置密码</p>
-      <div class="banner-stat">
-        <strong>{{ teachers | length }}</strong>
-        <span>个教师账号</span>
+      <div>
+        <h1 class="banner-title">管理员面板</h1>
+        <p class="banner-sub">管理教师账号，创建新账号或重置密码</p>
+      </div>
+      <div class="banner-stats">
+        <div class="banner-stat">
+          <p class="banner-stat-value">{{ teachers | length }}</p>
+          <p class="banner-stat-label">个教师账号</p>
+        </div>
       </div>
     </div>
 
