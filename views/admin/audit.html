@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>审计日志 - 管理员</title>
+  <link rel="stylesheet" href="/public/tailwind.min.css">
+  <style>
+    :root {
+      --canvas: #faf9f5;
+      --surface-card: #efe9de;
+      --surface-dark: #181715;
+      --primary: #cc785c;
+      --primary-active: #a9583e;
+      --ink: #141413;
+      --body: #3d3d3a;
+      --muted: #6c6a64;
+      --muted-soft: #8e8b82;
+      --hairline: #e6dfd8;
+      --on-primary: #ffffff;
+      --on-dark: #faf9f5;
+      --success: #5db872;
+      --error: #c64545;
+      --warning: #d4a017;
+      --info: #4a90d9;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--canvas); color: var(--body); margin: 0;
+    }
+    .header-bar {
+      background: var(--canvas); border-bottom: 1px solid var(--hairline);
+      height: 64px; position: sticky; top: 0; z-index: 20;
+    }
+    .header-inner {
+      max-width: 1400px; margin: 0 auto; padding: 0 24px;
+      height: 100%; display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .nav-link {
+      display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px;
+      border-radius: 8px; color: var(--muted); font-size: 14px; font-weight: 500;
+      transition: all .15s ease; text-decoration: none;
+    }
+    .nav-link:hover { background: var(--surface-card); color: var(--ink); }
+    .nav-link.active { background: var(--surface-card); color: var(--primary); font-weight: 600; }
+    .page-title {
+      font-family: Georgia, 'Times New Roman', serif; font-weight: 400;
+      letter-spacing: -0.3px; color: var(--ink);
+    }
+
+    /* Card */
+    .card {
+      background: #fff; border-radius: 12px; border: 1px solid var(--hairline); overflow: hidden;
+    }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--hairline); }
+    .card-title { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0; }
+
+    /* Table */
+    .log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .log-table th {
+      text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600;
+      color: var(--muted-soft); border-bottom: 1px solid var(--hairline); background: var(--canvas);
+    }
+    .log-table td { padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
+    .log-table td.time { white-space: nowrap; color: var(--muted-soft); font-size: 12px; }
+
+    /* Action Badge */
+    .action-badge {
+      display: inline-flex; padding: 2px 8px; border-radius: 9999px;
+      font-size: 11px; font-weight: 500; white-space: nowrap;
+    }
+    .action-badge.CREATE_TEACHER { background: #dcfce7; color: #166534; }
+    .action-badge.DELETE_TEACHER { background: #fef2f2; color: #991b1b; }
+    .action-badge.RESET_PASSWORD, .action-badge.BATCH_RESET_PASSWORD { background: #fef3c7; color: #92400e; }
+    .action-badge.TRANSFER_CLASS { background: #ede9fe; color: #5b21b6; }
+    .action-badge.EDIT_CLASS { background: #dbeafe; color: #1e40af; }
+    .action-badge.DELETE_CLASS { background: #fef2f2; color: #991b1b; }
+    .action-badge.ARCHIVE_ALL { background: #ccfbf1; color: #115e59; }
+    .action-badge.BACKUP { background: #f0fdf4; color: #166534; }
+    .action-badge.RESTORE { background: #fef2f2; color: #991b1b; }
+
+    /* Pagination */
+    .pagination {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px;
+    }
+    .pagination button {
+      padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      border: 1px solid var(--hairline); background: #fff; color: var(--muted);
+      cursor: pointer; transition: all .15s;
+    }
+    .pagination button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pagination .page-info { font-size: 12px; color: var(--muted-soft); }
+
+    .loading { display: flex; align-items: center; justify-content: center; min-height: 200px; color: var(--muted-soft); }
+    .empty { text-align: center; padding: 32px; color: var(--muted-soft); }
+  </style>
+</head>
+<body>
+
+<header class="header-bar">
+  <div class="header-inner">
+    <div class="header-left">
+      <a href="/admin" class="nav-link">
+        <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        管理面板
+      </a>
+      <span style="color: var(--hairline);">|</span>
+      <span class="page-title text-lg">审计日志</span>
+    </div>
+    <div style="display: flex; gap: 4px;">
+      <a href="/admin/dashboard" class="nav-link">看板</a>
+      <a href="/admin/analytics" class="nav-link">分析</a>
+      <a href="/admin/audit" class="nav-link active">审计</a>
+      <a href="/teacher/classes" class="nav-link">教师端</a>
+      <form method="post" action="/teacher/logout" style="display: inline;">
+        <button class="nav-link" type="submit" style="border: none; background: none; cursor: pointer;">退出</button>
+      </form>
+    </div>
+  </div>
+</header>
+
+<main style="max-width: 1400px; margin: 0 auto; padding: 20px 24px 48px;">
+
+  <div class="card">
+    <div class="card-header">
+      <p class="card-title">操作日志</p>
+    </div>
+    <div id="loadingView" class="loading">加载中...</div>
+    <div id="dataView" style="display: none;">
+      <table class="log-table" id="logTable">
+        <thead><tr>
+          <th style="width:140px;">时间</th>
+          <th style="width:120px;">操作类型</th>
+          <th>操作目标</th>
+          <th style="width:100px;">IP</th>
+        </tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+    <div id="pagination" class="pagination" style="display: none;">
+      <button id="prevBtn" disabled onclick="changePage(-1)">上一页</button>
+      <span class="page-info" id="pageInfo"></span>
+      <button id="nextBtn" disabled onclick="changePage(1)">下一页</button>
+    </div>
+  </div>
+</main>
+
+<script>
+let currentPage = 1
+const LIMIT = 50
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+const ACTION_LABELS = {
+  CREATE_TEACHER: '创建教师',
+  DELETE_TEACHER: '删除教师',
+  RESET_PASSWORD: '重置密码',
+  BATCH_RESET_PASSWORD: '批量重置密码',
+  TRANSFER_CLASS: '班级转交',
+  EDIT_CLASS: '编辑班级',
+  DELETE_CLASS: '删除班级',
+  ARCHIVE_ALL: '一键归档',
+  BACKUP: '数据库备份',
+  RESTORE: '数据库恢复',
+}
+
+function timeCN(dateStr) {
+  const d = new Date(dateStr)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+async function loadPage(page) {
+  currentPage = page
+  const res = await fetch(`/admin/api/audit-logs?page=${page}&limit=${LIMIT}`)
+  if (res.status === 401 || res.status === 403) { window.location.href = '/student'; return }
+  const data = await res.json()
+  render(data)
+}
+
+function render(data) {
+  document.getElementById('loadingView').style.display = 'none'
+  document.getElementById('dataView').style.display = ''
+  document.getElementById('pagination').style.display = ''
+
+  const rows = data.logs.map(log => {
+    const label = ACTION_LABELS[log.action] || log.action
+    return `<tr>
+      <td class="time">${timeCN(log.createdAt)}</td>
+      <td><span class="action-badge ${log.action}">${escHtml(label)}</span></td>
+      <td style="font-size: 13px;">${escHtml(log.target)}${log.detail ? `<br><span style="color: var(--muted-soft); font-size: 11px;">${escHtml(log.detail)}</span>` : ''}</td>
+      <td style="font-size: 12px; color: var(--muted-soft);">${escHtml(log.ip || '-')}</td>
+    </tr>`
+  }).join('')
+
+  document.getElementById('logBody').innerHTML = rows || '<tr><td colspan="4" class="empty">暂无日志</td></tr>'
+
+  const totalPages = Math.ceil(data.total / data.limit)
+  document.getElementById('pageInfo').textContent = `第 ${data.page} / ${totalPages || 1} 页（共 ${data.total} 条）`
+  document.getElementById('prevBtn').disabled = data.page <= 1
+  document.getElementById('nextBtn').disabled = data.page >= totalPages
+}
+
+function changePage(delta) {
+  const newPage = currentPage + delta
+  if (newPage < 1) return
+  loadPage(newPage)
+}
+
+loadPage(1)
+</script>
+</body>
+</html>

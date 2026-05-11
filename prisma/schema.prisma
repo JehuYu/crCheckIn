@@ -139,3 +139,14 @@ model InfoResponse {
   fileUrl      String?        // 附件路径
   createdAt    DateTime       @default(now())
 }
+
+// 管理员操作审计日志
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  adminId   Int      // 操作者（管理员）
+  action    String   // 操作类型：CREATE_TEACHER, DELETE_TEACHER, RESET_PASSWORD, TRANSFER_CLASS, DELETE_CLASS, ARCHIVE_ALL, BACKUP, RESTORE
+  target    String   // 操作目标描述
+  detail    String   @default("") // 额外详情（JSON 或文本）
+  ip        String   @default("")
+  createdAt DateTime @default(now())
+}

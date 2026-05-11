@@ -444,6 +444,10 @@
         <span class="page-title text-lg">管理员面板</span>
       </div>
       <div class="header-right">
+        <a href="/admin/dashboard" class="nav-link">全局看板</a>
+        <a href="/admin/analytics" class="nav-link">数据分析</a>
+        <a href="/admin/audit" class="nav-link">审计日志</a>
+        <a href="/teacher/classes" class="nav-link">教师端</a>
         <form method="post" action="/teacher/logout" style="display: inline;">
           <button class="nav-action" type="submit">退出</button>
         </form>
@@ -477,6 +481,7 @@
     <div class="page-layout">
 
       <!-- Left: Create Teacher -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
       <div class="sidebar-card">
         <div class="sidebar-header">
           <p class="sidebar-title">创建教师账号</p>
@@ -497,6 +502,46 @@
           </div>
           <button id="createTeacherBtn" class="btn btn-primary">创建账号</button>
         </div>
+      </div>
+
+      <!-- Batch Password Reset -->
+      <div class="sidebar-card">
+        <div class="sidebar-header">
+          <p class="sidebar-title">批量重置密码</p>
+        </div>
+        <div class="sidebar-body">
+          <div class="form-field">
+            <label for="batchPassword">新密码（所有非管理员教师）</label>
+            <input type="password" id="batchPassword" class="input-field" placeholder="输入新密码" />
+          </div>
+          <button id="batchResetBtn" class="btn btn-primary" style="background: var(--warning); color: var(--ink);">批量重置</button>
+        </div>
+      </div>
+
+      <!-- Database Backup/Restore -->
+      <div class="sidebar-card">
+        <div class="sidebar-header">
+          <p class="sidebar-title">数据库管理</p>
+        </div>
+        <div class="sidebar-body">
+          <button id="backupBtn" class="btn btn-primary" style="margin-bottom: 10px;">下载备份</button>
+          <div style="position: relative;">
+            <input type="file" id="restoreFile" accept=".db,.sqlite" style="display: none;" />
+            <button id="restoreBtn" class="btn btn-primary" style="background: var(--error); color: #fff;">恢复备份</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Health -->
+      <div class="sidebar-card">
+        <div class="sidebar-header">
+          <p class="sidebar-title">系统状态</p>
+        </div>
+        <div class="sidebar-body" id="healthInfo">
+          <div style="font-size: 13px; color: var(--muted-soft); text-align: center;">加载中...</div>
+        </div>
+      </div>
+
       </div>
 
       <!-- Right: Teacher List -->
@@ -617,7 +662,7 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async () =
   } else {
     showToast(data.message || '删除失败', false)
   }
-}
+})
 
 async function resetTeacherPassword(id, username) {
   const password = prompt(`请输入教师账号「${username}」的新密码`)
@@ -640,6 +685,109 @@ async function resetTeacherPassword(id, username) {
     showToast(data.message || '重置密码失败', false)
   }
 }
+
+// === Batch Password Reset ===
+document.getElementById('batchResetBtn').addEventListener('click', async () => {
+  const password = document.getElementById('batchPassword').value
+  if (!password) { showToast('请输入新密码', false); return }
+  if (!confirm('确定要重置所有非管理员教师的密码吗？')) return
+  const res = await fetch('/admin/api/batch-reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  })
+  const data = await res.json()
+  if (data.ok) {
+    showToast(data.message)
+    document.getElementById('batchPassword').value = ''
+    window.location.reload()
+  } else {
+    showToast(data.message || '重置失败', false)
+  }
+})
+
+// === Database Backup ===
+document.getElementById('backupBtn').addEventListener('click', () => {
+  const a = document.createElement('a')
+  a.href = '/admin/api/backup'
+  a.download = `crcheckin_backup_${Date.now()}.db`
+  a.click()
+  showToast('备份文件下载中')
+})
+
+// === Database Restore ===
+document.getElementById('restoreBtn').addEventListener('click', () => {
+  document.getElementById('restoreFile').click()
+})
+document.getElementById('restoreFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+  if (!confirm(`确定要恢复数据库备份「${file.name}」吗？当前数据库将被替换。`)) { e.target.value = ''; return }
+  const formData = new FormData()
+  formData.append('file', file)
+  showToast('正在恢复，请稍候...')
+  const res = await fetch('/admin/api/restore', { method: 'POST', body: formData })
+  const data = await res.json()
+  if (data.ok) {
+    showToast('数据库已恢复，页面即将刷新')
+    setTimeout(() => window.location.reload(), 1500)
+  } else {
+    showToast(data.message || '恢复失败', false)
+  }
+  e.target.value = ''
+})
+
+// === System Health ===
+async function loadHealth() {
+  try {
+    const res = await fetch('/admin/api/health')
+    if (res.status === 401 || res.status === 403) { return }
+    const data = await res.json()
+    if (!data.ok) return
+
+    const s = data.server
+    const d = data.database
+    const info = document.getElementById('healthInfo')
+    info.innerHTML = `
+      <div style="font-size: 12px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--muted);">运行时间</span>
+          <span style="color: var(--ink); font-weight: 500;">${formatUptime(s.uptime)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--muted);">Node 版本</span>
+          <span style="color: var(--ink); font-weight: 500;">${s.nodeVersion}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--muted);">内存使用</span>
+          <span style="color: var(--ink); font-weight: 500;">${s.memory.heapUsed} / ${s.memory.heapTotal}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--muted);">数据库</span>
+          <span style="color: ${d.ok ? 'var(--success)' : 'var(--error)'}; font-weight: 500;">${d.ok ? '正常' : '异常'} (${d.sizeLabel})</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--muted);">班级 / 学生</span>
+          <span style="color: var(--ink); font-weight: 500;">${data.data.classes} / ${data.data.students}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--muted);">当前 / 归档记录</span>
+          <span style="color: var(--ink); font-weight: 500;">${data.data.currentRecords} / ${data.data.archivedRecords}</span>
+        </div>
+      </div>
+    `
+  } catch (err) {
+    // Ignore health check errors
+  }
+}
+
+function formatUptime(seconds) {
+  if (seconds < 3600) return Math.floor(seconds / 60) + '分钟'
+  if (seconds < 86400) return Math.floor(seconds / 3600) + '小时'
+  return Math.floor(seconds / 86400) + '天'
+}
+
+loadHealth()
 </script>
 </body>
 </html>

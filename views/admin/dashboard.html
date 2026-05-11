@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>全局看板 - 管理员</title>
+  <link rel="stylesheet" href="/public/tailwind.min.css">
+  <style>
+    :root {
+      --canvas: #faf9f5;
+      --surface-card: #efe9de;
+      --surface-dark: #181715;
+      --primary: #cc785c;
+      --primary-active: #a9583e;
+      --ink: #141413;
+      --body: #3d3d3a;
+      --muted: #6c6a64;
+      --muted-soft: #8e8b82;
+      --hairline: #e6dfd8;
+      --on-primary: #ffffff;
+      --on-dark: #faf9f5;
+      --success: #5db872;
+      --error: #c64545;
+      --warning: #d4a017;
+      --info: #4a90d9;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--canvas);
+      color: var(--body);
+      margin: 0;
+    }
+    .header-bar {
+      background: var(--canvas);
+      border-bottom: 1px solid var(--hairline);
+      height: 64px;
+      position: sticky; top: 0; z-index: 20;
+    }
+    .header-inner {
+      max-width: 1400px; margin: 0 auto; padding: 0 24px;
+      height: 100%; display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .nav-link {
+      display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px;
+      border-radius: 8px; color: var(--muted); font-size: 14px; font-weight: 500;
+      transition: all .15s ease; text-decoration: none;
+    }
+    .nav-link:hover { background: var(--surface-card); color: var(--ink); }
+    .nav-link.active { background: var(--surface-card); color: var(--primary); font-weight: 600; }
+    .page-title {
+      font-family: Georgia, 'Times New Roman', serif; font-weight: 400;
+      letter-spacing: -0.3px; color: var(--ink);
+    }
+
+    /* Banner */
+    .compact-banner {
+      background: var(--surface-dark);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      display: flex; align-items: center; gap: 20px;
+    }
+    .banner-title {
+      font-family: Georgia, serif; font-size: 22px; font-weight: 400;
+      color: var(--on-dark); margin: 0;
+    }
+    .banner-sub { font-size: 13px; color: #a09d96; margin: 4px 0 0; }
+    .banner-stats { display: flex; gap: 12px; margin-left: auto; }
+    .banner-stat { text-align: center; padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); }
+    .banner-stat-label { font-size: 11px; color: #8e8b82; margin: 0; }
+    .banner-stat-value { font-family: Georgia, serif; font-size: 22px; font-weight: 400; color: var(--on-dark); margin: 4px 0 0; line-height: 1; }
+    .banner-stat-value.accent { color: var(--primary); }
+
+    /* Class Cards Grid */
+    .class-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .class-card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid var(--hairline);
+      padding: 18px 20px;
+      transition: box-shadow .15s, border-color .15s;
+      cursor: pointer;
+      text-decoration: none;
+      display: block;
+      color: inherit;
+    }
+    .class-card:hover {
+      box-shadow: 0 4px 16px rgba(20,20,19,.08);
+      border-color: var(--primary);
+    }
+    .class-card .card-top {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+    }
+    .class-card .class-name {
+      font-size: 15px; font-weight: 600; color: var(--ink);
+    }
+    .class-card .teacher-tag {
+      font-size: 11px; color: var(--muted-soft); background: var(--canvas);
+      padding: 2px 8px; border-radius: 9999px;
+    }
+    .class-card .stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    }
+    .class-card .stat { text-align: center; }
+    .class-card .stat-val {
+      font-family: Georgia, serif; font-size: 18px; color: var(--ink);
+    }
+    .class-card .stat-lbl { font-size: 11px; color: var(--muted-soft); }
+
+    /* Status Badge */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 500;
+    }
+    .status-badge.active { background: #dcfce7; color: #166534; }
+    .status-badge.pending { background: #fef3c7; color: #92400e; }
+    .status-badge.done { background: var(--surface-card); color: var(--muted-soft); }
+    .status-badge.off { background: #f1f5f9; color: #94a3b8; }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      border: 1px solid var(--hairline); background: #fff; color: var(--muted);
+      cursor: pointer; transition: all .15s;
+    }
+    .filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .filter-btn.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+
+    /* Loading */
+    .loading { display: flex; align-items: center; justify-content: center; min-height: 200px; color: var(--muted-soft); }
+
+    /* Toast */
+    .toast {
+      position: fixed; top: 80px; right: 24px; z-index: 50;
+      padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      box-shadow: 0 8px 24px rgba(20,20,19,.12);
+      transform: translateX(120%); transition: transform .25s ease;
+    }
+    .toast.show { transform: translateX(0); }
+    .toast.ok { background: #f0fdf4; color: #047857; border: 1px solid #b7e4c7; }
+    .toast.err { background: #fef2f2; color: #c64545; border: 1px solid #f5c6cb; }
+
+    @media (max-width: 768px) {
+      .compact-banner { flex-direction: column; align-items: flex-start; }
+      .banner-stats { margin-left: 0; }
+      .class-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header-bar">
+  <div class="header-inner">
+    <div class="header-left">
+      <a href="/admin" class="nav-link">
+        <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        管理面板
+      </a>
+      <span style="color: var(--hairline);">|</span>
+      <span class="page-title text-lg">全局看板</span>
+    </div>
+    <div style="display: flex; gap: 4px;">
+      <a href="/admin/dashboard" class="nav-link active">看板</a>
+      <a href="/admin/analytics" class="nav-link">分析</a>
+      <a href="/admin/audit" class="nav-link">审计</a>
+      <a href="/teacher/classes" class="nav-link">教师端</a>
+      <form method="post" action="/teacher/logout" style="display: inline;">
+        <button class="nav-link" type="submit" style="border: none; background: none; cursor: pointer;">退出</button>
+      </form>
+    </div>
+  </div>
+</header>
+
+<main style="max-width: 1400px; margin: 0 auto; padding: 20px 24px 48px;">
+
+  <!-- Banner -->
+  <div class="compact-banner">
+    <div>
+      <h1 class="banner-title">全局看板</h1>
+      <p class="banner-sub">实时监控所有班级签到状态</p>
+    </div>
+    <div class="banner-stats">
+      <div class="banner-stat">
+        <p class="banner-stat-value" id="statTeachers">-</p>
+        <p class="banner-stat-label">教师</p>
+      </div>
+      <div class="banner-stat">
+        <p class="banner-stat-value accent" id="statClasses">-</p>
+        <p class="banner-stat-label">班级</p>
+      </div>
+      <div class="banner-stat">
+        <p class="banner-stat-value" id="statSigned">-</p>
+        <p class="banner-stat-label">当前签到</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar" id="filterBar">
+    <button class="filter-btn active" data-filter="all">全部</button>
+    <button class="filter-btn" data-filter="进行中">进行中</button>
+    <button class="filter-btn" data-filter="未开启">未开启</button>
+    <button class="filter-btn" data-filter="未开始">未开始</button>
+    <button class="filter-btn" data-filter="已结束">已结束</button>
+  </div>
+
+  <!-- Class Grid -->
+  <div id="loadingView" class="loading">加载中...</div>
+  <div id="classGrid" class="class-grid" style="display: none;"></div>
+  <div id="emptyView" style="display: none; text-align: center; padding: 48px; color: var(--muted-soft);">
+    暂无班级数据
+  </div>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let allClasses = []
+let currentFilter = 'all'
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+function showToast(text, ok = true) {
+  const t = document.getElementById('toast')
+  t.textContent = text
+  t.className = `toast ${ok ? 'ok' : 'err'} show`
+  setTimeout(() => t.classList.remove('show'), 2500)
+}
+
+function statusBadge(status) {
+  const map = {
+    '进行中': 'active',
+    '未开始': 'pending',
+    '已结束': 'done',
+    '未开启': 'off',
+  }
+  const cls = map[status] || 'off'
+  return `<span class="status-badge ${cls}">${escHtml(status)}</span>`
+}
+
+async function loadData() {
+  const res = await fetch('/admin/api/classes')
+  if (res.status === 401 || res.status === 403) { window.location.href = '/student'; return }
+  const data = await res.json()
+  allClasses = data.classes || []
+  render()
+}
+
+function render() {
+  const filtered = currentFilter === 'all'
+    ? allClasses
+    : allClasses.filter(c => c.signInStatus === currentFilter)
+
+  document.getElementById('loadingView').style.display = filtered.length ? 'none' : 'none'
+  document.getElementById('classGrid').style.display = 'grid'
+  document.getElementById('emptyView').style.display = filtered.length ? 'none' : 'block'
+
+  // Stats
+  const uniqueTeachers = new Set(allClasses.map(c => c.teacherId)).size
+  const totalSigned = allClasses.reduce((sum, c) => sum + c.signedCount, 0)
+  document.getElementById('statTeachers').textContent = uniqueTeachers
+  document.getElementById('statClasses').textContent = allClasses.length
+  document.getElementById('statSigned').textContent = totalSigned
+
+  // Cards
+  document.getElementById('classGrid').innerHTML = filtered.map(cls => {
+    const attendanceRate = cls.studentCount > 0 ? ((cls.signedCount / cls.studentCount) * 100).toFixed(0) : '-'
+    return `
+    <a href="/teacher/classes/${cls.id}" class="class-card" target="_blank">
+      <div class="card-top">
+        <span class="class-name">${escHtml(cls.name)}</span>
+        ${statusBadge(cls.signInStatus)}
+      </div>
+      <div style="margin-bottom: 10px;">
+        <span class="teacher-tag">${escHtml(cls.teacherUsername)}</span>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="stat-val">${cls.studentCount}</div><div class="stat-lbl">总人数</div></div>
+        <div class="stat"><div class="stat-val" style="color: var(--success);">${cls.signedCount}</div><div class="stat-lbl">已签到</div></div>
+        <div class="stat"><div class="stat-val">${attendanceRate}%</div><div class="stat-lbl">出勤率</div></div>
+      </div>
+    </a>`
+  }).join('')
+}
+
+// Filter
+document.getElementById('filterBar').addEventListener('click', (e) => {
+  const btn = e.target.closest('.filter-btn')
+  if (!btn) return
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  currentFilter = btn.dataset.filter
+  render()
+})
+
+// Auto refresh every 10s
+loadData()
+setInterval(loadData, 10000)
+</script>
+</body>
+</html>

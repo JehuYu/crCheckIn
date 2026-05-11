@@ -1,9 +1,35 @@
 import { createTeacher, resetTeacherPasswordByAdmin } from '../services/auth.js'
 import { deleteClassesCascadeWithTx } from '../services/class.js'
+import {
+  getAllClassesDetail,
+  transferClass,
+  archiveAllClasses,
+  getCrossClassAnalytics,
+  getTeacherLoginStats,
+  editClass,
+  deleteClassByAdmin,
+  getAuditLogs,
+  createAuditLog,
+} from '../services/admin.js'
 import { adminRequired } from '../utils/auth.js'
 import { prisma } from '../plugins/db.js'
+import fs from 'fs/promises'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const DB_PATH = path.resolve(__dirname, '../../prisma/attendance.db')
+
+function getClientIp(request) {
+  return request.headers['x-forwarded-for']?.split(',')[0]?.trim()
+    || request.headers['x-real-ip']
+    || request.ip
+    || ''
+}
 
 export default async function adminRoutes(app) {
+  // === Pages ===
+
   app.get('/admin', { preHandler: adminRequired }, async (request, reply) => {
     const teachers = await prisma.teacher.findMany({
       include: { _count: { select: { classes: true } } },
@@ -18,10 +44,282 @@ export default async function adminRoutes(app) {
     })
   })
 
+  app.get('/admin/dashboard', { preHandler: adminRequired }, async (request, reply) => {
+    return reply.view('admin/dashboard.html', {})
+  })
+
+  app.get('/admin/analytics', { preHandler: adminRequired }, async (request, reply) => {
+    return reply.view('admin/analytics.html', {})
+  })
+
+  app.get('/admin/audit', { preHandler: adminRequired }, async (request, reply) => {
+    return reply.view('admin/audit.html', {})
+  })
+
+  // === API: Class Management ===
+
+  app.get('/admin/api/classes', { preHandler: adminRequired }, async (request, reply) => {
+    const data = await getAllClassesDetail()
+    return reply.send({ ok: true, classes: data })
+  })
+
+  app.patch('/admin/api/classes/:id', { preHandler: adminRequired }, async (request, reply) => {
+    const classId = parseInt(request.params.id, 10)
+    const { name } = request.body ?? {}
+    if (!name || !name.trim()) {
+      return reply.send({ ok: false, message: '班级名不能为空' })
+    }
+    const cls = await prisma.class.findUnique({ where: { id: classId } })
+    if (!cls) {
+      return reply.code(404).send({ ok: false, message: '班级不存在' })
+    }
+    const ip = getClientIp(request)
+    const result = await editClass(classId, cls.teacherId, name.trim(), request.session.teacherId, ip)
+    if (!result.ok) return reply.code(result.status || 400).send(result)
+    return reply.send(result)
+  })
+
+  app.delete('/admin/api/classes/:id', { preHandler: adminRequired }, async (request, reply) => {
+    const classId = parseInt(request.params.id, 10)
+    const ip = getClientIp(request)
+    const result = await deleteClassByAdmin(classId, request.session.teacherId, ip)
+    if (!result.ok) return reply.code(result.status || 400).send(result)
+    return reply.send(result)
+  })
+
+  app.post('/admin/api/classes/:id/transfer', { preHandler: adminRequired }, async (request, reply) => {
+    const classId = parseInt(request.params.id, 10)
+    const { teacherId } = request.body ?? {}
+    if (!teacherId) {
+      return reply.send({ ok: false, message: '请选择目标教师' })
+    }
+    const ip = getClientIp(request)
+    const result = await transferClass(classId, parseInt(teacherId, 10), request.session.teacherId, ip)
+    if (!result.ok) return reply.code(result.status || 400).send(result)
+    return reply.send(result)
+  })
+
+  // === API: Archive All ===
+
+  app.post('/admin/api/archive-all', { preHandler: adminRequired }, async (request, reply) => {
+    const ip = getClientIp(request)
+    const result = await archiveAllClasses(request.session.teacherId, ip)
+    return reply.send(result)
+  })
+
+  // === API: Cross-Class Analytics ===
+
+  app.get('/admin/api/analytics', { preHandler: adminRequired }, async (request, reply) => {
+    const data = await getCrossClassAnalytics()
+    return reply.send(data)
+  })
+
+  // === API: Teacher Stats ===
+
+  app.get('/admin/api/teacher-stats', { preHandler: adminRequired }, async (request, reply) => {
+    const data = await getTeacherLoginStats()
+    return reply.send({ ok: true, teachers: data })
+  })
+
+  // === API: Batch Password Reset ===
+
+  app.post('/admin/api/batch-reset-password', { preHandler: adminRequired }, async (request, reply) => {
+    const { password } = request.body ?? {}
+    if (!password || !password.trim()) {
+      return reply.send({ ok: false, message: '密码不能为空' })
+    }
+
+    const teachers = await prisma.teacher.findMany({ where: { isAdmin: false } })
+    if (teachers.length === 0) {
+      return reply.send({ ok: true, count: 0, message: '没有非管理员教师需要重置' })
+    }
+
+    const bcrypt = await import('bcrypt')
+    const newPasswordHash = await bcrypt.hash(password, 10)
+
+    // Check password doesn't match any existing
+    for (const t of teachers) {
+      if (await bcrypt.compare(password, t.passwordHash)) {
+        return reply.send({ ok: false, message: `新密码与教师「${t.username}」的当前密码相同` })
+      }
+    }
+
+    // Check no two teachers would have same password (already guaranteed since we're setting all to same value)
+    // But check the new password doesn't conflict with any admin password
+    const adminTeachers = await prisma.teacher.findMany({ where: { isAdmin: true }, select: { passwordHash: true, username: true } })
+    for (const t of adminTeachers) {
+      if (await bcrypt.compare(password, t.passwordHash)) {
+        return reply.send({ ok: false, message: `该密码与管理员「${t.username}」的密码相同` })
+      }
+    }
+
+    let count = 0
+    for (const t of teachers) {
+      await prisma.teacher.update({
+        where: { id: t.id },
+        data: { passwordHash: newPasswordHash },
+      })
+      count++
+    }
+
+    await createAuditLog({
+      adminId: request.session.teacherId,
+      action: 'BATCH_RESET_PASSWORD',
+      target: `批量重置 ${count} 个教师密码`,
+      ip: getClientIp(request),
+    })
+
+    return reply.send({ ok: true, count, message: `已重置 ${count} 个教师的密码` })
+  })
+
+  // === API: Audit Logs ===
+
+  app.get('/admin/api/audit-logs', { preHandler: adminRequired }, async (request, reply) => {
+    const page = parseInt(request.query.page || '1', 10)
+    const limit = Math.min(parseInt(request.query.limit || '50', 10), 200)
+    const offset = (page - 1) * limit
+    const data = await getAuditLogs({ limit, offset })
+    return reply.send({ ok: true, ...data, page, limit })
+  })
+
+  // === API: Database Backup ===
+
+  app.get('/admin/api/backup', { preHandler: adminRequired }, async (request, reply) => {
+    try {
+      const data = await fs.readFile(DB_PATH)
+      await createAuditLog({
+        adminId: request.session.teacherId,
+        action: 'BACKUP',
+        target: '数据库备份',
+        detail: JSON.stringify({ size: data.length }),
+        ip: getClientIp(request),
+      })
+      reply.header('Content-Type', 'application/octet-stream')
+      reply.header('Content-Disposition', `attachment; filename="crcheckin_backup_${Date.now()}.db"`)
+      return reply.send(data)
+    } catch (err) {
+      return reply.code(500).send({ ok: false, message: '备份失败：' + err.message })
+    }
+  })
+
+  // === API: Database Restore ===
+
+  app.post('/admin/api/restore', { preHandler: adminRequired }, async (request, reply) => {
+    const data = await request.file()
+    if (!data) {
+      return reply.send({ ok: false, message: '请上传备份文件' })
+    }
+
+    if (!data.mimetype.includes('sqlite') && !data.mimetype.includes('octet-stream') && data.mimetype !== '') {
+      return reply.send({ ok: false, message: '不支持的文件类型' })
+    }
+
+    const buffer = await data.toBuffer()
+    if (buffer.length < 100) {
+      return reply.send({ ok: false, message: '备份文件无效（文件太小）' })
+    }
+
+    // Validate SQLite header: first 16 bytes should be "SQLite format 3\000"
+    const header = buffer.slice(0, 16).toString()
+    if (!header.startsWith('SQLite format 3')) {
+      return reply.send({ ok: false, message: '不是有效的 SQLite 数据库文件' })
+    }
+
+    // Create backup of current DB before restore
+    const backupPath = DB_PATH + `.backup_${Date.now()}`
+    await fs.copyFile(DB_PATH, backupPath)
+
+    await fs.writeFile(DB_PATH, buffer)
+
+    // Reset Prisma client connection
+    await prisma.$disconnect()
+    await prisma.$connect()
+
+    await createAuditLog({
+      adminId: request.session.teacherId,
+      action: 'RESTORE',
+      target: '数据库恢复',
+      detail: JSON.stringify({ filename: data.filename, size: buffer.length, backupPath }),
+      ip: getClientIp(request),
+    })
+
+    return reply.send({ ok: true, message: '数据库已恢复' })
+  })
+
+  // === API: System Health ===
+
+  app.get('/admin/api/health', { preHandler: adminRequired }, async (request, reply) => {
+    const uptime = process.uptime()
+    const memUsage = process.memoryUsage()
+    const nodeVersion = process.version
+    const platform = process.platform
+    const arch = process.arch
+
+    let dbSize = 0
+    let dbOk = false
+    let dbError = ''
+    try {
+      const stat = await fs.stat(DB_PATH)
+      dbSize = stat.size
+      // Test query
+      await prisma.$queryRaw`SELECT 1`
+      dbOk = true
+    } catch (err) {
+      dbError = err.message
+    }
+
+    const [teacherCount, classCount, studentCount, sessionCount, recordCount, archivedCount] = await Promise.all([
+      prisma.teacher.count().catch(() => 0),
+      prisma.class.count().catch(() => 0),
+      prisma.student.count().catch(() => 0),
+      prisma.signInSession.count().catch(() => 0),
+      prisma.signInRecord.count().catch(() => 0),
+      prisma.archivedRecord.count().catch(() => 0),
+    ])
+
+    return reply.send({
+      ok: true,
+      server: {
+        uptime: Math.floor(uptime),
+        nodeVersion,
+        platform,
+        arch,
+        memory: {
+          rss: (memUsage.rss / 1024 / 1024).toFixed(1) + ' MB',
+          heapUsed: (memUsage.heapUsed / 1024 / 1024).toFixed(1) + ' MB',
+          heapTotal: (memUsage.heapTotal / 1024 / 1024).toFixed(1) + ' MB',
+        },
+      },
+      database: {
+        ok: dbOk,
+        error: dbError,
+        size: dbSize,
+        sizeLabel: (dbSize / 1024 / 1024).toFixed(2) + ' MB',
+      },
+      data: {
+        teachers: teacherCount,
+        classes: classCount,
+        students: studentCount,
+        sessions: sessionCount,
+        currentRecords: recordCount,
+        archivedRecords: archivedCount,
+      },
+    })
+  })
+
+  // === Original Teacher Management ===
+
   app.post('/admin/teachers', { preHandler: adminRequired }, async (request, reply) => {
     const { username, password, isAdmin } = request.body ?? {}
     try {
-      await createTeacher(username, password, isAdmin === true || isAdmin === 'true')
+      const teacher = await createTeacher(username, password, isAdmin === true || isAdmin === 'true')
+      await createAuditLog({
+        adminId: request.session.teacherId,
+        action: 'CREATE_TEACHER',
+        target: `教师「${username}」`,
+        detail: JSON.stringify({ isAdmin: teacher.isAdmin, teacherId: teacher.id }),
+        ip: getClientIp(request),
+      })
       return reply.send({ ok: true })
     } catch (err) {
       if (err.code === 'USERNAME_TAKEN') {
@@ -34,10 +332,17 @@ export default async function adminRoutes(app) {
   app.patch('/admin/teachers/:id/password', { preHandler: adminRequired }, async (request, reply) => {
     const id = parseInt(request.params.id, 10)
     const { password } = request.body ?? {}
+    const teacher = await prisma.teacher.findUnique({ where: { id } })
     const result = await resetTeacherPasswordByAdmin(id, password)
     if (!result.ok) {
       return reply.code(400).send(result)
     }
+    await createAuditLog({
+      adminId: request.session.teacherId,
+      action: 'RESET_PASSWORD',
+      target: `教师「${teacher?.username}」(${id})`,
+      ip: getClientIp(request),
+    })
     return reply.send(result)
   })
 
@@ -58,6 +363,14 @@ export default async function adminRoutes(app) {
     await prisma.$transaction(async (tx) => {
       await deleteClassesCascadeWithTx(tx, classIds)
       await tx.teacher.delete({ where: { id } })
+    })
+
+    await createAuditLog({
+      adminId: request.session.teacherId,
+      action: 'DELETE_TEACHER',
+      target: `教师「${teacher.username}」(${id})`,
+      detail: JSON.stringify({ classCount: classIds.length }),
+      ip: getClientIp(request),
     })
 
     return reply.send({ ok: true })
