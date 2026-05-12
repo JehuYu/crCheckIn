@@ -3,11 +3,16 @@ import { prisma } from '../plugins/db.js'
 /**
  * 获取教师的所有班级（按 createdAt 升序）。
  * @param {number} teacherId
+ * @param {object} [options]
+ * @param {boolean} [options.includeArchived=false]
  * @returns {Promise<object[]>}
  */
-export async function getClasses(teacherId) {
+export async function getClasses(teacherId, { includeArchived = false } = {}) {
   const classes = await prisma.class.findMany({
-    where: { teacherId },
+    where: {
+      teacherId,
+      ...(includeArchived ? {} : { isArchived: false }),
+    },
     orderBy: { createdAt: 'asc' },
     include: {
       _count: {
@@ -162,4 +167,22 @@ export async function deleteClassesCascade(classIds) {
 export async function deleteClass(classId, teacherId, isAdmin = false) {
   await assertClassOwner(classId, teacherId, isAdmin)
   await deleteClassesCascade([classId])
+}
+
+/**
+ * 归档班级（设置 isArchived = true）。
+ */
+export async function archiveClass(classId, teacherId, isAdmin = false) {
+  await assertClassOwner(classId, teacherId, isAdmin)
+  await prisma.class.update({ where: { id: classId }, data: { isArchived: true } })
+  return { ok: true, message: '班级已归档' }
+}
+
+/**
+ * 恢复班级（设置 isArchived = false）。
+ */
+export async function unarchiveClass(classId, teacherId, isAdmin = false) {
+  await assertClassOwner(classId, teacherId, isAdmin)
+  await prisma.class.update({ where: { id: classId }, data: { isArchived: false } })
+  return { ok: true, message: '班级已恢复' }
 }

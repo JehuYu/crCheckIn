@@ -287,6 +287,8 @@
   <!-- Filter Bar -->
   <div class="filter-bar" id="filterBar">
     <button class="filter-btn active" data-filter="all">全部</button>
+    <button class="filter-btn" data-filter="active">活跃</button>
+    <button class="filter-btn" data-filter="archived">已归档</button>
     <button class="filter-btn" data-filter="进行中">进行中</button>
     <button class="filter-btn" data-filter="未开启">未开启</button>
     <button class="filter-btn" data-filter="未开始">未开始</button>
@@ -351,9 +353,16 @@ async function loadData() {
 }
 
 function render() {
-  const filtered = currentFilter === 'all'
-    ? allClasses
-    : allClasses.filter(c => c.signInStatus === currentFilter)
+  let filtered
+  if (currentFilter === 'all') {
+    filtered = allClasses
+  } else if (currentFilter === 'active') {
+    filtered = allClasses.filter(c => !c.isArchived)
+  } else if (currentFilter === 'archived') {
+    filtered = allClasses.filter(c => c.isArchived)
+  } else {
+    filtered = allClasses.filter(c => c.signInStatus === currentFilter)
+  }
 
   document.getElementById('loadingView').style.display = filtered.length ? 'none' : 'none'
   document.getElementById('classGrid').style.display = 'grid'
@@ -370,9 +379,9 @@ function render() {
   document.getElementById('classGrid').innerHTML = filtered.map(cls => {
     const attendanceRate = cls.studentCount > 0 ? ((cls.signedCount / cls.studentCount) * 100).toFixed(0) : '-'
     return `
-    <a href="/teacher/classes/${cls.id}" class="class-card" target="_blank">
+    <a href="/teacher/classes/${cls.id}" class="class-card"${cls.isArchived ? ' style="opacity:.5;border-style:dashed;"' : ''} target="_blank">
       <div class="card-top">
-        <span class="class-name">${escHtml(cls.name)}</span>
+        <span class="class-name">${escHtml(cls.name)}${cls.isArchived ? '<span style="margin-left:8px;font-size:11px;color:var(--muted-soft);background:var(--surface-card);padding:2px 8px;border-radius:9999px;">已归档</span>' : ''}</span>
         ${statusBadge(cls.signInStatus)}
       </div>
       <div style="margin-bottom: 10px;">

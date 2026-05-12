@@ -24,7 +24,7 @@ import {
   exportStatsToExcel,
   exportSessionSeatTableToExcel,
 } from '../services/roster.js'
-import { createClass, deleteClass } from '../services/class.js'
+import { createClass, deleteClass, archiveClass, unarchiveClass } from '../services/class.js'
 import { changePassword, verifyTeacherByPassword } from '../services/auth.js'
 import { getSeatGrid, getSeatGridTeacher } from '../services/seat.js'
 import { createStudent, updateStudent, deleteStudent, transferStudent } from '../services/student.js'
@@ -256,6 +256,24 @@ export default async function apiRoutes(fastify) {
     const isAdmin = request.session.isAdmin === true
     await deleteClass(classId, teacherId, isAdmin)
     return reply.send({ ok: true, message: '班级已删除。' })
+  })
+
+  // POST /api/classes/:classId/archive — 归档班级，需要 classOwnerRequired
+  fastify.post('/api/classes/:classId/archive', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.params.classId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const result = await archiveClass(classId, teacherId, isAdmin)
+    return reply.send(result)
+  })
+
+  // POST /api/classes/:classId/unarchive — 恢复班级，需要 classOwnerRequired
+  fastify.post('/api/classes/:classId/unarchive', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const classId = parseInt(request.params.classId, 10)
+    const teacherId = request.session.teacherId
+    const isAdmin = request.session.isAdmin === true
+    const result = await unarchiveClass(classId, teacherId, isAdmin)
+    return reply.send(result)
   })
 
   // GET /api/students/match — 无需登录

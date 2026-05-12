@@ -92,6 +92,7 @@ export async function getAllClassesStatus() {
       signedCount,
       totalSessions: sessionCountMap.get(cls.id) || 0,
       signInStatus,
+      isArchived: cls.isArchived,
       window: {
         start: config ? formatMinute(config.startTime ? new Date(config.startTime) : null) : null,
         end: config ? formatMinute(config.endTime ? new Date(config.endTime) : null) : null,
@@ -154,6 +155,7 @@ export async function getAllClassesDetail() {
       signedCount: recordCountMap.get(cls.id) || 0,
       totalSessions: sessionCountMap.get(cls.id) || 0,
       signInStatus,
+      isArchived: cls.isArchived,
       window: {
         start: config ? formatMinute(config.startTime ? new Date(config.startTime) : null) : null,
         end: config ? formatMinute(config.endTime ? new Date(config.endTime) : null) : null,

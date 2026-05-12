@@ -21,6 +21,7 @@ model Class {
   name          String
   teacherId     Int
   teacher       Teacher        @relation(fields: [teacherId], references: [id])
+  isArchived    Boolean        @default(false)
   createdAt     DateTime       @default(now())
   students      Student[]
   signInConfig  SignInConfig?

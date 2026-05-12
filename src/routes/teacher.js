@@ -34,18 +34,24 @@ export default async function teacherRoutes(app) {
 
   app.get('/teacher/classes', { preHandler: teacherRequired }, async (request, reply) => {
     const teacherId = request.session.teacherId
-    const classes = await getClasses(teacherId)
+    const showArchived = request.query.archived === '1'
+    const classes = await getClasses(teacherId, { includeArchived: showArchived })
     const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } })
     if (!teacher) {
       request.session = null
       return reply.redirect('/student')
     }
+    // Count archived classes for the badge
+    const archivedClasses = await getClasses(teacherId, { includeArchived: true })
+    const archivedCount = archivedClasses.filter(c => c.isArchived).length
     const maxStudentCount = Math.max(...classes.map(c => c.studentCount), 1)
     noCache(reply)
     return reply.view('teacher/classes.html', {
       classes,
       teacher: { id: teacher.id, username: teacher.username, isAdmin: teacher.isAdmin },
       maxStudentCount,
+      showArchived,
+      archivedCount,
     })
   })
 
