@@ -11,13 +11,14 @@ import { getClassTags, getPresetTagNames } from './tag.js'
  */
 export async function signIn(classId, studentName, computerName) {
   // 1. 姓名为空
-  if (!studentName || studentName.trim() === '') {
+  const name = studentName.trim()
+  if (!name) {
     return { ok: false, message: '请输入姓名。' }
   }
 
   // 2. 姓名不在该班级名单中
   const student = await prisma.student.findFirst({
-    where: { classId, name: studentName },
+    where: { classId, name },
   })
   if (!student) {
     return { ok: false, message: '该姓名不在名单中，请联系老师。' }
@@ -174,6 +175,10 @@ export async function archiveAndReset(classId) {
       include: { student: true },
     }),
   ])
+
+  if (!cls) {
+    return { ok: false, message: '班级不存在', status: 404 }
+  }
 
   if (records.length === 0) {
     // 没有记录，直接重置（清空时间窗口）

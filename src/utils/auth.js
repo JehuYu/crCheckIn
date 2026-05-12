@@ -66,6 +66,10 @@ export async function classOwnerRequired(request, reply) {
     request.query?.classId
 
   const classId = parseInt(rawClassId, 10)
+  if (isNaN(classId)) {
+    return reply.code(400).send({ ok: false, message: '班级ID无效' })
+  }
+
   const teacherId = request.session?.teacherId
   const isAdmin = request.session?.isAdmin === true
 
@@ -78,4 +82,7 @@ export async function classOwnerRequired(request, reply) {
       throw err
     }
   }
+
+  // 将验证后的 classId 挂载到 request，避免 handler 重复 parseInt
+  request.classId = classId
 }

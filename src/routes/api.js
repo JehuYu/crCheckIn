@@ -70,15 +70,13 @@ function nowTimestamp() {
 export default async function apiRoutes(fastify) {
   // GET /api/status — 需要 classOwnerRequired
   fastify.get('/api/status', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const payload = await getClassStatus(classId)
+    const payload = await getClassStatus(request.classId)
     return reply.send(payload)
   })
 
   // POST /api/reset — 归档当前记录并重置，需要 classOwnerRequired
   fastify.post('/api/reset', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.body.classId, 10)
-    const result = await archiveAndReset(classId)
+    const result = await archiveAndReset(request.classId)
     const msg = result.label
       ? `已归档批次「${result.label}」，签到已重置。`
       : '签到记录已重置。'
@@ -87,8 +85,7 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/sessions — 获取历史批次列表，需要 classOwnerRequired
   fastify.get('/api/sessions', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const sessions = await getSessions(classId)
+    const sessions = await getSessions(request.classId)
     return reply.send(sessions.map(s => ({
       id: s.id,
       label: s.label,
@@ -161,23 +158,20 @@ export default async function apiRoutes(fastify) {
 
   // POST /api/clear-roster — 需要 classOwnerRequired
   fastify.post('/api/clear-roster', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.body.classId, 10)
-    await clearRoster(classId)
+    await clearRoster(request.classId)
     return reply.send({ ok: true, message: '当前名单与签到记录已清空。' })
   })
 
   // POST /api/window — 需要 classOwnerRequired
   fastify.post('/api/window', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const { classId: rawClassId, start_time, end_time } = request.body
-    const classId = parseInt(rawClassId, 10)
-    await setSignInWindow(classId, parseDt(start_time), parseDt(end_time))
+    const { start_time, end_time } = request.body
+    await setSignInWindow(request.classId, parseDt(start_time), parseDt(end_time))
     return reply.send({ ok: true, message: '签到时间段已更新。' })
   })
 
   // GET /api/export — 需要 classOwnerRequired
   fastify.get('/api/export', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const buffer = await exportRecordsToExcel(classId)
+    const buffer = await exportRecordsToExcel(request.classId)
     const filename = `signin_records_${nowTimestamp()}.xlsx`
     reply
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -187,8 +181,7 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/export-seats — 需要 classOwnerRequired
   fastify.get('/api/export-seats', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const buffer = await exportSeatTableToExcel(classId)
+    const buffer = await exportSeatTableToExcel(request.classId)
     const filename = `seat_table_${nowTimestamp()}.xlsx`
     reply
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -326,17 +319,15 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/stats — 出勤率统计，需要 classOwnerRequired
   fastify.get('/api/stats', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const stats = await getAttendanceStats(classId)
+    const stats = await getAttendanceStats(request.classId)
     return reply.send(stats)
   })
 
   // GET /api/stats/export — 导出出勤统计 Excel，需要 classOwnerRequired
   fastify.get('/api/stats/export', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
     const { prisma } = await import('../plugins/db.js')
-    const cls = await prisma.class.findUnique({ where: { id: classId } })
-    const stats = await getAttendanceStats(classId)
+    const cls = await prisma.class.findUnique({ where: { id: request.classId } })
+    const stats = await getAttendanceStats(request.classId)
     const buffer = await exportStatsToExcel(stats, cls)
     const filename = `attendance_stats_${nowTimestamp()}.xlsx`
     reply
@@ -347,8 +338,7 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/analytics — 增强数据分析，需要 classOwnerRequired
   fastify.get('/api/analytics', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const data = await getAttendanceAnalytics(classId)
+    const data = await getAttendanceAnalytics(request.classId)
     return reply.send(data)
   })
 
@@ -366,10 +356,9 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/seat-grid — 座位表数据，需要 classOwnerRequired
   fastify.get('/api/seat-grid', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
     const [studentGrid, teacherGrid] = await Promise.all([
-      getSeatGrid(classId),
-      getSeatGridTeacher(classId),
+      getSeatGrid(request.classId),
+      getSeatGridTeacher(request.classId),
     ])
     const signedCount = teacherGrid.flat().reduce((acc, cell) => acc + cell.students.length, 0)
     return reply.send({ teacherGrid, studentGrid, signedCount })
@@ -377,13 +366,12 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/seat-grid/previous — 上一批次座位表数据，需要 classOwnerRequired
   fastify.get('/api/seat-grid/previous', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
     const { prisma } = await import('../plugins/db.js')
     const { getSeatGridsFromArchivedRecords } = await import('../services/seat.js')
 
     // 找最近一次归档的批次
     const lastSession = await prisma.signInSession.findFirst({
-      where: { classId },
+      where: { classId: request.classId },
       orderBy: { archivedAt: 'desc' },
       include: { records: { orderBy: { signedAt: 'asc' } } },
     })
@@ -458,8 +446,7 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/info-collection — 获取信息收集配置，需要 classOwnerRequired
   fastify.get('/api/info-collection', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const collection = await getInfoCollection(classId)
+    const collection = await getInfoCollection(request.classId)
     return reply.send({
       enabled: collection?.enabled ?? false,
       fields: collection?.fields ?? [],
@@ -468,16 +455,15 @@ export default async function apiRoutes(fastify) {
 
   // POST /api/info-collection — 更新信息收集开关，需要 classOwnerRequired
   fastify.post('/api/info-collection', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const { classId, enabled } = request.body
-    const collection = await updateInfoCollection(parseInt(classId, 10), Boolean(enabled))
+    const { enabled } = request.body
+    const collection = await updateInfoCollection(request.classId, Boolean(enabled))
     return reply.send({ ok: true, enabled: collection.enabled })
   })
 
   // POST /api/info-collection/fields — 创建字段，需要 classOwnerRequired
   fastify.post('/api/info-collection/fields', { preHandler: classOwnerRequired }, async (request, reply) => {
     const { name, type, required } = request.body
-    // classId 已在 middleware 中验证
-    const classId = parseInt(request.body.classId || request.query.classId, 10)
+    const classId = request.classId
 
     const { prisma } = await import('../plugins/db.js')
     // Get or create collection
@@ -504,7 +490,7 @@ export default async function apiRoutes(fastify) {
   fastify.patch('/api/info-collection/fields/:fieldId', { preHandler: classOwnerRequired }, async (request, reply) => {
     const fieldId = parseInt(request.params.fieldId, 10)
     const { name, required } = request.body
-    const classId = parseInt(request.query.classId || request.body.classId, 10)
+    const classId = request.classId
 
     const { prisma } = await import('../plugins/db.js')
     // Verify field belongs to this class
@@ -527,7 +513,7 @@ export default async function apiRoutes(fastify) {
   // DELETE /api/info-collection/fields/:fieldId — 删除字段，需要 classOwnerRequired
   fastify.delete('/api/info-collection/fields/:fieldId', { preHandler: classOwnerRequired }, async (request, reply) => {
     const fieldId = parseInt(request.params.fieldId, 10)
-    const classId = parseInt(request.query.classId, 10)
+    const classId = request.classId
 
     const { prisma } = await import('../plugins/db.js')
     // Verify field belongs to this class
@@ -561,15 +547,13 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/info-submissions — 获取提交列表，需要 classOwnerRequired
   fastify.get('/api/info-submissions', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const submissions = await getSubmissions(classId)
+    const submissions = await getSubmissions(request.classId)
     return reply.send(submissions)
   })
 
   // GET /api/info-submissions/stats — 获取提交统计，需要 classOwnerRequired
   fastify.get('/api/info-submissions/stats', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const stats = await getSubmissionsStats(classId)
+    const stats = await getSubmissionsStats(request.classId)
     return reply.send(stats)
   })
 
@@ -586,9 +570,8 @@ export default async function apiRoutes(fastify) {
   // DELETE /api/info-submissions/:submissionId — 删除提交，需要 classOwnerRequired
   fastify.delete('/api/info-submissions/:submissionId', { preHandler: classOwnerRequired }, async (request, reply) => {
     const submissionId = parseInt(request.params.submissionId, 10)
-    const classId = parseInt(request.query.classId || request.body?.classId || '0', 10) || null
     try {
-      await deleteSubmission(submissionId, classId)
+      await deleteSubmission(submissionId, request.classId)
     } catch (err) {
       return reply.code(err.statusCode || 400).send({ ok: false, message: err.message })
     }
@@ -613,8 +596,7 @@ export default async function apiRoutes(fastify) {
       if (!fileBuffer) {
         return reply.code(400).send({ ok: false, message: '请上传文件' })
       }
-      const classId = parseInt(request.body.classId, 10)
-      const result = await uploadAttachment(classId, fileBuffer, filename)
+      const result = await uploadAttachment(request.classId, fileBuffer, filename)
       return reply.send({ ok: true, url: result.url })
     } catch (err) {
       return reply.code(400).send({ ok: false, message: err.message })
@@ -623,9 +605,8 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/info-export — 导出信息收集数据，需要 classOwnerRequired
   fastify.get('/api/info-export', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
     const { exportInfoSubmissionsToExcel } = await import('../services/infoCollection.js')
-    const buffer = await exportInfoSubmissionsToExcel(classId)
+    const buffer = await exportInfoSubmissionsToExcel(request.classId)
     const filename = `info_collection_${nowTimestamp()}.xlsx`
     reply
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -643,8 +624,7 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/tags — 获取班级所有学生标签（批量）
   fastify.get('/api/tags', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const tagMap = await getClassTags(classId)
+    const tagMap = await getClassTags(request.classId)
     const result = {}
     for (const [sid, tags] of tagMap) {
       result[sid] = tags

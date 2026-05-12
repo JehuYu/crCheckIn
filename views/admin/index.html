@@ -608,10 +608,10 @@
             </div>
           </div>
           <div class="teacher-actions">
-            <button onclick="openResetPassword({{ t.id }}, '{{ t.username }}')"
+            <button data-action="reset" data-id="{{ t.id }}" data-name="{{ t.username }}"
               class="teacher-action" style="color: var(--primary);" onmouseover="this.style.background='#fef3ec'" onmouseout="this.style.background=''">改密</button>
             {% if not t.isAdmin %}
-            <button onclick="deleteTeacher({{ t.id }}, '{{ t.username }}')"
+            <button data-action="delete" data-id="{{ t.id }}" data-name="{{ t.username }}"
               class="teacher-action" style="color: var(--error);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">删除</button>
             {% endif %}
           </div>
@@ -736,6 +736,17 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async () =
   }
 })
 
+// Teacher action buttons via event delegation (avoids inline onclick XSS)
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.teacher-action')
+  if (!btn) return
+  const action = btn.dataset.action
+  const id = parseInt(btn.dataset.id, 10)
+  const name = btn.dataset.name || ''
+  if (action === 'delete') deleteTeacher(id, name)
+  else if (action === 'reset') openResetPassword(id, name)
+})
+
 document.getElementById('cancelDeleteBtn').addEventListener('click', closeDeleteModal)
 
 let resetTeacherId = null
@@ -816,15 +827,30 @@ function showPasswordList(passwords) {
     <p style="font-size: 12px; font-weight: 600; color: var(--ink); margin: 0 0 8px;">每位教师的唯一密码（请妥善分发）</p>
     ${passwords.map(p => `
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--hairline); font-size: 12px;">
-        <span style="font-weight: 600; color: var(--ink); min-width: 80px;">${p.username}</span>
-        <code style="flex: 1; margin: 0 12px; padding: 4px 8px; background: var(--canvas); border-radius: 4px; font-size: 11px; word-break: break-all; user-select: all;">${p.password}</code>
-        <button onclick="navigator.clipboard.writeText('${p.password}'); this.textContent='已复制'; setTimeout(() => this.textContent='复制', 1500)" style="padding: 2px 8px; font-size: 11px; border: 1px solid var(--hairline); border-radius: 4px; background: #fff; cursor: pointer; white-space: nowrap;">复制</button>
+        <span style="font-weight: 600; color: var(--ink); min-width: 80px;">${escHtml(p.username)}</span>
+        <code style="flex: 1; margin: 0 12px; padding: 4px 8px; background: var(--canvas); border-radius: 4px; font-size: 11px; word-break: break-all; user-select: all;">${escHtml(p.password)}</code>
+        <button data-copy="${escHtml(p.password)}" class="pw-copy-btn" style="padding: 2px 8px; font-size: 11px; border: 1px solid var(--hairline); border-radius: 4px; background: #fff; cursor: pointer; white-space: nowrap;">复制</button>
       </div>
     `).join('')}
-    <button onclick="this.parentElement.remove()" style="margin-top: 8px; padding: 4px 12px; font-size: 11px; border: none; background: none; color: var(--muted-soft); cursor: pointer; border-radius: 4px;">关闭</button>
+    <button data-action="close-pw" style="margin-top: 8px; padding: 4px 12px; font-size: 11px; border: none; background: none; color: var(--muted-soft); cursor: pointer; border-radius: 4px;">关闭</button>
   `
   document.getElementById('batchResetBtn').parentElement.appendChild(container)
 }
+
+// Password copy button via event delegation
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.pw-copy-btn')
+  if (!btn) return
+  const pw = btn.dataset.copy
+  navigator.clipboard.writeText(pw)
+  btn.textContent = '已复制'
+  setTimeout(() => { btn.textContent = '复制' }, 1500)
+})
+document.addEventListener('click', (e) => {
+  if (e.target.dataset.action === 'close-pw') {
+    e.target.parentElement.remove()
+  }
+})
 
 // === Database Backup ===
 document.getElementById('backupBtn').addEventListener('click', () => {

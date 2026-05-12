@@ -586,11 +586,11 @@
                   </div>
                 </div>
                 <div class="student-actions">
-                  <button onclick="openEdit({{ s.id }})"
+                  <button data-action="edit" data-id="{{ s.id }}"
                     class="student-action" style="color: var(--muted);" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">编辑</button>
-                  <button onclick="startTransfer({{ s.id }}, '{{ s.name }}')"
+                  <button data-action="transfer" data-id="{{ s.id }}" data-name="{{ s.name }}"
                     class="student-action" style="color: var(--primary);" onmouseover="this.style.background='#fef3ec'" onmouseout="this.style.background=''">转移</button>
-                  <button onclick="confirmDelete({{ s.id }}, '{{ s.name }}')"
+                  <button data-action="delete" data-id="{{ s.id }}" data-name="{{ s.name }}"
                     class="student-action" style="color: var(--error);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">删除</button>
                 </div>
               </div>
@@ -1105,9 +1105,9 @@ async function doAdd() {
         </div>
       </div>
       <div class="student-actions">
-        <button onclick="openEdit(${student.id})" class="student-action" style="color: var(--muted);" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">编辑</button>
-        <button onclick="startTransfer(${student.id}, '${escHtml(student.name)}')" class="student-action" style="color: var(--primary);" onmouseover="this.style.background='#fef3ec'" onmouseout="this.style.background=''">转移</button>
-        <button onclick="confirmDelete(${student.id}, '${escHtml(student.name)}')" class="student-action" style="color: var(--error);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">删除</button>
+        <button data-action="edit" data-id="${student.id}" class="student-action" style="color: var(--muted);" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">编辑</button>
+        <button data-action="transfer" data-id="${student.id}" data-name="${escHtml(student.name)}" class="student-action" style="color: var(--primary);" onmouseover="this.style.background='#fef3ec'" onmouseout="this.style.background=''">转移</button>
+        <button data-action="delete" data-id="${student.id}" data-name="${escHtml(student.name)}" class="student-action" style="color: var(--error);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">删除</button>
       </div>
     </div>
   `
@@ -1116,6 +1116,18 @@ async function doAdd() {
   closeAdd()
   showToast('已添加')
 }
+
+// Student action buttons via event delegation (avoids inline onclick XSS)
+document.getElementById('stuList').addEventListener('click', (e) => {
+  const btn = e.target.closest('.student-action')
+  if (!btn) return
+  const action = btn.dataset.action
+  const id = parseInt(btn.dataset.id, 10)
+  const name = btn.dataset.name || ''
+  if (action === 'edit') openEdit(id)
+  else if (action === 'transfer') startTransfer(id, name)
+  else if (action === 'delete') confirmDelete(id, name)
+})
 
 document.getElementById('clearStudentsBtn').addEventListener('click', async () => {
   if (!confirm('确认清空全部学生及签到记录？此操作不可恢复。')) return
