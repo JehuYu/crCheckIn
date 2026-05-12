@@ -1024,6 +1024,7 @@ function closeTagPopup() {
 tagPopup.addEventListener('click', (e) => { if (e.target === tagPopup) closeTagPopup() })
 
 function openTagPopup(studentId, studentName, btnEl) {
+  if (!btnEl) return
   tagPopupTarget = { studentId, studentName }
   const rect = btnEl.getBoundingClientRect()
   const box = document.getElementById('tagPopupBox')

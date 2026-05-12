@@ -868,6 +868,7 @@ function renderCurrentGrid() {
     return
   }
 
+  if (!Array.isArray(grid)) return
   const { changed, newStudents } = computeSeatChanges(grid, prevSeatMap)
   renderGrid(grid, aisles, changed, newStudents)
 }
@@ -875,6 +876,10 @@ function renderCurrentGrid() {
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
 function renderGrid(grid, aisles, changedSeats, newSeats) {
+  if (!Array.isArray(grid) || !grid.length) {
+    document.getElementById('seatGrid').innerHTML = '<div style="padding:48px;text-align:center;color:var(--muted-soft);">座位表加载中...</div>'
+    return
+  }
   const container = document.getElementById('seatGrid')
   container.innerHTML = ''
   grid.forEach(row => {

@@ -842,6 +842,7 @@ function updateCountDisplay() {
 function openEdit(id) {
   if (!id || isNaN(id)) { showToast('无效的学生ID', false); return }
   const row = document.getElementById(`row-${id}`)
+  if (!row) { showToast('该学生已从名单中移除', false); return }
   editStudentId = id
   document.getElementById('editStudentHint').textContent = `当前学生：${row.dataset.name}`
   document.getElementById('editStudentName').value = row.dataset.name || ''
@@ -907,6 +908,7 @@ async function saveEdit() {
   await reloadTags()
 
   const row = document.getElementById(`row-${id}`)
+  if (!row) { closeEdit(); window.location.reload(); return }
   row.dataset.name = data.student.name
   row.dataset.homeclass = data.student.homeClass || ''
   row.querySelector('.student-name').textContent = data.student.name

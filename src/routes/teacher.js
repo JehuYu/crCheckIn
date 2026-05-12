@@ -36,6 +36,10 @@ export default async function teacherRoutes(app) {
     const teacherId = request.session.teacherId
     const classes = await getClasses(teacherId)
     const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } })
+    if (!teacher) {
+      request.session = null
+      return reply.redirect('/student')
+    }
     const maxStudentCount = Math.max(...classes.map(c => c.studentCount), 1)
     noCache(reply)
     return reply.view('teacher/classes.html', {
@@ -46,35 +50,30 @@ export default async function teacherRoutes(app) {
   })
 
   app.get('/teacher/classes/:classId', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.params.classId, 10)
-    const teacherId = request.session.teacherId
-    const isAdmin = request.session.isAdmin === true
-    const cls = await prisma.class.findUnique({ where: { id: classId } })
+    const cls = await prisma.class.findUnique({ where: { id: request.classId } })
     noCache(reply)
-    return reply.view('teacher/class.html', { cls, teacherId, isAdmin, sseUrl: `/api/sse` })
+    return reply.view('teacher/class.html', { cls, teacherId: request.session.teacherId, isAdmin: request.session.isAdmin === true, sseUrl: `/api/sse` })
   })
 
   // 信息收集管理页
   app.get('/teacher/info', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.query.classId, 10)
-    const cls = await prisma.class.findUnique({ where: { id: classId } })
+    const cls = await prisma.class.findUnique({ where: { id: request.classId } })
     return reply.view('teacher/info.html', { cls })
   })
 
   // 座位预览页（默认教师视角，支持前端切换）
   app.get('/teacher/classes/:classId/seats', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.params.classId, 10)
-    const cls = await prisma.class.findUnique({ where: { id: classId } })
+    const cls = await prisma.class.findUnique({ where: { id: request.classId } })
     const { getSeatGrid, getSeatGridTeacher, getSeatGridsFromArchivedRecords } = await import('../services/seat.js')
     const [studentGrid, teacherGrid] = await Promise.all([
-      getSeatGrid(classId),
-      getSeatGridTeacher(classId),
+      getSeatGrid(request.classId),
+      getSeatGridTeacher(request.classId),
     ])
     const signedCount = teacherGrid.flat().reduce((acc, cell) => acc + cell.students.length, 0)
 
     // 加载上一批次数据（用于对比变动 + 切换查看）
     const lastSession = await prisma.signInSession.findFirst({
-      where: { classId },
+      where: { classId: request.classId },
       orderBy: { archivedAt: 'desc' },
       include: { records: { orderBy: { signedAt: 'asc' } } },
     })
@@ -97,17 +96,17 @@ export default async function teacherRoutes(app) {
     noCache(reply)
     return reply.view('teacher/seat_view.html', {
       cls,
-      classId,
+      classId: request.classId,
       pageTitle: `${cls.name} - 座位表`,
       subtitle: null,
-      backHref: `/teacher/classes/${classId}`,
-      pollUrl: `/api/seat-grid?classId=${classId}`,
-      pollUrlJson: JSON.stringify(`/api/seat-grid?classId=${classId}`),
+      backHref: `/teacher/classes/${request.classId}`,
+      pollUrl: `/api/seat-grid?classId=${request.classId}`,
+      pollUrlJson: JSON.stringify(`/api/seat-grid?classId=${request.classId}`),
       studentGridJson: JSON.stringify(studentGrid),
       teacherGridJson: JSON.stringify(teacherGrid),
       signedCount,
       showExport: true,
-      exportHref: `/api/export-seats?classId=${classId}`,
+      exportHref: `/api/export-seats?classId=${request.classId}`,
       showRefreshControls: true,
       showRefreshControlsJson: JSON.stringify(true),
       hasPreviousSession: !!lastSession,
@@ -119,6 +118,7 @@ export default async function teacherRoutes(app) {
 
   app.get('/teacher/sessions/:sessionId/seats', { preHandler: teacherRequired }, async (request, reply) => {
     const sessionId = parseInt(request.params.sessionId, 10)
+    if (isNaN(sessionId)) return reply.code(400).send({ ok: false, message: '批次ID无效' })
     const teacherId = request.session.teacherId
     const isAdmin = request.session.isAdmin === true
     const result = await getSessionDetailForTeacher(sessionId, teacherId, isAdmin)
@@ -157,7 +157,7 @@ export default async function teacherRoutes(app) {
 
   // 学生管理页
   app.get('/teacher/classes/:classId/students', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.params.classId, 10)
+    const classId = request.classId
     const teacherId = request.session.teacherId
     const isAdmin = request.session.isAdmin === true
     const { getClassTags } = await import('../services/tag.js')
@@ -180,9 +180,8 @@ export default async function teacherRoutes(app) {
 
   // 数据分析页
   app.get('/teacher/classes/:classId/analytics', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.params.classId, 10)
-    const cls = await prisma.class.findUnique({ where: { id: classId } })
+    const cls = await prisma.class.findUnique({ where: { id: request.classId } })
     noCache(reply)
-    return reply.view('teacher/analytics.html', { cls, classId })
+    return reply.view('teacher/analytics.html', { cls, classId: request.classId })
   })
 }
