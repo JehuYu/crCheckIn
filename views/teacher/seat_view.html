@@ -223,6 +223,7 @@
       border-radius: 8px;
       transition: background .12s;
       font-size: 13px;
+      cursor: pointer;
     }
     .roster-item:hover { background: var(--canvas); }
     .roster-dot {
@@ -271,6 +272,115 @@
       text-align: center;
       font-size: 13px;
       color: var(--muted-soft);
+    }
+
+    /* === Tag Modal === */
+    .tag-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.3);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .tag-modal-overlay.active { display: flex; }
+    .tag-modal {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      width: 320px;
+      max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,.15);
+    }
+    .tag-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .tag-modal-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      margin: 0;
+    }
+    .tag-modal-close {
+      background: none;
+      border: none;
+      font-size: 18px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .tag-modal-close:hover { background: var(--canvas); }
+    .tag-preset-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .tag-preset-btn {
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--hairline);
+      background: #fff;
+      color: var(--body);
+      transition: opacity .12s;
+    }
+    .tag-preset-btn:hover { opacity: .85; }
+    .tag-custom-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .tag-custom-row input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+    }
+    .tag-custom-row input:focus { border-color: var(--primary); }
+    .tag-custom-row button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tag-custom-existing {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .tag-custom-existing span {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 6px 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #fff;
+    }
+    .tag-custom-existing button {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,.7);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0 2px;
     }
 
     /* === Seat Grid === */
@@ -516,6 +626,26 @@
 
   </main>
 
+  <!-- Tag Modal -->
+  <div id="tagModalOverlay" class="tag-modal-overlay">
+    <div class="tag-modal">
+      <div class="tag-modal-header">
+        <h3 id="tagModalTitle">设置标签</h3>
+        <button id="tagModalCloseBtn" class="tag-modal-close">&times;</button>
+      </div>
+      <div id="tagModalPresets" class="tag-preset-group"></div>
+      <div id="tagModalCustomExisting" class="tag-custom-existing"></div>
+      <div class="tag-custom-row">
+        <input id="tagModalCustomInput" type="text" placeholder="自定义标签..." />
+        <button id="tagModalCustomAddBtn">添加</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+        <button id="tagModalCancelBtn"
+          style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:500;color:var(--muted);background:none;border:none;cursor:pointer;transition:background .12s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">关闭</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 function fmtHomeClass(hc) {
   if (!hc) return ''
@@ -548,6 +678,130 @@ const PREV_LABEL = {{ prevLabelJson | default('null') | safe }}
 let currentView = 'teacher'
 let showingPrev = false // 是否正在查看上一批次座位
 let prevSeatMap = null // 上一批次的 studentName -> seatNo 映射
+let tagModalStudentId = null
+
+const PRESET_TAGS = ['体育生', '竞赛生']
+const TAG_COLORS = ['#cc785c','#5db872','#d4a017','#7c6cf0','#4a90d9','#e67e22']
+
+function getNextColor(currentCount) {
+  return TAG_COLORS[currentCount % TAG_COLORS.length]
+}
+
+async function reloadTags() {
+  try {
+    const res = await fetch('/api/tags?classId=' + CLASS_ID)
+    window._stuTags = await res.json()
+  } catch(e) {}
+}
+
+function renderTagModal() {
+  const container = document.getElementById('tagModalPresets')
+  const customContainer = document.getElementById('tagModalCustomExisting')
+  const title = document.getElementById('tagModalTitle')
+  const currentTags = (window._stuTags || {})[tagModalStudentId] || []
+  const currentNames = new Set(currentTags.map(t => t.tag))
+
+  // Find student name for title
+  const rosterItem = document.querySelector(`[data-student-id="${tagModalStudentId}"] .roster-name`)
+  const studentName = rosterItem ? rosterItem.textContent : '学生'
+  title.textContent = `${studentName} - 设置标签`
+
+  // Preset buttons
+  container.innerHTML = PRESET_TAGS.map((name, i) => {
+    const active = currentNames.has(name)
+    const color = TAG_COLORS[i % TAG_COLORS.length]
+    return `<button type="button" class="tag-preset-btn" data-tag="${escHtml(name)}" data-active="${active}" style="padding:4px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid ${active ? color : 'var(--hairline)'};background:${active ? color : '#fff'};color:${active ? '#fff' : 'var(--body)'};transition:opacity .12s;">${escHtml(name)}</button>`
+  }).join('')
+
+  // Custom tags (non-preset)
+  const customTags = currentTags.filter(t => !PRESET_TAGS.includes(t.tag))
+  customContainer.innerHTML = customTags.map(t =>
+    `<span class="tag-custom-item" data-tag-id="${t.id}" style="display:inline-flex;align-items:center;gap:3px;padding:3px 6px 3px 8px;border-radius:6px;font-size:12px;font-weight:500;background:${t.color};color:#fff;cursor:default;">${escHtml(t.tag)}<button type="button" class="tag-custom-remove-btn" data-tag-id="${t.id}" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;">&times;</button></span>`
+  ).join('')
+}
+
+function openTagModal(studentId) {
+  tagModalStudentId = studentId
+  document.getElementById('tagModalOverlay').classList.add('active')
+  renderTagModal()
+}
+
+function closeTagModal() {
+  document.getElementById('tagModalOverlay').classList.remove('active')
+  tagModalStudentId = null
+}
+
+document.getElementById('tagModalCloseBtn').addEventListener('click', closeTagModal)
+document.getElementById('tagModalCancelBtn').addEventListener('click', closeTagModal)
+document.getElementById('tagModalOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeTagModal()
+})
+
+// Toggle preset tags
+document.getElementById('tagModalPresets').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.tag-preset-btn')
+  if (!btn || !tagModalStudentId) return
+  const isActive = btn.dataset.active === 'true'
+  const tagName = btn.dataset.tag
+  if (isActive) {
+    // Delete: find tag id and remove
+    const currentTags = (window._stuTags || {})[tagModalStudentId] || []
+    const tagObj = currentTags.find(t => t.tag === tagName)
+    if (tagObj) {
+      await fetch(`/api/tags/${tagObj.id}?classId=${CLASS_ID}`, { method: 'DELETE' })
+    }
+  } else {
+    // Add new
+    const currentTags = (window._stuTags || {})[tagModalStudentId] || []
+    const color = TAG_COLORS[PRESET_TAGS.indexOf(tagName) % TAG_COLORS.length]
+    await fetch('/api/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classId: CLASS_ID, studentId: tagModalStudentId, tag: tagName, color }),
+    })
+  }
+  await reloadTags()
+  renderTagModal()
+  refreshRoster()
+})
+
+// Remove custom tag
+document.getElementById('tagModalCustomExisting').addEventListener('click', async (e) => {
+  const removeBtn = e.target.closest('.tag-custom-remove-btn')
+  if (!removeBtn || !tagModalStudentId) return
+  const tagId = parseInt(removeBtn.dataset.tagId)
+  await fetch(`/api/tags/${tagId}?classId=${CLASS_ID}`, { method: 'DELETE' })
+  await reloadTags()
+  renderTagModal()
+  refreshRoster()
+})
+
+// Add custom tag
+document.getElementById('tagModalCustomAddBtn').addEventListener('click', async () => {
+  const input = document.getElementById('tagModalCustomInput')
+  const tag = input.value.trim()
+  if (!tag || !tagModalStudentId) return
+  const currentTags = (window._stuTags || {})[tagModalStudentId] || []
+  const color = getNextColor(currentTags.length)
+  const res = await fetch('/api/tags', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ classId: CLASS_ID, studentId: tagModalStudentId, tag, color }),
+  })
+  const data = await res.json()
+  if (!data.ok) return
+  input.value = ''
+  await reloadTags()
+  renderTagModal()
+  refreshRoster()
+})
+
+document.getElementById('tagModalCustomInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('tagModalCustomAddBtn').click()
+})
+
+// Load tags on page load
+reloadTags()
 
 // 构建 seatNo -> studentName 映射
 function buildSeatMap(grid) {
@@ -732,8 +986,6 @@ function renderRoster(roster) {
 
   badge.textContent = `共 ${sorted.length} 人`
 
-  function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
-
   sorted.forEach(r => {
     const isSigned = r.status === '已签到'
     const dupIp = ipCount[(r.computerName || '').trim()] > 1
@@ -746,11 +998,15 @@ function renderRoster(roster) {
 
     const item = document.createElement('div')
     item.className = 'roster-item'
+    item.dataset.studentId = r.studentId
     item.innerHTML = `
       <span class="roster-dot ${dotClass}"></span>
       <span class="roster-name">${escHtml(r.studentName)}</span>
       ${tagsHtml ? `<span class="roster-tags">${tagsHtml}</span>` : ''}
       <span class="roster-time ${timeClass}">${isSigned ? formatSignedTime(r.signedAt) : '-'}</span>`
+    item.addEventListener('click', () => {
+      if (r.studentId) openTagModal(r.studentId)
+    })
     list.appendChild(item)
   })
 }
