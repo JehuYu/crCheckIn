@@ -586,7 +586,12 @@ export default async function apiRoutes(fastify) {
   // DELETE /api/info-submissions/:submissionId — 删除提交，需要 classOwnerRequired
   fastify.delete('/api/info-submissions/:submissionId', { preHandler: classOwnerRequired }, async (request, reply) => {
     const submissionId = parseInt(request.params.submissionId, 10)
-    await deleteSubmission(submissionId)
+    const classId = parseInt(request.query.classId || request.body?.classId || '0', 10) || null
+    try {
+      await deleteSubmission(submissionId, classId)
+    } catch (err) {
+      return reply.code(err.statusCode || 400).send({ ok: false, message: err.message })
+    }
     return reply.send({ ok: true })
   })
 

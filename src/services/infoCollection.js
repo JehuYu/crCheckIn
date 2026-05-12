@@ -82,8 +82,9 @@ export async function updateInfoField(fieldId, data) {
  * @param {number} fieldId
  */
 export async function deleteInfoField(fieldId) {
-  return prisma.infoField.delete({
-    where: { id: fieldId },
+  return prisma.$transaction(async (tx) => {
+    await tx.infoResponse.deleteMany({ where: { fieldId } })
+    await tx.infoField.delete({ where: { id: fieldId } })
   })
 }
 
@@ -113,6 +114,14 @@ export async function submitInfo(classId, studentName, studentId, responses) {
   })
   if (!collection || !collection.enabled) {
     throw new Error('信息收集未启用')
+  }
+
+  // Validate all fieldIds belong to this class's collection
+  const validFieldIds = new Set(collection.fields.map(f => f.id))
+  for (const resp of responses) {
+    if (!validFieldIds.has(resp.fieldId)) {
+      throw new Error('包含无效的字段ID')
+    }
   }
 
   // 检查必填字段
@@ -180,11 +189,49 @@ export async function getSubmissionDetail(submissionId) {
 /**
  * 删除提交
  * @param {number} submissionId
+ * @param {number} [classId] 可选，用于防御性鉴权——验证提交属于指定班级
  */
-export async function deleteSubmission(submissionId) {
+export async function deleteSubmission(submissionId, classId = null) {
+  if (classId) {
+    const submission = await prisma.infoSubmission.findUnique({
+      where: { id: submissionId },
+      select: { classId: true },
+    })
+    if (!submission || submission.classId !== classId) {
+      throw new Error('提交不存在或无权删除')
+    }
+  }
   return prisma.infoSubmission.delete({
     where: { id: submissionId },
   })
+}
+
+/**
+ * 已知文件类型的 magic bytes 签名
+ */
+const MAGIC_BYTES = {
+  '.jpg': [[0xFF, 0xD8, 0xFF]],
+  '.jpeg': [[0xFF, 0xD8, 0xFF]],
+  '.png': [[0x89, 0x50, 0x4E, 0x47]],
+  '.pdf': [[0x25, 0x50, 0x44, 0x46]],
+  '.doc': [[0xD0, 0xCF, 0x11, 0xE0]],
+  '.docx': [[0x50, 0x4B, 0x03, 0x04]],
+  '.xlsx': [[0x50, 0x4B, 0x03, 0x04]],
+  '.xls': [[0xD0, 0xCF, 0x11, 0xE0]],
+}
+
+/**
+ * 检查 buffer 是否匹配任一 magic bytes 签名
+ */
+function matchesMagicBytes(buffer, ext) {
+  const signatures = MAGIC_BYTES[ext]
+  if (!signatures) return true // unknown type, skip check
+  for (const sig of signatures) {
+    if (buffer.length >= sig.length && sig.every((b, i) => buffer[i] === b)) {
+      return true
+    }
+  }
+  return false
 }
 
 /**
@@ -200,8 +247,14 @@ export async function uploadAttachment(classId, buffer, originalFilename) {
   if (!allowedExts.includes(ext)) {
     throw new Error('不支持的文件类型')
   }
+  if (buffer.length < 2) {
+    throw new Error('文件无效（文件太小）')
+  }
   if (buffer.length > 10 * 1024 * 1024) {
     throw new Error('文件大小不能超过 10MB')
+  }
+  if (!matchesMagicBytes(buffer, ext)) {
+    throw new Error('文件内容与类型不匹配')
   }
 
   const dir = await ensureUploadDir(classId)

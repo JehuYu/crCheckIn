@@ -58,12 +58,25 @@ async function buildSeatMap(classId) {
     orderBy: { signedAt: 'asc' },
   })
 
+  // Batch-load orphaned students in a single query
+  const orphanedNames = new Set()
+  for (const rec of records) {
+    if (!rec.student) orphanedNames.add(rec.studentName)
+  }
+  const orphanMap = new Map()
+  if (orphanedNames.size > 0) {
+    const orphans = await prisma.student.findMany({
+      where: { classId, name: { in: [...orphanedNames] } },
+    })
+    for (const stu of orphans) orphanMap.set(stu.name, stu)
+  }
+
   const normalizedRecords = []
   for (const rec of records) {
     let studentId = rec.studentId
     let homeClass = rec.student?.homeClass ?? ''
     if (!homeClass && !rec.student) {
-      const stu = await prisma.student.findFirst({ where: { classId, name: rec.studentName } })
+      const stu = orphanMap.get(rec.studentName)
       homeClass = stu?.homeClass ?? ''
       studentId = stu?.id ?? null
     }

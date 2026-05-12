@@ -2,6 +2,17 @@ import bcrypt from 'bcrypt'
 import { prisma } from '../plugins/db.js'
 
 /**
+ * 校验密码强度：至少 6 位
+ */
+function assertPasswordStrength(password) {
+  if (password.length < 6) {
+    const err = new Error('密码长度不能少于 6 位')
+    err.code = 'PASSWORD_TOO_WEAK'
+    throw err
+  }
+}
+
+/**
  * 通过用户名和口令验证教师/管理员登录。
  * @param {string} username
  * @param {string} password
@@ -27,6 +38,8 @@ export async function verifyTeacherByPassword(username, password) {
  * @returns {Promise<object>} 创建的 Teacher 记录
  */
 export async function createTeacher(username, password, isAdmin = false) {
+  assertPasswordStrength(password)
+
   const existing = await prisma.teacher.findUnique({ where: { username } })
   if (existing) {
     const err = new Error('用户名已存在')
@@ -59,6 +72,8 @@ export async function createTeacher(username, password, isAdmin = false) {
  * @returns {Promise<{ok: boolean, message: string}>}
  */
 export async function changePassword(teacherId, oldPassword, newPassword) {
+  assertPasswordStrength(newPassword)
+
   const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } })
   if (!teacher) return { ok: false, message: '教师不存在' }
 
@@ -92,6 +107,8 @@ export async function changePassword(teacherId, oldPassword, newPassword) {
  * @returns {Promise<{ok: boolean, message: string}>}
  */
 export async function resetTeacherPasswordByAdmin(targetTeacherId, newPassword) {
+  assertPasswordStrength(newPassword)
+
   const teacher = await prisma.teacher.findUnique({ where: { id: targetTeacherId } })
   if (!teacher) return { ok: false, message: '教师不存在' }
 

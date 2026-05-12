@@ -41,6 +41,7 @@ export function broadcastToTeacher(teacherId, event) {
       sockets.delete(socket)
     }
   }
+  if (sockets.size === 0) teacherSockets.delete(teacherId)
 }
 
 /**

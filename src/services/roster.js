@@ -187,6 +187,23 @@ export async function exportSeatTableToExcel(classId) {
     }),
   ])
 
+  // 先收集所有需要 fallback 查询的学生姓名，一次性批量加载
+  const orphanedNames = new Set()
+  for (const rec of records) {
+    if (!rec.student) {
+      orphanedNames.add(rec.studentName)
+    }
+  }
+  const orphanMap = new Map()
+  if (orphanedNames.size > 0) {
+    const orphans = await prisma.student.findMany({
+      where: { classId, name: { in: [...orphanedNames] } },
+    })
+    for (const stu of orphans) {
+      orphanMap.set(stu.name, stu)
+    }
+  }
+
   // 构建 seatNo → {name, homeClass} 映射
   const seatMap = new Map()
   for (const rec of records) {
@@ -197,7 +214,7 @@ export async function exportSeatTableToExcel(classId) {
     if (!seatMap.has(n)) seatMap.set(n, [])
     let homeClass = rec.student?.homeClass ?? ''
     if (!homeClass && !rec.student) {
-      const stu = await prisma.student.findFirst({ where: { classId, name: rec.studentName } })
+      const stu = orphanMap.get(rec.studentName)
       homeClass = stu?.homeClass ?? ''
     }
     seatMap.get(n).push({ name: rec.studentName, homeClass })
