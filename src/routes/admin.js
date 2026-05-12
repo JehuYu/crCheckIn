@@ -57,6 +57,68 @@ export default async function adminRoutes(app) {
     return reply.view('admin/audit.html', {})
   })
 
+  // === API: Admin Tag Management ===
+
+  app.get('/admin/api/tags/students', { preHandler: adminRequired }, async (request, reply) => {
+    const PRESET_TAGS = ['体育生', '竞赛生']
+    const [students, tags] = await Promise.all([
+      prisma.student.findMany({
+        include: { class: { select: { id: true, name: true, teacherId: true } } },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.studentTag.findMany({}),
+    ])
+    const tagMap = new Map()
+    for (const tag of tags) {
+      if (!tagMap.has(tag.studentId)) tagMap.set(tag.studentId, [])
+      const isPreset = PRESET_TAGS.includes(tag.tag)
+      tagMap.get(tag.studentId).push({ id: tag.id, tag: tag.tag, color: tag.color, isPreset })
+    }
+    const result = students.map(s => ({
+      id: s.id,
+      name: s.name,
+      homeClass: s.homeClass || '',
+      classId: s.classId,
+      className: s.class?.name || '',
+      teacherId: s.class?.teacherId || null,
+      tags: tagMap.get(s.id) || [],
+    }))
+    return reply.send({ ok: true, students: result, presetTags: PRESET_TAGS })
+  })
+
+  app.post('/admin/api/tags/toggle-preset', { preHandler: adminRequired }, async (request, reply) => {
+    const PRESET_TAGS = ['体育生', '竞赛生']
+    const { studentId, tag } = request.body ?? {}
+    if (!studentId || !tag) {
+      return reply.send({ ok: false, message: '缺少参数' })
+    }
+    if (!PRESET_TAGS.includes(tag)) {
+      return reply.send({ ok: false, message: '仅支持预设标签' })
+    }
+    const student = await prisma.student.findUnique({ where: { id: studentId } })
+    if (!student) {
+      return reply.send({ ok: false, message: '学生不存在' })
+    }
+    const existing = await prisma.studentTag.findFirst({
+      where: { classId: student.classId, studentId, tag },
+    })
+    if (existing) {
+      await prisma.studentTag.delete({ where: { id: existing.id } })
+      return reply.send({ ok: true, action: 'removed' })
+    }
+    const TAG_COLORS = ['#cc785c','#5db872','#d4a017','#7c6cf0','#4a90d9','#e67e22']
+    const idx = PRESET_TAGS.indexOf(tag)
+    await prisma.studentTag.create({
+      data: {
+        classId: student.classId,
+        studentId,
+        tag,
+        color: TAG_COLORS[idx],
+      },
+    })
+    return reply.send({ ok: true, action: 'added' })
+  })
+
   // === API: Class Management ===
 
   app.get('/admin/api/classes', { preHandler: adminRequired }, async (request, reply) => {

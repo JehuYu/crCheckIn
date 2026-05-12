@@ -43,8 +43,16 @@ export async function signIn(classId, studentName, computerName) {
     return { ok: false, message: '你已签到，无需重复提交。' }
   }
 
-  // 6. 创建签到记录 + 清除标签（事务）
+  // 6. 创建签到记录 + 清除自定义标签（保留预设标签）
+  const PRESET_TAGS = ['体育生', '竞赛生']
   try {
+    const existingTags = await prisma.studentTag.findMany({
+      where: { classId, studentId: student.id },
+    })
+    const customTagIds = existingTags
+      .filter(t => !PRESET_TAGS.includes(t.tag))
+      .map(t => t.id)
+
     await prisma.$transaction(async (tx) => {
       await tx.signInRecord.create({
         data: {
@@ -54,9 +62,11 @@ export async function signIn(classId, studentName, computerName) {
           computerName: computerName || '',
         },
       })
-      await tx.studentTag.deleteMany({
-        where: { classId, studentId: student.id },
-      })
+      if (customTagIds.length > 0) {
+        await tx.studentTag.deleteMany({
+          where: { id: { in: customTagIds } },
+        })
+      }
     })
   } catch (err) {
     if (err.code === 'P2002') {
