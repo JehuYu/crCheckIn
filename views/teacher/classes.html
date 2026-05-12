@@ -456,6 +456,14 @@
       background: #fef2f2;
       color: var(--error);
     }
+    .modal-icon.warning {
+      background: #fffbeb;
+      color: var(--warning);
+    }
+    .modal-icon.info {
+      background: #f0fdf4;
+      color: var(--success);
+    }
     .modal-title {
       font-family: Georgia, 'Times New Roman', serif;
       font-size: 18px;
@@ -709,9 +717,45 @@
       <p class="modal-title">删除班级</p>
       <p id="deleteModalDesc" class="modal-desc"></p>
       <div class="modal-actions">
-        <button onclick="closeDeleteModal()"
+        <button data-modal-action="close-delete"
           style="padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--body); background: none; border: 1px solid var(--hairline); cursor: pointer; height: 40px; transition: all .15s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
         <button id="confirmDeleteBtn" class="btn btn-primary" style="height: 40px; background: var(--error);">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Archive Class Modal -->
+  <div id="archiveModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-icon warning">
+        <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+      </div>
+      <p class="modal-title">归档班级</p>
+      <p id="archiveModalDesc" class="modal-desc"></p>
+      <div class="modal-actions">
+        <button data-modal-action="close-archive"
+          style="padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--body); background: none; border: 1px solid var(--hairline); cursor: pointer; height: 40px; transition: all .15s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button id="confirmArchiveBtn" class="btn btn-primary" style="height: 40px; background: var(--warning);">确认归档</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unarchive Class Modal -->
+  <div id="unarchiveModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-icon info">
+        <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </div>
+      <p class="modal-title">恢复班级</p>
+      <p id="unarchiveModalDesc" class="modal-desc"></p>
+      <div class="modal-actions">
+        <button data-modal-action="close-unarchive"
+          style="padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--body); background: none; border: 1px solid var(--hairline); cursor: pointer; height: 40px; transition: all .15s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button id="confirmUnarchiveBtn" class="btn btn-primary" style="height: 40px; background: var(--success);">确认恢复</button>
       </div>
     </div>
   </div>
@@ -744,6 +788,10 @@ document.getElementById('changePwdBtn').addEventListener('click', async () => {
 
 let deleteClassId = null
 let deleteClassName = ''
+let archiveClassId = null
+let archiveClassName = ''
+let unarchiveClassId = null
+let unarchiveClassName = ''
 
 function showDeleteModal(id, name) {
   deleteClassId = id
@@ -756,6 +804,32 @@ function closeDeleteModal() {
   deleteClassId = null
   deleteClassName = ''
   document.getElementById('deleteModal').classList.add('hidden')
+}
+
+function showArchiveModal(id, name) {
+  archiveClassId = id
+  archiveClassName = name
+  document.getElementById('archiveModalDesc').textContent = `确认归档班级「${name}」？归档后该班级将从列表中隐藏，所有数据（学生、标签、签到历史）将完整保留。可随时从「查看已归档」中恢复。`
+  document.getElementById('archiveModal').classList.remove('hidden')
+}
+
+function closeArchiveModal() {
+  archiveClassId = null
+  archiveClassName = ''
+  document.getElementById('archiveModal').classList.add('hidden')
+}
+
+function showUnarchiveModal(id, name) {
+  unarchiveClassId = id
+  unarchiveClassName = name
+  document.getElementById('unarchiveModalDesc').textContent = `确认恢复班级「${name}」？恢复后该班级将重新出现在班级列表中。`
+  document.getElementById('unarchiveModal').classList.remove('hidden')
+}
+
+function closeUnarchiveModal() {
+  unarchiveClassId = null
+  unarchiveClassName = ''
+  document.getElementById('unarchiveModal').classList.add('hidden')
 }
 
 // Event delegation for archive/unarchive/delete buttons
@@ -774,29 +848,48 @@ document.querySelector('.class-grid').addEventListener('click', (e) => {
   if (action === 'delete') {
     showDeleteModal(classId, className)
   } else if (action === 'archive') {
-    doArchive(classId, className)
+    showArchiveModal(classId, className)
   } else if (action === 'unarchive') {
-    doUnarchive(classId, className)
+    showUnarchiveModal(classId, className)
   }
 })
 
-async function doArchive(id, name) {
-  if (!confirm(`确认归档班级「${name}」？归档后班级将从列表中隐藏，但所有数据会保留。`)) return
-  const res = await fetch(`/api/classes/${id}/archive`, { method: 'POST' })
+// Modal close buttons
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-modal-action]')
+  if (!btn) return
+  const action = btn.dataset.modalAction
+  if (action === 'close-delete') closeDeleteModal()
+  else if (action === 'close-archive') closeArchiveModal()
+  else if (action === 'close-unarchive') closeUnarchiveModal()
+})
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.add('hidden')
+  })
+})
+
+document.getElementById('confirmArchiveBtn').addEventListener('click', async () => {
+  if (!archiveClassId) return
+  const res = await fetch(`/api/classes/${archiveClassId}/archive`, { method: 'POST' })
   if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
+  closeArchiveModal()
   if (data.ok) { showToast(data.message); window.location.reload() }
   else { showToast(data.message || '归档失败', false) }
-}
+})
 
-async function doUnarchive(id, name) {
-  if (!confirm(`确认恢复班级「${name}」？`)) return
-  const res = await fetch(`/api/classes/${id}/unarchive`, { method: 'POST' })
+document.getElementById('confirmUnarchiveBtn').addEventListener('click', async () => {
+  if (!unarchiveClassId) return
+  const res = await fetch(`/api/classes/${unarchiveClassId}/unarchive`, { method: 'POST' })
   if (res.status === 401) { window.location.href = '/student'; return }
   const data = await res.json()
+  closeUnarchiveModal()
   if (data.ok) { showToast(data.message); window.location.reload() }
   else { showToast(data.message || '恢复失败', false) }
-}
+})
 
 document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
   if (!deleteClassId) return
