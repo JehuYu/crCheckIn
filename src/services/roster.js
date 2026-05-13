@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs'
 import { prisma } from '../plugins/db.js'
 import { STUDENT_SEAT_LAYOUT, TEACHER_SEAT_LAYOUT } from './seat.js'
 import { formatSecond } from '../utils/time.js'
+import { matchesPinyin, nameToPinyin } from '../utils/pinyin.js'
 
 /**
  * 行政班级格式化：没有"班"字则补上
@@ -412,7 +413,7 @@ export async function exportSeatTableToExcel(classId) {
 }
 
 /**
- * 跨教学班模糊匹配学生姓名
+ * 跨教学班模糊匹配学生姓名（支持中文、拼音全拼、首字母）
  * @param {string} query
  * @param {number} limit
  * @returns {Promise<{studentId, studentName, homeClass, classId, className, remark}[]>}
@@ -421,28 +422,57 @@ export async function matchStudents(query, limit = 15, classId = null) {
   const keyword = query.trim()
   if (!keyword) return []
 
-  const where = {
-    ...(classId ? { classId } : {}),
-    name: { contains: keyword },
+  const isPureChinese = /^[一-鿿]+$/.test(keyword)
+
+  if (isPureChinese) {
+    // 纯中文：用 Prisma contains 预过滤，数据库层面缩小范围
+    const students = await prisma.student.findMany({
+      where: {
+        ...(classId ? { classId } : {}),
+        name: { contains: keyword },
+      },
+      include: { class: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      take: limit,
+    })
+    return students.map((s) => ({
+      studentId: s.id,
+      studentName: s.name,
+      homeClass: s.homeClass,
+      classId: s.classId,
+      className: s.class.name,
+      remark: s.remark || '',
+    }))
   }
 
-  const students = await prisma.student.findMany({
+  // 含字母/拼音：加载该班级全部学生，JS 层用 matchesPinyin 过滤
+  const where = classId ? { classId } : {}
+  const allStudents = await prisma.student.findMany({
     where,
     include: { class: true },
-    orderBy: [
-      { name: 'asc' },
-      { id: 'asc' },
-    ],
-    take: limit,
   })
-  return students.map((s) => ({
-    studentId: s.id,
-    studentName: s.name,
-    homeClass: s.homeClass,
-    classId: s.classId,
-    className: s.class.name,
-    remark: s.remark || '',
+
+  // 过滤 + 排序：前缀匹配优先，其次子串匹配
+  const matched = allStudents.filter(s => matchesPinyin(s.name, keyword))
+
+  const ranked = matched.map(s => {
+    const { full, initials } = nameToPinyin(s.name)
+    const q = keyword.toLowerCase()
+    const isPrefix = s.name.startsWith(keyword) || full.startsWith(q) || initials.startsWith(q)
+    return { isPrefix, student: s }
+  }).sort((a, b) => {
+    if (a.isPrefix !== b.isPrefix) return a.isPrefix ? -1 : 1
+    return a.student.name.localeCompare(b.student.name, 'zh')
+  }).slice(0, limit).map(r => ({
+    studentId: r.student.id,
+    studentName: r.student.name,
+    homeClass: r.student.homeClass,
+    classId: r.student.classId,
+    className: r.student.class.name,
+    remark: r.student.remark || '',
   }))
+
+  return ranked
 }
 
 /**

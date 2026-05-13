@@ -31,6 +31,7 @@
     "fastify": "^4.0.0",
     "fastify-plugin": "^5.1.0",
     "nunjucks": "^3.2.4",
+    "pinyin-pro": "^3.28.1",
     "pm2": "^6.0.14",
     "prisma": "^5.0.0"
   },
