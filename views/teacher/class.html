@@ -1003,16 +1003,28 @@ function getPresetTagInfo(tagName) { return PRESET_TAGS.find(t => t.tag === tagN
 
 let tagPopupTarget = { studentId: null, studentName: '' }
 
-// Tag popup (quick-select)
+// Tag popup — unified design
 const tagPopup = document.createElement('div')
 tagPopup.id = 'tagPopup'
-tagPopup.style.cssText = 'display:none;position:fixed;inset:0;z-index:10001;background:rgba(20,20,19,.4);align-items:flex-start;justify-content:flex-start;'
-tagPopup.innerHTML = `<div id="tagPopupBox" style="position:absolute;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(20,20,19,.2);border:1px solid var(--hairline);padding:14px 16px;width:220px;">
-  <div id="tagPopupCurrent" style="display:none;margin-bottom:8px;"></div>
-  <div id="tagPopupPresets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
-  <div style="display:flex;gap:4px;">
-    <input id="tagPopupInput" type="text" placeholder="自定义标签" style="flex:1;padding:6px 10px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;outline:none;" />
-    <button id="tagPopupAddBtn" style="padding:6px 12px;border:none;border-radius:6px;background:var(--primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">添加</button>
+tagPopup.style.cssText = 'display:none;position:fixed;inset:0;z-index:10001;background:rgba(20,20,19,.35);align-items:flex-start;justify-content:flex-start;'
+tagPopup.innerHTML = `<div id="tagPopupBox" style="position:absolute;background:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(20,20,19,.15);border:1px solid var(--hairline);width:280px;overflow:hidden;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;border-bottom:1px solid var(--hairline);">
+    <span id="tagPopupTitle" style="font-size:13px;font-weight:600;color:var(--ink);"></span>
+    <button id="tagPopupClose" style="background:none;border:none;font-size:16px;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;" onmouseover="this.style.background='var(--canvas)'" onmouseout="this.style.background=''">&times;</button>
+  </div>
+  <div style="padding:14px 16px;">
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">预设标签</div>
+      <div id="tagPopupPresets" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">自定义标签</div>
+      <div id="tagPopupCustomTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;min-height:0;"></div>
+      <div style="display:flex;gap:6px;">
+        <input id="tagPopupInput" type="text" value="请假" placeholder="输入标签名称" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;outline:none;transition:border-color .15s;" />
+        <button id="tagPopupAddBtn" style="padding:7px 14px;border:none;border-radius:6px;background:var(--primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;">添加</button>
+      </div>
+    </div>
   </div>
 </div>`
 document.body.appendChild(tagPopup)
@@ -1022,6 +1034,7 @@ function closeTagPopup() {
   tagPopupTarget = { studentId: null, studentName: '' }
 }
 tagPopup.addEventListener('click', (e) => { if (e.target === tagPopup) closeTagPopup() })
+document.getElementById('tagPopupClose').addEventListener('click', closeTagPopup)
 
 function openTagPopup(studentId, studentName, btnEl) {
   if (!btnEl) return
@@ -1029,56 +1042,51 @@ function openTagPopup(studentId, studentName, btnEl) {
   const rect = btnEl.getBoundingClientRect()
   const box = document.getElementById('tagPopupBox')
   box.style.top = Math.max(10, rect.bottom + 6) + 'px'
-  box.style.left = Math.min(rect.right - 200, window.innerWidth - 240) + 'px'
+  box.style.left = Math.min(rect.right - 200, window.innerWidth - 300) + 'px'
   box.style.left = Math.max(10, parseInt(box.style.left)) + 'px'
 
   const currentTags = (window._studentTags || {})[studentId] || []
   const currentNames = new Set(currentTags.map(t => t.tag))
 
-  // Show current tag with clear button
-  const currentDiv = document.getElementById('tagPopupCurrent')
-  if (currentTags.length > 0) {
-    const t = currentTags[0]
-    currentDiv.style.display = 'flex'
-    currentDiv.style.alignItems = 'center'
-    currentDiv.style.gap = '6px'
-    currentDiv.innerHTML = `<span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:500;background:${t.color};color:#fff;">${escHtml(t.tag)}</span>
-    <button id="tagPopupClearBtn" style="margin-left:auto;padding:3px 8px;border:1px solid var(--hairline);border-radius:4px;font-size:11px;color:var(--error);background:none;cursor:pointer;">清除标签</button>`
-  } else {
-    currentDiv.style.display = 'none'
-    currentDiv.innerHTML = ''
-  }
+  document.getElementById('tagPopupTitle').textContent = `${studentName} - 设置标签`
 
   // Preset buttons
-  const presets = document.getElementById('tagPopupPresets')
-  presets.innerHTML = PRESET_TAGS.map(pt => {
+  document.getElementById('tagPopupPresets').innerHTML = PRESET_TAGS.map(pt => {
     const active = currentNames.has(pt.tag)
-    return `<button class="tag-preset-btn" data-tag="${escHtml(pt.tag)}" data-active="${active}" style="padding:3px 10px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid ${active ? pt.color : 'var(--hairline)'};background:${active ? pt.color : '#fff'};color:${active ? '#fff' : 'var(--body)'};">${escHtml(pt.tag)}</button>`
+    return `<button class="tag-preset-btn" data-tag="${escHtml(pt.tag)}" data-active="${active}" style="padding:4px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid ${active ? pt.color : 'var(--hairline)'};background:${active ? pt.color : '#fff'};color:${active ? '#fff' : 'var(--body)'};">${escHtml(pt.tag)}</button>`
   }).join('')
 
+  // Custom tags with × removal
+  const customTags = currentTags.filter(t => !presetTagNames().includes(t.tag))
+  document.getElementById('tagPopupCustomTags').innerHTML = customTags.map(t =>
+    `<span class="tag-custom-item" data-tag-id="${t.id}" style="display:inline-flex;align-items:center;gap:3px;padding:3px 6px 3px 8px;border-radius:6px;font-size:12px;font-weight:500;background:${t.color};color:#fff;cursor:default;">${escHtml(t.tag)}<button type="button" class="tag-custom-remove-btn" data-tag-id="${t.id}" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;">&times;</button></span>`
+  ).join('')
+
   tagPopup.style.display = 'flex'
-  document.getElementById('tagPopupInput').value = ''
-  document.getElementById('tagPopupInput').focus()
+  resetTagInput()
 }
+
+function resetTagInput() {
+  const input = document.getElementById('tagPopupInput')
+  input.value = '请假'
+  input.style.color = 'var(--muted-soft)'
+  input.dataset.defaultVal = '1'
+}
+
+// When user focuses/starts typing, clear default placeholder and normalize color
+document.getElementById('tagPopupInput').addEventListener('focus', function() {
+  if (this.dataset.defaultVal === '1') { this.value = ''; this.style.color = 'var(--ink)'; }
+})
+document.getElementById('tagPopupInput').addEventListener('blur', function() {
+  if (!this.value.trim()) resetTagInput()
+})
 
 function findTagTargetEl(studentId) {
   return document.querySelector(`.roster-tag-btn[data-student-id="${studentId}"]`)
     || document.querySelector(`.roster-tags[data-student-id="${studentId}"]`)
 }
 
-// Clear all tags button in popup
-document.getElementById('tagPopupCurrent').addEventListener('click', async (e) => {
-  if (!e.target.closest('#tagPopupClearBtn')) return
-  const { studentId } = tagPopupTarget
-  if (!studentId) return
-  const currentTags = (window._studentTags || {})[studentId] || []
-  for (const t of currentTags) {
-    await fetch(`/api/tags/${t.id}?classId=${CLASS_ID}`, { method: 'DELETE' })
-  }
-  showToast('标签已清除')
-  await refreshStatus()
-  openTagPopup(studentId, tagPopupTarget.studentName, findTagTargetEl(studentId))
-})
+// Preset tag toggle
 document.getElementById('tagPopupPresets').addEventListener('click', async (e) => {
   const btn = e.target.closest('.tag-preset-btn')
   if (!btn) return
@@ -1089,54 +1097,54 @@ document.getElementById('tagPopupPresets').addEventListener('click', async (e) =
   const currentTags = (window._studentTags || {})[studentId] || []
   const existing = currentTags.find(t => t.tag === tagName)
   if (existing) {
-    // Remove existing
-    const res = await fetch(`/api/tags/${existing.id}?classId=${CLASS_ID}`, { method: 'DELETE' })
-    if (res.ok) {
-      showToast(`已移除「${tagName}」`)
-      await refreshStatus()
-      openTagPopup(studentId, tagPopupTarget.studentName, findTagTargetEl(studentId))
-    }
+    await fetch(`/api/tags/${existing.id}?classId=${CLASS_ID}`, { method: 'DELETE' })
+    showToast(`已移除「${tagName}」`)
   } else {
-    // Enforce single tag: delete existing tags first
     for (const t of currentTags) {
       await fetch(`/api/tags/${t.id}?classId=${CLASS_ID}`, { method: 'DELETE' })
     }
-    const res = await fetch('/api/tags', {
+    const pt = getPresetTagInfo(tagName)
+    await fetch('/api/tags', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ classId: CLASS_ID, studentId, tag: tagName }),
+      body: JSON.stringify({ classId: CLASS_ID, studentId, tag: tagName, color: pt ? pt.color : TAG_COLORS[0] }),
     })
-    const data = await res.json()
-    if (!data.ok) { showToast(data.message || '添加失败', false); return }
     showToast(`标签「${tagName}」已添加`)
-    await refreshStatus()
-    openTagPopup(studentId, tagPopupTarget.studentName, findTagTargetEl(studentId))
   }
+  await refreshStatus()
+  openTagPopup(studentId, tagPopupTarget.studentName, findTagTargetEl(studentId))
 })
 
-// Custom tag add
+// Remove custom tag (× button)
+document.getElementById('tagPopupCustomTags').addEventListener('click', async (e) => {
+  const removeBtn = e.target.closest('.tag-custom-remove-btn')
+  if (!removeBtn || !tagPopupTarget.studentId) return
+  const tagId = parseInt(removeBtn.dataset.tagId)
+  await fetch(`/api/tags/${tagId}?classId=${CLASS_ID}`, { method: 'DELETE' })
+  showToast('标签已删除')
+  await refreshStatus()
+  openTagPopup(tagPopupTarget.studentId, tagPopupTarget.studentName, findTagTargetEl(tagPopupTarget.studentId))
+})
+
+// Add custom tag — auto-close after adding
 document.getElementById('tagPopupAddBtn').addEventListener('click', async () => {
   const input = document.getElementById('tagPopupInput')
   const tag = input.value.trim()
-  if (!tag) return
-  const { studentId } = tagPopupTarget
-  if (!studentId) return
-  // Enforce single tag: delete existing tags first
-  const currentTags = (window._studentTags || {})[studentId] || []
+  if (!tag || !tagPopupTarget.studentId) return
+  const currentTags = (window._studentTags || {})[tagPopupTarget.studentId] || []
   for (const t of currentTags) {
     await fetch(`/api/tags/${t.id}?classId=${CLASS_ID}`, { method: 'DELETE' })
   }
   const res = await fetch('/api/tags', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ classId: CLASS_ID, studentId, tag, color: TAG_COLORS[0] }),
+    body: JSON.stringify({ classId: CLASS_ID, studentId: tagPopupTarget.studentId, tag, color: TAG_COLORS[0] }),
   })
   const data = await res.json()
   if (!data.ok) { showToast(data.message || '添加失败', false); return }
   showToast(`标签「${tag}」已添加`)
-  input.value = ''
   await refreshStatus()
-  openTagPopup(studentId, tagPopupTarget.studentName, findTagTargetEl(studentId))
+  closeTagPopup()
 })
 
 document.getElementById('tagPopupInput').addEventListener('keydown', (e) => {
@@ -1146,16 +1154,12 @@ document.getElementById('tagPopupInput').addEventListener('keydown', (e) => {
 
 // Delete tag by clicking on it
 document.getElementById('rosterCompactGrid').addEventListener('click', async (e) => {
-  // Click on tag button to open popup
   const tagBtn = e.target.closest('.roster-tag-btn')
   if (tagBtn) {
-    const studentId = parseInt(tagBtn.dataset.studentId)
-    const studentName = tagBtn.dataset.studentName
-    openTagPopup(studentId, studentName, tagBtn)
+    openTagPopup(parseInt(tagBtn.dataset.studentId), tagBtn.dataset.studentName, tagBtn)
     return
   }
 
-  // Click on tag container to open popup (change tag)
   const tagsContainer = e.target.closest('.roster-tags[data-student-id]')
   if (tagsContainer) {
     const studentId = parseInt(tagsContainer.dataset.studentId)
@@ -1165,7 +1169,6 @@ document.getElementById('rosterCompactGrid').addEventListener('click', async (e)
     return
   }
 
-  // Click on existing tag to delete
   const tagEl = e.target.closest('.roster-tag[data-tag-id]')
   if (tagEl) {
     const tagId = parseInt(tagEl.dataset.tagId)
@@ -1175,7 +1178,6 @@ document.getElementById('rosterCompactGrid').addEventListener('click', async (e)
     if (!data.ok) { showToast(data.message || '删除失败', false); return }
     showToast('标签已删除')
     await refreshStatus()
-    return
   }
 })
 

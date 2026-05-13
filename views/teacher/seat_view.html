@@ -641,10 +641,14 @@
         <h3 id="tagModalTitle">设置标签</h3>
         <button id="tagModalCloseBtn" class="tag-modal-close">&times;</button>
       </div>
+      <!-- Preset tags -->
+      <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">预设标签</div>
       <div id="tagModalPresets" class="tag-preset-group"></div>
+      <!-- Custom tags -->
+      <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">自定义标签</div>
       <div id="tagModalCustomExisting" class="tag-custom-existing"></div>
       <div class="tag-custom-row">
-        <input id="tagModalCustomInput" type="text" placeholder="自定义标签..." />
+        <input id="tagModalCustomInput" type="text" value="请假" placeholder="输入标签名称..." />
         <button id="tagModalCustomAddBtn">添加</button>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
@@ -811,10 +815,23 @@ document.getElementById('tagModalCustomAddBtn').addEventListener('click', async 
   await reloadTags()
   renderTagModal()
   refreshRoster()
+  closeTagModal() // auto-close after adding
 })
 
 document.getElementById('tagModalCustomInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('tagModalCustomAddBtn').click()
+})
+
+// Default "请假" gray color + focus/blur behavior
+const seatInput = document.getElementById('tagModalCustomInput')
+seatInput.value = '请假'
+seatInput.style.color = 'var(--muted-soft)'
+seatInput.dataset.defaultVal = '1'
+seatInput.addEventListener('focus', function() {
+  if (this.dataset.defaultVal === '1') { this.value = ''; this.style.color = 'var(--ink)'; delete this.dataset.defaultVal; }
+})
+seatInput.addEventListener('blur', function() {
+  if (!this.value.trim()) { this.value = '请假'; this.style.color = 'var(--muted-soft)'; this.dataset.defaultVal = '1'; }
 })
 
 // Load preset tags and student tags on page load

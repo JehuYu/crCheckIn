@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -42,6 +42,45 @@
       --spacing-lg: 24px;
       --spacing-xl: 32px;
       --spacing-xxl: 48px;
+      --input-bg: #faf9f5;
+      --input-bg-active: #f5f0e8;
+      --input-border: #e6dfd8;
+      --input-border-sep: #e6dfd8;
+      --input-placeholder: #8e8b82;
+      --input-focus-shadow1: rgba(204,120,92,.2);
+      --input-focus-shadow2: rgba(20,20,19,.06);
+      --suggestions-bg: #ffffff;
+      --suggestions-border: #e6dfd8;
+      --suggestions-item-border: #e6dfd8;
+      --suggestions-hover: #faf9f5;
+      --selected-chip-bg: #efe9de;
+      --selected-chip-border: #e6dfd8;
+      --clock-opacity: .6;
+      --clock-color: #6c6a64;
+      --toggle-bg: rgba(0,0,0,.04);
+      --toggle-border: rgba(0,0,0,.08);
+      --toggle-hover: rgba(0,0,0,.08);
+    }
+
+    [data-theme="dark"] {
+      --input-bg: #252320;
+      --input-bg-active: #1f1e1b;
+      --input-border: rgba(255,255,255,.12);
+      --input-border-sep: rgba(255,255,255,.08);
+      --input-placeholder: #a09d96;
+      --input-focus-shadow1: rgba(204,120,92,.15);
+      --input-focus-shadow2: rgba(0,0,0,.3);
+      --suggestions-bg: #252320;
+      --suggestions-border: rgba(255,255,255,.08);
+      --suggestions-item-border: rgba(255,255,255,.06);
+      --suggestions-hover: rgba(255,255,255,.04);
+      --selected-chip-bg: #252320;
+      --selected-chip-border: rgba(255,255,255,.06);
+      --clock-opacity: .5;
+      --clock-color: #a09d96;
+      --toggle-bg: rgba(255,255,255,.06);
+      --toggle-border: rgba(255,255,255,.08);
+      --toggle-hover: rgba(255,255,255,.1);
     }
 
     * {
@@ -58,6 +97,29 @@
       flex-direction: column;
       min-height: 100vh;
     }
+
+    /* === Theme Toggle — top-right === */
+    .theme-toggle {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 100;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--toggle-border);
+      background: var(--toggle-bg);
+      color: var(--on-dark);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .2s, color .3s;
+    }
+    .theme-toggle:hover { background: var(--toggle-hover); }
+    .theme-toggle svg { width: 18px; height: 18px; }
+    [data-theme="dark"] .icon-sun { display: none; }
+    [data-theme="light"] .icon-moon { display: none; }
 
     /* === Dark Banner === */
     .signin-banner {
@@ -149,6 +211,49 @@
       line-height: 1.55;
     }
 
+    /* === Field Row — input + button === */
+    .field-row {
+      display: flex;
+      align-items: center;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--input-border);
+      background: var(--input-bg);
+      transition: border-color .15s, box-shadow .15s;
+      height: 40px;
+      overflow: hidden;
+    }
+    .field-row:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--input-focus-shadow1);
+    }
+    .field-row .field-input {
+      border: none;
+      background: transparent;
+      box-shadow: none;
+      border-radius: 0;
+      height: 40px;
+    }
+    .field-divider {
+      width: 1px;
+      background: var(--input-border-sep);
+      flex-shrink: 0;
+    }
+    .reselect-btn {
+      padding: 0 var(--spacing-sm);
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, color .15s;
+      height: 40px;
+      display: flex;
+      align-items: center;
+    }
+    .reselect-btn:hover { background: rgba(204,120,92,.08); color: var(--primary); }
+
     /* Input — design system text-input */
     .field-group {
       margin-bottom: var(--spacing-md);
@@ -213,8 +318,8 @@
       position: relative;
       z-index: 10;
       margin-top: 4px;
-      background: #fff;
-      border: 1px solid var(--hairline);
+      background: var(--suggestions-bg);
+      border: 1px solid var(--suggestions-border);
       border-radius: var(--radius-md);
       box-shadow: 0 1px 3px rgba(20,20,19,.08);
       overflow: hidden;
@@ -230,7 +335,7 @@
       justify-content: space-between;
       padding: var(--spacing-sm) var(--spacing-md);
       border-radius: var(--radius-pill);
-      background: var(--surface-card);
+      background: var(--selected-chip-bg);
       font-size: 13px;
       font-weight: 500;
       color: var(--ink);
@@ -266,9 +371,19 @@
     }
     .signin-footer {
       margin-top: var(--spacing-xl);
-      font-size: 12px;
-      color: var(--muted-soft);
-      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--spacing-sm);
+    }
+    #liveClock {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--clock-color);
+      opacity: var(--clock-opacity);
+      transition: color .3s;
     }
 
     /* Info panel */
@@ -290,6 +405,12 @@
   </style>
 </head>
 <body>
+
+  <!-- Theme Toggle -->
+  <button class="theme-toggle" id="themeToggle" aria-label="切换主题">
+    <svg class="icon-moon" fill="currentColor" viewBox="0 0 24 24"><path d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/></svg>
+    <svg class="icon-sun" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z"/></svg>
+  </button>
 
   <!-- Dark Banner -->
   <div class="signin-banner">
@@ -361,13 +482,16 @@
       <div id="signInForm">
         <div class="field-group">
           <label class="field-label" for="nameInput">姓名</label>
-          <input id="nameInput" type="text" autocomplete="off" placeholder="输入姓名片段搜索..." class="field-input" />
+          <div class="field-row">
+            <input id="nameInput" type="text" autocomplete="off" placeholder="输入姓名片段搜索..." class="field-input" />
+            <div class="field-divider"></div>
+            <button id="clearSelection" class="reselect-btn hidden">重新选择</button>
+          </div>
           <div id="suggestions"></div>
         </div>
 
         <div id="selectedInfo" class="selected-chip hidden">
           <span id="selectedText"></span>
-          <button id="clearSelection">重新选择</button>
         </div>
 
         <button id="signinBtn" class="submit-btn">
@@ -381,7 +505,7 @@
       </div>
 
       <div class="signin-footer">
-        教师请输入密码登录管理端
+        <span id="liveClock"></span>
       </div>
 
     </div>
@@ -390,6 +514,33 @@
 <script>
 const CLASS_ID = {% if cls %}{{ cls.id }}{% else %}null{% endif %}
 const STORAGE_KEY = 'signin_record' + (CLASS_ID ? '_' + CLASS_ID : '')
+const THEME_KEY = 'signin_theme'
+
+/* === Theme === */
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme)
+  localStorage.setItem(THEME_KEY, theme)
+}
+;(function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY)
+  if (saved === 'light' || saved === 'dark') applyTheme(saved)
+  else applyTheme('light')
+})()
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme')
+  applyTheme(current === 'dark' ? 'light' : 'dark')
+})
+
+/* === Live clock === */
+function updateClock() {
+  const now = new Date()
+  const h = String(now.getHours()).padStart(2, '0')
+  const m = String(now.getMinutes()).padStart(2, '0')
+  const s = String(now.getSeconds()).padStart(2, '0')
+  document.getElementById('liveClock').textContent = `${h}:${m}:${s}`
+}
+updateClock()
+setInterval(updateClock, 1000)
 
 /**
  * HTML 转义，防止 XSS
@@ -466,6 +617,7 @@ function selectStudent(studentName, classId, className, homeClass, studentId, re
   selectedInfo.classList.remove('hidden')
   suggestions.style.display = 'none'
   suggestions.innerHTML = ''
+  document.getElementById('clearSelection').classList.remove('hidden')
 }
 
 document.getElementById('clearSelection').addEventListener('click', () => {
@@ -473,6 +625,7 @@ document.getElementById('clearSelection').addEventListener('click', () => {
   input.value = ''
   selectedInfo.classList.add('hidden')
   selectedText.textContent = ''
+  document.getElementById('clearSelection').classList.add('hidden')
   input.focus()
 })
 
@@ -486,7 +639,7 @@ async function fetchSuggestions() {
     suggestions.innerHTML = ''
     if (!data.length) {
       const empty = document.createElement('div')
-      empty.style.cssText = 'padding: 14px; text-align: center; font-size: 14px; color: var(--muted-soft);'
+      empty.style.cssText = 'padding: 14px; text-align: center; font-size: 14px; color: var(--muted);'
       empty.textContent = '未找到匹配学生'
       suggestions.appendChild(empty)
       suggestions.style.display = 'block'
@@ -495,11 +648,11 @@ async function fetchSuggestions() {
     data.forEach(item => {
       const btn = document.createElement('button')
       btn.type = 'button'
-      btn.style.cssText = 'display: block; width: 100%; text-align: left; padding: 10px 14px; font-size: 14px; border: none; background: none; cursor: pointer; border-bottom: 1px solid var(--hairline); color: var(--body); transition: background .1s;'
-      btn.onmouseover = () => { btn.style.background = 'var(--canvas)' }
+      btn.style.cssText = 'display: block; width: 100%; text-align: left; padding: 10px 14px; font-size: 14px; border: none; background: none; cursor: pointer; border-bottom: 1px solid var(--suggestions-item-border); color: var(--body); transition: background .1s;'
+      btn.onmouseover = () => { btn.style.background = 'var(--suggestions-hover)' }
       btn.onmouseout = () => { btn.style.background = '' }
       const remarkBadge = item.remark ? `<span class="ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200">${esc(item.remark)}</span>` : ''
-      btn.innerHTML = `<span style="font-weight:500; color: var(--ink);">${esc(item.studentName)} ${remarkBadge}</span><span style="color: var(--muted-soft); margin-left: 4px; font-size: 13px;">${esc(item.homeClass ? item.homeClass + ' · ' : '')}${esc(item.className)}</span>`
+      btn.innerHTML = `<span style="font-weight:500; color: var(--ink);">${esc(item.studentName)} ${remarkBadge}</span><span style="color: var(--muted); margin-left: 4px; font-size: 13px;">${esc(item.homeClass ? item.homeClass + ' · ' : '')}${esc(item.className)}</span>`
       btn.addEventListener('click', () => selectStudent(item.studentName, item.classId, item.className, item.homeClass, item.studentId, item.remark))
       suggestions.appendChild(btn)
     })

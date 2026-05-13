@@ -620,11 +620,15 @@
       </div>
       <div class="modal-field">
         <label>标签</label>
-        <div id="editTagPresets" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-        <div id="editCustomTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;"></div>
-        <div style="display:flex;gap:4px;margin-top:6px;">
-          <input id="editCustomTagInput" type="text" placeholder="自定义标签" style="flex:1;padding:6px 10px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;outline:none;" />
-          <button id="editCustomTagAddBtn" style="padding:6px 12px;border:none;border-radius:6px;background:var(--primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">添加</button>
+        <!-- Preset tags -->
+        <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">预设标签</div>
+        <div id="editTagPresets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
+        <!-- Custom tags -->
+        <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">自定义标签</div>
+        <div id="editCustomTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;min-height:0;"></div>
+        <div style="display:flex;gap:4px;">
+          <input id="editCustomTagInput" type="text" value="请假" placeholder="输入标签名称" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;outline:none;transition:border-color .15s;" />
+          <button id="editCustomTagAddBtn" style="padding:7px 14px;border:none;border-radius:6px;background:var(--primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;">添加</button>
         </div>
       </div>
       <div class="modal-actions">
@@ -679,11 +683,15 @@
       </div>
       <div class="modal-field">
         <label>标签（可选）</label>
-        <div id="addTagPresets" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-        <div id="addCustomTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;"></div>
-        <div style="display:flex;gap:4px;margin-top:6px;">
-          <input id="addCustomTagInput" type="text" placeholder="自定义标签" style="flex:1;padding:6px 10px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;outline:none;" />
-          <button id="addCustomTagAddBtn" style="padding:6px 12px;border:none;border-radius:6px;background:var(--primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">添加</button>
+        <!-- Preset tags -->
+        <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">预设标签</div>
+        <div id="addTagPresets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
+        <!-- Custom tags -->
+        <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;">自定义标签</div>
+        <div id="addCustomTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;min-height:0;"></div>
+        <div style="display:flex;gap:4px;">
+          <input id="addCustomTagInput" type="text" value="请假" placeholder="输入标签名称" style="flex:1;padding:7px 10px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;outline:none;transition:border-color .15s;" />
+          <button id="addCustomTagAddBtn" style="padding:7px 14px;border:none;border-radius:6px;background:var(--primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;">添加</button>
         </div>
       </div>
       <div class="modal-actions">
@@ -751,6 +759,19 @@ function renderEditTags() {
   ).join('')
 }
 
+// Helper: update the tag display on a student row
+function updateStudentRowTags(row, studentId) {
+  const newTags = (window._stuTags || {})[studentId] || []
+  row.dataset.name = row.querySelector('.student-name').textContent
+  row.querySelectorAll('.student-tags').forEach(el => el.remove())
+  if (newTags.length > 0) {
+    const tagsEl = document.createElement('span')
+    tagsEl.className = 'student-tags'
+    tagsEl.innerHTML = newTags.map(t => `<span class="student-tag" style="background:${t.color}" data-tag-id="${t.id}">${escHtml(t.tag)}</span>`).join('')
+    row.querySelector('.student-name-wrap').appendChild(tagsEl)
+  }
+}
+
 // Tag preset click in edit modal
 document.getElementById('editTagPresets').addEventListener('click', (e) => {
   const btn = e.target.closest('.tag-preset-btn')
@@ -798,11 +819,33 @@ document.getElementById('editCustomTagAddBtn').addEventListener('click', async (
   input.value = ''
   await reloadTags()
   renderEditTags()
+  // Update row display
+  const row = document.getElementById(`row-${editStudentId}`)
+  if (row) updateStudentRowTags(row, editStudentId)
+  closeEdit() // auto-close after adding
 })
 
 document.getElementById('editCustomTagInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('editCustomTagAddBtn').click()
 })
+
+// Default "请假" gray color + focus/blur behavior
+function initDefaultTagInput(input, defaultVal) {
+  input.value = defaultVal
+  input.style.color = 'var(--muted-soft)'
+  input.dataset.defaultVal = '1'
+}
+function setupDefaultTagInput(input, defaultVal) {
+  initDefaultTagInput(input, defaultVal)
+  input.addEventListener('focus', function() {
+    if (this.dataset.defaultVal === '1') { this.value = ''; this.style.color = 'var(--ink)'; delete this.dataset.defaultVal; }
+  })
+  input.addEventListener('blur', function() {
+    if (!this.value.trim()) initDefaultTagInput(this, defaultVal)
+  })
+}
+setupDefaultTagInput(document.getElementById('editCustomTagInput'), '请假')
+setupDefaultTagInput(document.getElementById('addCustomTagInput'), '请假')
 
 // Load tags on page load
 loadPresetTags()
