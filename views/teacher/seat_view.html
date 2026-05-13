@@ -236,13 +236,17 @@
     .roster-dot.unsigned { background: var(--muted-soft); }
     .roster-dot.dup { background: var(--error); }
     .roster-name {
-      flex: 1;
       min-width: 0;
       font-weight: 500;
       color: var(--ink);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .roster-home-class {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--muted-soft);
     }
     .roster-time {
       font-size: 11px;
@@ -1043,6 +1047,7 @@ function renderRoster(roster) {
     item.innerHTML = `
       <span class="roster-dot ${dotClass}"></span>
       <span class="roster-name">${escHtml(r.studentName)}</span>
+      ${r.homeClass ? `<span class="roster-home-class">${escHtml(fmtHomeClass(r.homeClass))}</span>` : ''}
       ${tagsHtml ? `<span class="roster-tags">${tagsHtml}</span>` : ''}
       <svg class="roster-edit-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
       <span class="roster-time ${timeClass}">${isSigned ? formatSignedTime(r.signedAt) : '-'}</span>`

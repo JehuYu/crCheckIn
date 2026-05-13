@@ -145,3 +145,30 @@ export function getSeatGridsFromArchivedRecords(records) {
     teacherGrid: buildTeacherGridFromSeatMap(seatToStudents),
   }
 }
+
+/**
+ * 根据历史批次归档记录生成带标签的座位表网格
+ * @param {Array<{studentName: string, homeClass?: string, computerName?: string}>} records
+ * @param {number} classId
+ */
+export async function getSeatGridsWithTags(records, classId) {
+  const names = [...new Set(records.map(r => r.studentName))]
+  const students = await prisma.student.findMany({
+    where: { classId, name: { in: names } },
+  })
+  const tagMap = await getClassTags(classId)
+  const nameToStudent = new Map(students.map(s => [s.name, s]))
+
+  const enriched = records.map(r => {
+    const stu = nameToStudent.get(r.studentName)
+    return {
+      studentName: r.studentName,
+      studentId: stu?.id ?? null,
+      homeClass: r.homeClass ?? stu?.homeClass ?? '',
+      computerName: r.computerName,
+      tags: stu ? (tagMap.get(stu.id) || []) : [],
+    }
+  })
+
+  return getSeatGridsFromArchivedRecords(enriched)
+}

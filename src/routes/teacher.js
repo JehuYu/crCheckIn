@@ -132,8 +132,8 @@ export default async function teacherRoutes(app) {
     }
 
     const session = result.session
-    const { getSeatGridsFromArchivedRecords } = await import('../services/seat.js')
-    const { studentGrid, teacherGrid } = getSeatGridsFromArchivedRecords(session.records ?? [])
+    const { getSeatGridsWithTags } = await import('../services/seat.js')
+    const { studentGrid, teacherGrid } = await getSeatGridsWithTags(session.records ?? [], session.classId)
     const signedCount = teacherGrid.flat().reduce((acc, cell) => acc + cell.students.length, 0)
 
     // Get archived roster with sign-in status
@@ -158,7 +158,7 @@ export default async function teacherRoutes(app) {
         homeClass: r.homeClass,
         computerName: r.computerName,
       }))
-      const { studentGrid: psg, teacherGrid: ptg } = getSeatGridsFromArchivedRecords(prevRecords)
+      const { studentGrid: psg, teacherGrid: ptg } = await getSeatGridsWithTags(prevRecords, session.classId)
       prevStudentGridJson = JSON.stringify(psg)
       prevTeacherGridJson = JSON.stringify(ptg)
       prevLabelJson = JSON.stringify(prevSession.label)
