@@ -569,10 +569,12 @@
       box-shadow: 0 4px 14px rgba(93,184,114,.35);
     }
     .start-signin-btn:hover { background: #4a9e5e; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(93,184,114,.45); }
-    .start-signin-btn:disabled { opacity: .8; cursor: default; transform: none; background: var(--success); box-shadow: 0 4px 14px rgba(93,184,114,.2); }
-
-    .countdown-btn-text { white-space: nowrap; }
-    .countdown-btn-label { margin-right: 6px; }
+    .start-signin-btn:disabled { opacity: .8; cursor: default; transform: none; box-shadow: 0 4px 14px rgba(204,120,92,.2); }
+    .start-signin-btn.countdown {
+      background: var(--primary);
+      box-shadow: 0 4px 14px rgba(204,120,92,.35);
+    }
+    .start-signin-btn.countdown:hover { background: #c4855a; }
     .start-signin-btn .urgent { color: #ffcdd2; }
 
     /* === Sessions === */
@@ -1485,6 +1487,8 @@ function startCountdownTimer(startedAtISO, durationMin) {
   const startedAt = new Date(startedAtISO).getTime()
   const endTime = startedAt + durationMin * 60 * 1000
   const text = document.getElementById('startSigninText')
+  const btn = document.getElementById('startSigninBtn')
+  btn.classList.add('countdown')
 
   function tick() {
     const now = Date.now()
@@ -1510,7 +1514,9 @@ function startCountdownTimer(startedAtISO, durationMin) {
 function stopCountdownTimer() {
   if (_countdownInterval) { clearInterval(_countdownInterval); _countdownInterval = null }
   const text = document.getElementById('startSigninText')
+  const btn = document.getElementById('startSigninBtn')
   if (text) { text.textContent = '开始签到'; text.classList.remove('urgent') }
+  if (btn) btn.classList.remove('countdown')
 }
 
 document.getElementById('startSigninBtn').addEventListener('click', async () => {
