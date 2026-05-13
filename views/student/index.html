@@ -547,6 +547,7 @@ function checkAlreadySigned() {
     selectedStudentId = studentId || null
     alreadySignedPanel.classList.remove('hidden')
     signInForm.classList.add('hidden')
+    document.querySelector('.signin-body-sub')?.classList.add('hidden')
     checkInfoCollection()
   } catch (e) {
     localStorage.removeItem(STORAGE_KEY)
@@ -692,6 +693,7 @@ signinBtn.addEventListener('click', async () => {
           `${val}（${className}）已于 ${signedAt} 签到成功`
         alreadySignedPanel.classList.remove('hidden')
         signInForm.classList.add('hidden')
+        document.querySelector('.signin-body-sub')?.classList.add('hidden')
         checkInfoCollection()
       }, 1500)
     }
