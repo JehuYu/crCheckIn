@@ -1,5 +1,5 @@
 import { prisma } from '../plugins/db.js'
-import { formatMinute, formatSecond, nowParts } from '../utils/time.js'
+import { formatSecond, nowParts } from '../utils/time.js'
 import { getClassTags, getPresetTagNames } from './tag.js'
 
 /**
@@ -213,7 +213,7 @@ export async function archiveAndReset(classId) {
     // 没有记录，直接重置
     await prisma.signInConfig.updateMany({
       where: { classId },
-      data: { startTime: null, endTime: null, activeStartedAt: null },
+      data: { activeStartedAt: null },
     })
     return { ok: true, label: null }
   }
@@ -239,7 +239,7 @@ export async function archiveAndReset(classId) {
     await tx.signInRecord.deleteMany({ where: { classId } })
     await tx.signInConfig.updateMany({
       where: { classId },
-      data: { startTime: null, endTime: null, activeStartedAt: null },
+      data: { activeStartedAt: null },
     })
     return session
   })
@@ -474,7 +474,7 @@ export async function startSignIn(classId, durationMin = 40) {
   const now = new Date()
   await prisma.signInConfig.upsert({
     where: { classId },
-    update: { activeStartedAt: now, countdownDurationMin: durationMin, startTime: null, endTime: null },
+    update: { activeStartedAt: now, countdownDurationMin: durationMin },
     create: { classId, activeStartedAt: now, countdownDurationMin: durationMin },
   })
 

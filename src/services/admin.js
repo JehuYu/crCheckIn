@@ -230,7 +230,7 @@ export async function archiveAllClasses(adminId, ip = '') {
       await tx.signInRecord.deleteMany({ where: { classId: cls.id } })
       await tx.signInConfig.updateMany({
         where: { classId: cls.id },
-        data: { startTime: null, endTime: null, activeStartedAt: null },
+        data: { activeStartedAt: null },
       })
 
       totalArchived += count

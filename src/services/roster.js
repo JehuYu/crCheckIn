@@ -54,7 +54,7 @@ export async function importStudentsFromExcel(teacherId, buffer) {
       create: {
         teacherId,
         name: teachingClassName,
-        signInConfig: { create: { startTime: null, endTime: null } },
+        signInConfig: { create: {} },
       },
     })
     const classId = result.id

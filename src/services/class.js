@@ -40,7 +40,7 @@ export async function getClasses(teacherId, { includeArchived = false } = {}) {
 }
 
 /**
- * 创建班级，同时创建对应的 SignInConfig（startTime/endTime 为 null）。
+ * 创建班级，同时创建对应的 SignInConfig（倒计时未激活）。
  * @param {number} teacherId
  * @param {string} name
  * @returns {Promise<object>} 创建的 Class 记录
@@ -51,7 +51,7 @@ export async function createClass(teacherId, name) {
       name,
       teacherId,
       signInConfig: {
-        create: { startTime: null, endTime: null },
+        create: {},
       },
     },
     include: { signInConfig: true },
