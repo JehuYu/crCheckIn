@@ -140,6 +140,30 @@ export default async function teacherRoutes(app) {
     const rosterResult = await getSessionRosterForTeacher(sessionId, teacherId, isAdmin)
     const archivedRoster = rosterResult.ok ? rosterResult.roster : []
 
+    // Load the session before this one (for position change comparison)
+    const prevSession = await prisma.signInSession.findFirst({
+      where: { classId: session.classId, archivedAt: { lt: session.archivedAt } },
+      orderBy: { archivedAt: 'desc' },
+      include: { records: { orderBy: { signedAt: 'asc' } } },
+    })
+
+    let hasPrevSession = false
+    let prevStudentGridJson = 'null'
+    let prevTeacherGridJson = 'null'
+    let prevLabelJson = 'null'
+    if (prevSession) {
+      hasPrevSession = true
+      const prevRecords = prevSession.records.map(r => ({
+        studentName: r.studentName,
+        homeClass: r.homeClass,
+        computerName: r.computerName,
+      }))
+      const { studentGrid: psg, teacherGrid: ptg } = getSeatGridsFromArchivedRecords(prevRecords)
+      prevStudentGridJson = JSON.stringify(psg)
+      prevTeacherGridJson = JSON.stringify(ptg)
+      prevLabelJson = JSON.stringify(prevSession.label)
+    }
+
     noCache(reply)
     return reply.view('teacher/seat_view.html', {
       cls: session.class,
@@ -157,6 +181,10 @@ export default async function teacherRoutes(app) {
       showRefreshControls: false,
       showRefreshControlsJson: JSON.stringify(false),
       archivedRosterJson: JSON.stringify(archivedRoster),
+      hasPreviousSession: hasPrevSession,
+      prevTeacherGridJson,
+      prevStudentGridJson,
+      prevLabelJson,
     })
   })
 
