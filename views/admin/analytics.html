@@ -4,132 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>数据分析 - 管理员</title>
+  <link rel="stylesheet" href="/public/admin.css">
   <link rel="stylesheet" href="/public/tailwind.min.css">
-  <style>
-    :root {
-      --canvas: #faf9f5;
-      --surface-card: #efe9de;
-      --surface-dark: #181715;
-      --primary: #cc785c;
-      --primary-active: #a9583e;
-      --ink: #141413;
-      --body: #3d3d3a;
-      --muted: #6c6a64;
-      --muted-soft: #8e8b82;
-      --hairline: #e6dfd8;
-      --on-primary: #ffffff;
-      --on-dark: #faf9f5;
-      --success: #5db872;
-      --error: #c64545;
-      --warning: #d4a017;
-      --info: #4a90d9;
-    }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-      background: var(--canvas);
-      color: var(--body);
-      margin: 0;
-    }
-    .header-bar {
-      background: var(--canvas); border-bottom: 1px solid var(--hairline);
-      height: 64px; position: sticky; top: 0; z-index: 20;
-    }
-    .header-inner {
-      max-width: 1400px; margin: 0 auto; padding: 0 24px;
-      height: 100%; display: flex; align-items: center; justify-content: space-between;
-    }
-    .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-    .nav-link {
-      display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px;
-      border-radius: 8px; color: var(--muted); font-size: 14px; font-weight: 500;
-      transition: all .15s ease; text-decoration: none;
-    }
-    .nav-link:hover { background: var(--surface-card); color: var(--ink); }
-    .nav-link.active { background: var(--surface-card); color: var(--primary); font-weight: 600; }
-    .page-title {
-      font-family: Georgia, 'Times New Roman', serif; font-weight: 400;
-      letter-spacing: -0.3px; color: var(--ink);
-    }
-
-    /* Summary Cards */
-    .summary-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px; margin-bottom: 24px;
-    }
-    .summary-card {
-      background: #fff; border-radius: 12px; border: 1px solid var(--hairline);
-      padding: 16px 20px; text-align: center;
-    }
-    .summary-card .value {
-      font-family: Georgia, serif; font-size: 28px; font-weight: 400; color: var(--ink); margin: 4px 0;
-    }
-    .summary-card .value.primary { color: var(--primary); }
-    .summary-card .value.success { color: var(--success); }
-    .summary-card .value.info { color: var(--info); }
-    .summary-card .label { font-size: 12px; color: var(--muted-soft); }
-
-    /* Chart Cards */
-    .chart-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 16px; margin-bottom: 24px;
-    }
-    .chart-card {
-      background: #fff; border-radius: 12px; border: 1px solid var(--hairline); overflow: hidden;
-    }
-    .chart-header { padding: 14px 20px; border-bottom: 1px solid var(--hairline); }
-    .chart-title { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0; }
-    .chart-body { padding: 20px; }
-
-    /* Teacher Table */
-    .teacher-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .teacher-table th {
-      text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600;
-      color: var(--muted-soft); border-bottom: 1px solid var(--hairline); background: var(--canvas);
-    }
-    .teacher-table td { padding: 10px 12px; border-bottom: 1px solid var(--hairline); }
-    .teacher-table td.name { font-weight: 500; color: var(--ink); }
-    .teacher-table tr:hover td { background: #faf9f5; }
-
-    /* Activity List */
-    .activity-list { list-style: none; padding: 0; margin: 0; }
-    .activity-item {
-      display: flex; align-items: center; gap: 12px; padding: 10px 0;
-      border-bottom: 1px solid var(--hairline);
-    }
-    .activity-item:last-child { border-bottom: none; }
-    .activity-dot {
-      width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex-shrink: 0;
-    }
-    .activity-text { font-size: 13px; color: var(--ink); }
-    .activity-time { font-size: 11px; color: var(--muted-soft); margin-left: auto; white-space: nowrap; }
-
-    /* Bar Chart */
-    .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 140px; }
-    .bar-chart .bar-col {
-      display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 12px;
-    }
-    .bar-chart .bar {
-      width: 100%; background: var(--primary); border-radius: 4px 4px 0 0;
-      position: relative; transition: background .15s; cursor: pointer;
-    }
-    .bar-chart .bar:hover { background: var(--primary-active); }
-    .bar-chart .bar .tooltip {
-      display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-      background: var(--surface-dark); color: var(--on-dark); padding: 4px 8px;
-      border-radius: 4px; font-size: 11px; white-space: nowrap; pointer-events: none;
-    }
-    .bar-chart .bar:hover .tooltip { display: block; }
-    .bar-chart .bar-label {
-      font-size: 10px; color: var(--muted-soft); text-align: center;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      width: 100%; margin-top: 4px;
-    }
-
-    .loading { display: flex; align-items: center; justify-content: center; min-height: 200px; color: var(--muted-soft); }
-    .empty-state { text-align: center; padding: 48px 24px; color: var(--muted-soft); }
-
-    @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } }
-  </style>
 </head>
 <body>
 
@@ -145,19 +21,19 @@
       <span style="color: var(--hairline);">|</span>
       <span class="page-title text-lg">数据分析</span>
     </div>
-    <div style="display: flex; gap: 4px;">
+    <div class="header-right">
       <a href="/admin/dashboard" class="nav-link">全局看板</a>
       <a href="/admin/analytics" class="nav-link active">数据分析</a>
       <a href="/admin/audit" class="nav-link">审计日志</a>
       <a href="/teacher/classes" class="nav-link">教师端</a>
       <form method="post" action="/teacher/logout" style="display: inline;">
-        <button class="nav-link" type="submit" style="border: none; background: none; cursor: pointer;">退出</button>
+        <button class="nav-link" type="submit">退出</button>
       </form>
     </div>
   </div>
 </header>
 
-<main style="max-width: 1400px; margin: 0 auto; padding: 20px 24px 48px;">
+<main class="admin-main">
 
   <div id="loadingView" class="loading">加载中...</div>
   <div id="dataView" style="display: none;">
@@ -181,7 +57,7 @@
     <div class="chart-card" style="margin-bottom: 24px;">
       <div class="chart-header"><p class="chart-title">教师详细数据</p></div>
       <div class="chart-body" style="overflow-x: auto;">
-        <table class="teacher-table" id="teacherTable"></table>
+        <table class="admin-table" id="teacherTable"></table>
       </div>
     </div>
 
@@ -255,7 +131,7 @@ function render(data) {
     <th>教师</th><th>班级</th><th>批次</th><th>签到人次</th><th>学生</th>
   </tr></thead><tbody>${
     data.teacherStats.map(t => `<tr>
-      <td class="name">${escHtml(t.username)}${t.isAdmin ? ' <span style="color:var(--primary);font-size:11px;">(管理员)</span>' : ''}</td>
+      <td class="name" style="font-weight: 500; color: var(--ink);">${escHtml(t.username)}${t.isAdmin ? ' <span style="color:var(--primary);font-size:11px;">(管理员)</span>' : ''}</td>
       <td>${t.classCount}</td>
       <td>${t.sessionsCount}</td>
       <td>${t.recordsCount}</td>
