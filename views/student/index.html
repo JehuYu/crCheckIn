@@ -45,8 +45,8 @@
 
     /* === Top Banner === */
     .signin-banner {
-      background: var(--surface-dark);
-      padding: 40px 24px 32px;
+      background: linear-gradient(135deg, var(--surface-dark) 0%, #2a2825 100%);
+      padding: 32px 24px 24px;
       position: relative;
       overflow: hidden;
     }
@@ -58,8 +58,17 @@
       width: 500px;
       height: 500px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(204,120,92,.15), transparent 70%);
+      background: radial-gradient(circle, rgba(204,120,92,.12), transparent 70%);
       pointer-events: none;
+    }
+    .signin-banner::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent);
     }
     .signin-banner-inner {
       max-width: 720px;
@@ -105,12 +114,30 @@
       flex: 1;
       display: flex;
       justify-content: center;
-      align-items: flex-start;
-      padding: 48px 24px 32px;
+      align-items: center;
+      padding: 32px 24px 48px;
+      background: linear-gradient(180deg, var(--canvas) 0%, #f4f1eb 100%);
     }
-    .signin-form-inner {
+    .signin-form-card {
       width: 100%;
-      max-width: 520px;
+      max-width: 540px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(20,20,19,.06), 0 1px 3px rgba(20,20,19,.04);
+      border: 1px solid var(--hairline);
+      padding: 40px 36px 36px;
+      position: relative;
+    }
+    .signin-form-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60%;
+      height: 3px;
+      border-radius: 0 0 3px 3px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
     }
 
     #suggestions {
@@ -232,9 +259,10 @@
 
     /* Responsive */
     @media (max-width: 640px) {
-      .signin-banner { padding: 32px 16px 24px; }
-      .banner-class-name { font-size: 28px; }
-      .signin-form-area { padding: 32px 16px 24px; }
+      .signin-banner { padding: 24px 16px 20px; }
+      .banner-class-name { font-size: 26px; }
+      .signin-form-area { padding: 24px 12px 36px; }
+      .signin-form-card { padding: 28px 20px 24px; border-radius: 12px; }
     }
   </style>
 </head>
@@ -269,7 +297,7 @@
 
   <!-- Form Area -->
   <div class="signin-form-area">
-    <div class="signin-form-inner">
+    <div class="signin-form-card">
 
       <!-- 已签到状态 -->
       <div id="alreadySignedPanel" class="status-panel hidden">
