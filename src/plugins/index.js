@@ -9,10 +9,9 @@ import viewPlugin from './view.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export async function registerPlugins(app) {
-  // 注册速率限制（全局默认：1000 req/min）
   await app.register(fastifyRateLimit, {
     global: true,
-    max: 5000,
+    max: 10000,
     timeWindow: '1 minute',
     keyGenerator(req) {
       // 教师端页面按 session 区分，避免同 IP 多浏览器互相影响
