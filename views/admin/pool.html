@@ -28,7 +28,6 @@
         <a href="/admin/dashboard" class="nav-link">全局看板</a>
         <a href="/admin/analytics" class="nav-link">数据分析</a>
         <a href="/admin/audit" class="nav-link">审计日志</a>
-        <a href="/teacher/classes" class="nav-link">教师端</a>
         <form method="post" action="/teacher/logout" style="display: inline;">
           <button class="nav-link" type="submit">退出</button>
         </form>
@@ -107,7 +106,7 @@
               <label for="moveClassSelect">选择班级</label>
               <select id="moveClassSelect" class="input-field" disabled><option value="">-- 请先选择教师 --</option></select>
             </div>
-            <button id="moveToPoolBtn" class="btn btn-primary" style="background: var(--warning); color: var(--ink);">复制到池</button>
+            <button id="moveToPoolBtn" class="btn btn-primary">复制到池</button>
           </div>
         </div>
       </div>

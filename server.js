@@ -3,11 +3,13 @@ import { PORT, HOST } from './src/config.js'
 import { prisma } from './src/plugins/db.js'
 import { seed } from './prisma/seed.js'
 import { deployDatabase } from './src/utils/database.js'
+import { migrateTeacherClassesToPool } from './src/utils/migrate-classes-to-pool.js'
 
 try {
   await deployDatabase()
   const app = await buildApp()
   await seed(prisma)
+  await migrateTeacherClassesToPool()
 
   await app.listen({ port: PORT, host: HOST })
 
