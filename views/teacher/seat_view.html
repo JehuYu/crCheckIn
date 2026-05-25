@@ -291,11 +291,41 @@
       color: var(--muted-soft);
     }
 
+    /* === Photo Hover Tooltip === */
+    .photo-tooltip {
+      position: fixed;
+      z-index: 100;
+      pointer-events: none;
+      display: none;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.18);
+      border: 1px solid var(--hairline);
+      padding: 6px;
+      overflow: hidden;
+    }
+    .photo-tooltip.visible { display: block; }
+    .photo-tooltip img {
+      display: block;
+      max-width: 140px;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    .photo-tooltip .photo-name {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink);
+      padding: 4px 0 2px;
+    }
+
     /* === Tag Modal === */
     .tag-modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,.3);
+      background: rgba(20,20,19,.4);
+      backdrop-filter: blur(2px);
       display: none;
       align-items: center;
       justify-content: center;
@@ -306,9 +336,15 @@
       background: #fff;
       border-radius: 16px;
       padding: 20px;
-      width: 320px;
+      width: 340px;
       max-width: 90vw;
       box-shadow: 0 20px 60px rgba(0,0,0,.15);
+      border: 1px solid var(--hairline);
+      animation: modal-slide .2s ease;
+    }
+    @keyframes modal-slide {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .tag-modal-header {
       display: flex;
@@ -643,6 +679,12 @@
 
   </main>
 
+  <!-- Photo Tooltip -->
+  <div id="photoTooltip" class="photo-tooltip">
+    <img id="photoTooltipImg" src="" alt="" />
+    <div id="photoTooltipName" class="photo-name"></div>
+  </div>
+
   <!-- Tag Modal -->
   <div id="tagModalOverlay" class="tag-modal-overlay">
     <div class="tag-modal">
@@ -901,6 +943,57 @@ function renderCurrentGrid() {
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
+// === Photo Tooltip ===
+const photoTooltip = document.getElementById('photoTooltip')
+const photoTooltipImg = document.getElementById('photoTooltipImg')
+const photoTooltipName = document.getElementById('photoTooltipName')
+let photoTooltipTimer = null
+
+function showPhotoTooltip(photoUrl, studentName, event) {
+  if (!photoUrl) return
+  clearTimeout(photoTooltipTimer)
+  photoTooltipImg.src = photoUrl
+  photoTooltipImg.alt = studentName
+  photoTooltipName.textContent = studentName
+  photoTooltip.classList.add('visible')
+  positionTooltip(event)
+}
+
+function hidePhotoTooltip() {
+  clearTimeout(photoTooltipTimer)
+  photoTooltip.classList.remove('visible')
+  photoTooltipImg.src = ''
+}
+
+function positionTooltip(event) {
+  const padding = 12
+  let x = event.clientX + padding
+  let y = event.clientY + padding
+  const rect = photoTooltip.getBoundingClientRect()
+  if (x + rect.width > window.innerWidth) {
+    x = event.clientX - rect.width - padding
+  }
+  if (y + rect.height > window.innerHeight) {
+    y = event.clientY - rect.height - padding
+  }
+  photoTooltip.style.left = Math.max(4, x) + 'px'
+  photoTooltip.style.top = Math.max(4, y) + 'px'
+}
+
+function attachPhotoTooltip(element, photoUrl, studentName) {
+  if (!photoUrl) return
+  element.addEventListener('mouseenter', (e) => {
+    photoTooltipTimer = setTimeout(() => showPhotoTooltip(photoUrl, studentName, e), 300)
+  })
+  element.addEventListener('mousemove', (e) => {
+    if (photoTooltip.classList.contains('visible')) positionTooltip(e)
+  })
+  element.addEventListener('mouseleave', () => {
+    clearTimeout(photoTooltipTimer)
+    photoTooltip.classList.remove('visible')
+  })
+}
+
 function renderGrid(grid, aisles, changedSeats, newSeats) {
   if (!Array.isArray(grid) || !grid.length) {
     document.getElementById('seatGrid').innerHTML = '<div style="padding:48px;text-align:center;color:var(--muted-soft);">座位表加载中...</div>'
@@ -956,6 +1049,8 @@ function renderGrid(grid, aisles, changedSeats, newSeats) {
               tagsEl.innerHTML = tags.map(t => `<span class="seat-tag" style="background:${t.color}">${escHtml(t.tag)}</span>`).join('')
               card.appendChild(tagsEl)
             }
+            // Photo tooltip
+            attachPhotoTooltip(card, stu.photoUrl || '', stu.name)
           }
         }
       }
@@ -1061,6 +1156,7 @@ function renderRoster(roster) {
     item.addEventListener('click', () => {
       if (r.studentId) openTagModal(r.studentId)
     })
+    attachPhotoTooltip(item, r.photoUrl || '', r.studentName)
     list.appendChild(item)
   })
 }

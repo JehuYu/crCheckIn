@@ -359,32 +359,43 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(20,20,19,.3);
+      background: rgba(20,20,19,.4);
+      backdrop-filter: blur(2px);
+      animation: modal-fade .2s ease;
+    }
+    @keyframes modal-fade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes modal-slide {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .modal-card {
       background: #fff;
-      border-radius: 12px;
+      border-radius: 16px;
       box-shadow: 0 16px 48px rgba(20,20,19,.15);
       width: 100%;
-      max-width: 320px;
+      max-width: 380px;
       margin: 0 16px;
       padding: 24px;
       border: 1px solid var(--hairline);
+      animation: modal-slide .2s ease;
     }
     .modal-title {
-      font-size: 15px;
-      font-weight: 600;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 17px;
+      font-weight: 400;
       color: var(--ink);
-      margin: 0 0 4px;
+      margin: 0 0 8px;
+      letter-spacing: -0.2px;
     }
     .modal-desc {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--muted-soft);
       margin: 0 0 16px;
     }
-    .modal-field {
-      margin-bottom: 12px;
-    }
+    .modal-field { margin-bottom: 12px; }
     .modal-field label {
       display: block;
       font-size: 12px;
@@ -397,6 +408,19 @@
       justify-content: flex-end;
       margin-top: 16px;
     }
+    .modal-btn-cancel {
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--body);
+      background: none;
+      border: 1px solid var(--hairline);
+      cursor: pointer;
+      height: 40px;
+      transition: all .15s;
+    }
+    .modal-btn-cancel:hover { background: var(--surface-card); }
 
     /* === Input === */
     .input-field {
@@ -671,8 +695,7 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button onclick="closeEdit()"
-          style="padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--muted); background: none; border: none; cursor: pointer; transition: background .12s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button class="modal-btn-cancel" onclick="closeEdit()">取消</button>
         <button onclick="saveEdit()" class="btn btn-primary">保存</button>
       </div>
     </div>
@@ -685,15 +708,14 @@
       <p id="transferName" class="modal-desc"></p>
       <div class="modal-field">
         <label for="transferTarget">目标教学班</label>
-        <select id="transferTarget" class="select-field">
+        <select id="transferTarget" class="input-field">
           {% for c in classes %}
           <option value="{{ c.id }}">{{ c.name }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="modal-actions">
-        <button onclick="closeTransfer()"
-          style="padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--muted); background: none; border: none; cursor: pointer; transition: background .12s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button class="modal-btn-cancel" onclick="closeTransfer()">取消</button>
         <button onclick="doTransfer()" class="btn btn-primary">确认转移</button>
       </div>
     </div>
@@ -714,7 +736,7 @@
       </div>
       <div class="modal-field">
         <label for="addStudentClass">教学班</label>
-        <select id="addStudentClass" class="select-field">
+        <select id="addStudentClass" class="input-field">
           {% for c in classes %}
           <option value="{{ c.id }}" {% if c.id == cls.id %}selected{% endif %}>{{ c.name }}</option>
           {% endfor %}
@@ -734,8 +756,7 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button onclick="closeAdd()"
-          style="padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--muted); background: none; border: none; cursor: pointer; transition: background .12s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button class="modal-btn-cancel" onclick="closeAdd()">取消</button>
         <button onclick="doAdd()" class="btn btn-primary">创建</button>
       </div>
     </div>

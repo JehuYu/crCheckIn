@@ -48,6 +48,12 @@ export async function claimPoolClass(classId, teacherId) {
   if (!cls) return { ok: false, message: '班级不存在', status: 404 }
   if (cls.teacherId !== null) return { ok: false, message: '该班级已被其他教师认领', status: 409 }
 
+  // 检查教师是否已有同名班级
+  const existing = await prisma.class.findFirst({
+    where: { teacherId, name: cls.name, isArchived: false },
+  })
+  if (existing) return { ok: false, message: `你已有同名班级「${cls.name}」，请先删除或归档后再认领`, status: 409 }
+
   await prisma.class.update({
     where: { id: classId },
     data: { teacherId },

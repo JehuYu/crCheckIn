@@ -140,6 +140,7 @@ export async function getClassStatus(classId) {
         studentIp: rec.studentIp || '',
         signedAt: formatSecond(new Date(rec.signedAt)),
         tags,
+        photoUrl: s.photoUrl || '',
       })
     } else {
       unsigned.push({
@@ -151,6 +152,7 @@ export async function getClassStatus(classId) {
         computerName: '-',
         signedAt: '-',
         tags,
+        photoUrl: s.photoUrl || '',
       })
     }
   }

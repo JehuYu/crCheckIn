@@ -1,4 +1,5 @@
 import { teacherRequired, classOwnerRequired } from '../utils/auth.js'
+import { prisma } from '../plugins/db.js'
 import { nowParts } from '../utils/time.js'
 import { resolveClientName } from '../utils/ip.js'
 import {
@@ -273,6 +274,29 @@ export default async function apiRoutes(fastify) {
     const classId = parseInt(request.params.classId, 10)
     const teacherId = request.session.teacherId
     const isAdmin = request.session.isAdmin === true
+
+    // 检查是否存在同名班级池版本（teacherId IS NULL）
+    // 如果存在，说明此班级是从池中认领的，应回归班级池而非完全删除
+    const cls = await prisma.class.findUnique({ where: { id: classId } })
+    if (cls) {
+      const poolClass = await prisma.class.findFirst({
+        where: { teacherId: null, name: cls.name, isArchived: false },
+      })
+      if (poolClass) {
+        // 回归班级池：删除教师名下的学生和签到记录，班级保留
+        await prisma.$transaction(async (tx) => {
+          await tx.signInSession.deleteMany({ where: { classId } })
+          await tx.signInConfig.deleteMany({ where: { classId } })
+          await tx.signInRecord.deleteMany({ where: { classId } })
+          await tx.student.deleteMany({ where: { classId } })
+          await tx.class.update({ where: { id: classId }, data: { teacherId: null } })
+        })
+        const { invalidateClassTeacherCache } = await import('./sse.js')
+        invalidateClassTeacherCache(classId)
+        return reply.send({ ok: true, message: `「${cls.name}」已归还班级池` })
+      }
+    }
+
     await deleteClass(classId, teacherId, isAdmin)
     return reply.send({ ok: true, message: '班级已删除。' })
   })

@@ -40,6 +40,7 @@ function buildSeatMapFromRecords(records) {
       name: rec.studentName,
       homeClass: rec.homeClass ?? '',
       tags: rec.tags ?? [],
+      photoUrl: rec.photoUrl ?? '',
     })
   }
 
@@ -73,15 +74,18 @@ async function buildSeatMap(classId) {
   for (const rec of records) {
     let studentId = rec.studentId
     let homeClass = rec.student?.homeClass ?? ''
+    let photoUrl = rec.student?.photoUrl ?? ''
     if (!homeClass && !rec.student) {
       const stu = orphanMap.get(rec.studentName)
       homeClass = stu?.homeClass ?? ''
       studentId = stu?.id ?? null
+      photoUrl = stu?.photoUrl ?? ''
     }
     normalizedRecords.push({
       studentId,
       studentName: rec.studentName,
       homeClass,
+      photoUrl,
       computerName: rec.computerName,
     })
   }
@@ -168,6 +172,7 @@ export async function getSeatGridsWithTags(records, classId) {
       studentId: stu?.id ?? null,
       homeClass: r.homeClass ?? stu?.homeClass ?? '',
       computerName: r.computerName,
+      photoUrl: stu?.photoUrl ?? '',
       tags: stu ? (tagMap.get(stu.id) || []) : [],
     }
   })

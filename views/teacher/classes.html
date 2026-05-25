@@ -441,22 +441,33 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(20,20,19,.35);
+      background: rgba(20,20,19,.4);
+      backdrop-filter: blur(2px);
+      animation: modal-fade .2s ease;
+    }
+    @keyframes modal-fade {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
     .modal-card {
       background: #fff;
-      border-radius: 12px;
+      border-radius: 16px;
       box-shadow: 0 16px 48px rgba(20,20,19,.15);
       width: 100%;
       max-width: 400px;
       margin: 0 16px;
       padding: 28px;
       border: 1px solid var(--hairline);
+      animation: modal-slide .2s ease;
+    }
+    @keyframes modal-slide {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .modal-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -493,6 +504,19 @@
       gap: 10px;
       justify-content: flex-end;
     }
+    .modal-btn-cancel {
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--body);
+      background: none;
+      border: 1px solid var(--hairline);
+      cursor: pointer;
+      height: 40px;
+      transition: all .15s;
+    }
+    .modal-btn-cancel:hover { background: var(--surface-card); }
 
     /* === Toast === */
     .toast {
@@ -612,21 +636,18 @@
           </div>
           <div class="sidebar-body">
             <p style="font-size: 12px; color: var(--muted-soft); margin: 0 0 12px;">选择管理员创建的班级并认领为你的教学班</p>
-            <div id="poolClaimList" style="display: flex; flex-direction: column; gap: 6px;">
-              {% if poolClasses %}
-              {% for cls in poolClasses %}
-              <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 8px;">
-                <div>
-                  <span style="font-size: 13px; font-weight: 500; color: var(--ink);">{{ cls.name }}</span>
-                  <span style="font-size: 11px; color: var(--muted-soft); margin-left: 6px;">{{ cls.studentCount }}人</span>
-                </div>
-                <button class="btn btn-primary pool-claim-btn" data-class-id="{{ cls.id }}" data-class-name="{{ cls.name }}" style="font-size: 12px; height: 32px; padding: 0 12px;">认领</button>
-              </div>
-              {% endfor %}
-              {% else %}
-              <div style="font-size: 12px; color: var(--muted-soft); text-align: center; padding: 12px 0;">暂无班级池，请联系管理员创建</div>
-              {% endif %}
+            <div class="form-field">
+              <label for="poolClassSelect">班级池班级</label>
+              <select id="poolClassSelect" class="input-field">
+                <option value="">-- 选择班级 --</option>
+                {% if poolClasses %}
+                {% for cls in poolClasses %}
+                <option value="{{ cls.id }}" data-name="{{ cls.name }}">{{ cls.name }}（{{ cls.studentCount }}人）</option>
+                {% endfor %}
+                {% endif %}
+              </select>
             </div>
+            <button id="poolClaimBtn" class="btn btn-primary" style="width: 100%;" disabled>认领</button>
           </div>
         </div>
 
@@ -754,8 +775,7 @@
       <p class="modal-title">删除班级</p>
       <p id="deleteModalDesc" class="modal-desc"></p>
       <div class="modal-actions">
-        <button data-modal-action="close-delete"
-          style="padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--body); background: none; border: 1px solid var(--hairline); cursor: pointer; height: 40px; transition: all .15s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button data-modal-action="close-delete" class="modal-btn-cancel">取消</button>
         <button id="confirmDeleteBtn" class="btn btn-primary" style="height: 40px; background: var(--error);">确认删除</button>
       </div>
     </div>
@@ -772,8 +792,7 @@
       <p class="modal-title">归档班级</p>
       <p id="archiveModalDesc" class="modal-desc"></p>
       <div class="modal-actions">
-        <button data-modal-action="close-archive"
-          style="padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--body); background: none; border: 1px solid var(--hairline); cursor: pointer; height: 40px; transition: all .15s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button data-modal-action="close-archive" class="modal-btn-cancel">取消</button>
         <button id="confirmArchiveBtn" class="btn btn-primary" style="height: 40px; background: var(--warning);">确认归档</button>
       </div>
     </div>
@@ -790,8 +809,7 @@
       <p class="modal-title">恢复班级</p>
       <p id="unarchiveModalDesc" class="modal-desc"></p>
       <div class="modal-actions">
-        <button data-modal-action="close-unarchive"
-          style="padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--body); background: none; border: 1px solid var(--hairline); cursor: pointer; height: 40px; transition: all .15s;" onmouseover="this.style.background='var(--surface-card)'" onmouseout="this.style.background=''">取消</button>
+        <button data-modal-action="close-unarchive" class="modal-btn-cancel">取消</button>
         <button id="confirmUnarchiveBtn" class="btn btn-primary" style="height: 40px; background: var(--success);">确认恢复</button>
       </div>
     </div>
@@ -985,16 +1003,25 @@ importBtn.addEventListener('click', async () => {
 })
 
 // === Claim Pool Class ===
-document.addEventListener('click', async (e) => {
-  if (!e.target.classList.contains('pool-claim-btn')) return
-  const btn = e.target
-  const classId = btn.dataset.classId
-  const className = btn.dataset.className
+const poolSelect = document.getElementById('poolClassSelect')
+const poolClaimBtn = document.getElementById('poolClaimBtn')
+
+if (poolSelect) {
+  poolSelect.addEventListener('change', () => {
+    poolClaimBtn.disabled = !poolSelect.value
+  })
+}
+
+poolClaimBtn.addEventListener('click', async () => {
+  const classId = poolSelect.value
+  if (!classId) return
+  const selectedOption = poolSelect.options[poolSelect.selectedIndex]
+  const className = selectedOption ? selectedOption.dataset.name : ''
   if (!confirm(`确认认领班级「${className}」？认领后将加入你的班级列表。`)) return
-  btn.disabled = true; btn.textContent = '认领中...'
+  poolClaimBtn.disabled = true; poolClaimBtn.textContent = '认领中...'
   const res = await fetch(`/api/pool/classes/${classId}/claim`, { method: 'POST' })
   const data = await res.json()
-  btn.disabled = false; btn.textContent = '认领'
+  poolClaimBtn.disabled = false; poolClaimBtn.textContent = '认领'
   if (data.ok) {
     showToast(data.message); setTimeout(() => window.location.reload(), 1000)
   } else {
