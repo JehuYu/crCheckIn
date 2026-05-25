@@ -867,10 +867,13 @@ function positionTooltip(event) {
 function attachPhotoTooltip(element, photoUrl, studentName) {
   if (!photoUrl) return
   let timer = null
+  let lastEvent = null
   element.addEventListener('mouseenter', (e) => {
-    timer = setTimeout(() => showPhotoTooltip(photoUrl, studentName, e), 500)
+    lastEvent = e
+    timer = setTimeout(() => showPhotoTooltip(photoUrl, studentName, lastEvent), 500)
   })
   element.addEventListener('mousemove', (e) => {
+    lastEvent = e
     if (photoTooltip.classList.contains('visible')) positionTooltip(e)
   })
   element.addEventListener('mouseleave', () => {
