@@ -605,6 +605,29 @@
 
       <!-- Left: Sidebar Actions -->
       <div style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- Claim from Pool -->
+        <div class="sidebar-card" {% if poolClasses and poolClasses.length === 0 %}style="display:none;"{% endif %} id="claimPoolCard">
+          <div class="sidebar-header">
+            <p class="sidebar-title">认领班级池</p>
+          </div>
+          <div class="sidebar-body">
+            <p style="font-size: 12px; color: var(--muted-soft); margin: 0 0 12px;">选择管理员创建的班级并认领为你的教学班</p>
+            <div id="poolClaimList" style="display: flex; flex-direction: column; gap: 6px;">
+              {% if poolClasses %}
+              {% for cls in poolClasses %}
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 8px;">
+                <div>
+                  <span style="font-size: 13px; font-weight: 500; color: var(--ink);">{{ cls.name }}</span>
+                  <span style="font-size: 11px; color: var(--muted-soft); margin-left: 6px;">{{ cls.studentCount }}人</span>
+                </div>
+                <button class="btn btn-primary pool-claim-btn" data-class-id="{{ cls.id }}" data-class-name="{{ cls.name }}" style="font-size: 12px; height: 32px; padding: 0 12px;">认领</button>
+              </div>
+              {% endfor %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
         <!-- Create Class -->
         <div class="sidebar-card">
           <div class="sidebar-header">
@@ -957,6 +980,24 @@ importBtn.addEventListener('click', async () => {
   const data = await res.json()
   showToast(data.message || (data.ok ? '导入成功' : '导入失败'), data.ok)
   if (data.ok) setTimeout(() => window.location.reload(), 1000)
+})
+
+// === Claim Pool Class ===
+document.addEventListener('click', async (e) => {
+  if (!e.target.classList.contains('pool-claim-btn')) return
+  const btn = e.target
+  const classId = btn.dataset.classId
+  const className = btn.dataset.className
+  if (!confirm(`确认认领班级「${className}」？认领后将加入你的班级列表。`)) return
+  btn.disabled = true; btn.textContent = '认领中...'
+  const res = await fetch(`/api/pool/classes/${classId}/claim`, { method: 'POST' })
+  const data = await res.json()
+  btn.disabled = false; btn.textContent = '认领'
+  if (data.ok) {
+    showToast(data.message); setTimeout(() => window.location.reload(), 1000)
+  } else {
+    showToast(data.message || '认领失败', false)
+  }
 })
 </script>
 </body>
