@@ -22,6 +22,8 @@
       <span class="page-title text-lg">审计日志</span>
     </div>
     <div class="header-right">
+      <button id="tagManageBtn" class="nav-link">预设标签</button>
+      <a href="/admin/pool" class="nav-link">班级池</a>
       <a href="/admin/dashboard" class="nav-link">全局看板</a>
       <a href="/admin/analytics" class="nav-link">数据分析</a>
       <a href="/admin/audit" class="nav-link active">审计日志</a>
@@ -58,6 +60,24 @@
     </div>
   </div>
 </main>
+
+<!-- Preset Tag Management Modal -->
+<div id="presetTagModal" class="modal-overlay">
+  <div class="modal-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+      <div class="modal-title" style="margin: 0;">预设标签管理</div>
+      <button id="presetTagClose" class="preset-close-btn">&times;</button>
+    </div>
+    <div id="presetTagList" class="preset-list"></div>
+    <div style="display: flex; gap: 8px; align-items: center; padding-top: 12px; border-top: 1px solid var(--hairline); margin-top: 16px;">
+      <input id="presetTagAddInput" class="input-field" type="text" placeholder="新标签名..." />
+      <div id="presetColorPicker" class="preset-color-picker" style="display: flex; gap: 6px; flex-shrink: 0;"></div>
+      <button id="presetTagAddBtn" class="preset-add-btn">添加</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
 
 <script>
 let currentPage = 1
@@ -124,6 +144,124 @@ function changePage(delta) {
 }
 
 loadPage(1)
-</script>
+
+// === Preset Tag Management ===
+const TAG_COLORS = ['#cc785c','#5db872','#d4a017','#7c6cf0','#4a90d9','#e67e22']
+let presetTags = []
+let selectedAddColor = TAG_COLORS[0]
+
+document.getElementById('tagManageBtn').addEventListener('click', () => {
+  document.getElementById('presetTagModal').classList.add('active')
+  loadPresetTags()
+})
+document.getElementById('presetTagClose').addEventListener('click', () => {
+  document.getElementById('presetTagModal').classList.remove('active')
+})
+document.getElementById('presetTagModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) document.getElementById('presetTagModal').classList.remove('active')
+})
+
+function renderColorPicker() {
+  const picker = document.getElementById('presetColorPicker')
+  picker.innerHTML = TAG_COLORS.map(c =>
+    `<div class="preset-color-option ${c === selectedAddColor ? 'selected' : ''}" data-color="${c}" style="background:${c};"></div>`
+  ).join('')
+}
+renderColorPicker()
+
+document.getElementById('presetColorPicker').addEventListener('click', (e) => {
+  const opt = e.target.closest('.preset-color-option')
+  if (!opt) return
+  selectedAddColor = opt.dataset.color
+  document.querySelectorAll('#presetColorPicker .preset-color-option').forEach(o => o.classList.remove('selected'))
+  opt.classList.add('selected')
+})
+
+function showToast(text, ok = true) {
+  const t = document.getElementById('toast')
+  t.textContent = text
+  t.className = `toast ${ok ? 'ok' : 'err'} show`
+  setTimeout(() => t.classList.remove('show'), 2500)
+}
+
+async function loadPresetTags() {
+  try {
+    const res = await fetch('/admin/api/preset-tags')
+    if (res.status === 401 || res.status === 403) { return }
+    const data = await res.json()
+    presetTags = data.tags || []
+    renderPresetTags()
+  } catch (e) {}
+}
+
+function renderPresetTags() {
+  const container = document.getElementById('presetTagList')
+  if (!presetTags.length) {
+    container.innerHTML = '<div class="preset-empty">暂无预设标签</div>'
+    return
+  }
+  container.innerHTML = presetTags.map(t => `
+    <div class="preset-item" data-id="${t.id}">
+      <span class="preset-color-dot" style="background:${t.color}"></span>
+      <span class="preset-name">${escHtml(t.tag)}</span>
+      <input class="preset-input name-input" value="${escHtml(t.tag)}" data-id="${t.id}" />
+      <input class="preset-input color-input" value="${t.color}" data-id="${t.id}" style="width:60px;" />
+      <button class="preset-save-btn" data-id="${t.id}">保存</button>
+      <button class="preset-del-btn" data-id="${t.id}">删除</button>
+    </div>
+  `).join('')
+}
+
+document.getElementById('presetTagList').addEventListener('click', async (e) => {
+  const saveBtn = e.target.closest('.preset-save-btn')
+  const delBtn = e.target.closest('.preset-del-btn')
+  if (saveBtn) {
+    const id = parseInt(saveBtn.dataset.id)
+    const nameInput = document.querySelector(`.name-input[data-id="${id}"]`)
+    const colorInput = document.querySelector(`.color-input[data-id="${id}"]`)
+    const tag = nameInput.value.trim()
+    const color = colorInput.value.trim()
+    if (!tag) { showToast('标签名不能为空', false); return }
+    if (!/^#[0-9a-fA-F]{6}$/.test(color)) { showToast('颜色格式无效', false); return }
+    try {
+      const res = await fetch(`/admin/api/preset-tags/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag, color }),
+      })
+      const data = await res.json()
+      if (data.ok) { showToast('已保存', true); await loadPresetTags() }
+      else showToast(data.message || '保存失败', false)
+    } catch (e) { showToast('保存失败', false) }
+  }
+  if (delBtn) {
+    const id = parseInt(delBtn.dataset.id)
+    if (!confirm('确认删除此预设标签？')) return
+    try {
+      const res = await fetch(`/admin/api/preset-tags/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.ok) { showToast('已删除', true); await loadPresetTags() }
+      else showToast(data.message || '删除失败', false)
+    } catch (e) { showToast('删除失败', false) }
+  }
+})
+
+document.getElementById('presetTagAddBtn').addEventListener('click', async () => {
+  const input = document.getElementById('presetTagAddInput')
+  const tag = input.value.trim()
+  if (!tag) { showToast('标签名不能为空', false); return }
+  try {
+    const res = await fetch('/admin/api/preset-tags', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag, color: selectedAddColor }),
+    })
+    const data = await res.json()
+    if (data.ok) { input.value = ''; showToast('已添加', true); await loadPresetTags() }
+    else showToast(data.message || '添加失败', false)
+  } catch (e) { showToast('添加失败', false) }
+})
+
+document.getElementById('presetTagAddInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('presetTagAddBtn').click()
+})
 </body>
 </html>
