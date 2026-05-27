@@ -4,292 +4,111 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ cls.name }} - 数据分析</title>
+  <link rel="stylesheet" href="/public/admin.css">
   <link rel="stylesheet" href="/public/tailwind.min.css">
   <style>
-    :root {
-      --canvas: #faf9f5;
-      --surface-card: #efe9de;
-      --surface-dark: #181715;
-      --primary: #cc785c;
-      --primary-active: #a9583e;
-      --ink: #141413;
-      --body: #3d3d3a;
-      --muted: #6c6a64;
-      --muted-soft: #8e8b82;
-      --hairline: #e6dfd8;
-      --on-primary: #ffffff;
-      --on-dark: #faf9f5;
-      --success: #5db872;
-      --error: #c64545;
-      --warning: #d4a017;
-      --info: #4a90d9;
+    /* Summary strip */
+    .summary-strip {
+      display: flex; gap: 1px; background: var(--hairline); border-radius: 10px;
+      overflow: hidden; margin-bottom: 16px;
     }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-      background: var(--canvas);
-      color: var(--body);
-      margin: 0;
+    .summary-item {
+      flex: 1; background: #fff; padding: 12px 8px; text-align: center; min-width: 0;
     }
+    .summary-item .val {
+      font-family: Georgia, serif; font-size: 22px; font-weight: 400;
+      color: var(--ink); line-height: 1.2;
+    }
+    .summary-item .val.primary { color: var(--primary); }
+    .summary-item .val.success { color: var(--success); }
+    .summary-item .val.info { color: var(--info); }
+    .summary-item .lbl { font-size: 11px; color: var(--muted-soft); margin-top: 2px; }
 
-    .header-bar {
-      background: var(--canvas);
-      border-bottom: 1px solid var(--hairline);
-      height: 64px;
-      position: sticky;
-      top: 0;
-      z-index: 20;
+    /* Compact card */
+    .ana-card {
+      background: #fff; border-radius: 10px; border: 1px solid var(--hairline);
+      margin-bottom: 12px;
     }
-    .header-inner {
-      max-width: 1300px;
-      margin: 0 auto;
-      padding: 0 24px;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .ana-card-head {
+      padding: 10px 14px; border-bottom: 1px solid var(--hairline);
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-    .nav-link {
-      display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px;
-      border-radius: 8px; color: var(--muted); font-size: 14px; font-weight: 500;
-      transition: all .15s ease; text-decoration: none;
-    }
-    .nav-link:hover { background: var(--surface-card); color: var(--ink); }
-    .page-title {
-      font-family: Georgia, 'Times New Roman', serif; font-weight: 400;
-      letter-spacing: -0.3px; color: var(--ink);
-    }
+    .ana-card-title { font-size: 13px; font-weight: 600; color: var(--ink); margin: 0; }
+    .ana-card-body { padding: 14px; }
 
-    /* Summary Cards */
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-    .summary-card {
-      background: #fff;
-      border-radius: 12px;
-      border: 1px solid var(--hairline);
-      padding: 16px 20px;
-      text-align: center;
-    }
-    .summary-card .value {
-      font-family: Georgia, serif;
-      font-size: 28px;
-      font-weight: 400;
-      color: var(--ink);
-      margin: 4px 0;
-    }
-    .summary-card .value.primary { color: var(--primary); }
-    .summary-card .value.success { color: var(--success); }
-    .summary-card .value.info { color: var(--info); }
-    .summary-card .label {
-      font-size: 12px;
-      color: var(--muted-soft);
-    }
+    /* Two-col grid */
+    .ana-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 
-    /* Chart Cards */
-    .chart-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-    .chart-card {
-      background: #fff;
-      border-radius: 12px;
-      border: 1px solid var(--hairline);
-      overflow: hidden;
-    }
-    .chart-header {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--hairline);
-    }
-    .chart-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--ink);
-      margin: 0;
-    }
-    .chart-body { padding: 20px; }
-
-    /* Bar Chart */
-    .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 160px; }
+    /* Bar chart */
+    .bar-chart { display: flex; align-items: flex-end; gap: 3px; height: 120px; }
     .bar-chart .bar {
-      flex: 1;
-      background: var(--primary);
-      border-radius: 4px 4px 0 0;
-      min-width: 8px;
-      position: relative;
-      transition: background .15s;
-      cursor: pointer;
+      flex: 1; background: var(--primary); border-radius: 3px 3px 0 0;
+      min-width: 6px; position: relative; transition: background .15s; cursor: pointer;
     }
     .bar-chart .bar:hover { background: var(--primary-active); }
-    .bar-chart .bar .tooltip {
-      display: none;
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--surface-dark);
-      color: var(--on-dark);
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      white-space: nowrap;
-      pointer-events: none;
+    .bar-chart .bar .tip {
+      display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+      background: var(--surface-dark); color: var(--on-dark); padding: 3px 6px;
+      border-radius: 4px; font-size: 10px; white-space: nowrap; pointer-events: none; z-index: 5;
     }
-    .bar-chart .bar:hover .tooltip { display: block; }
-    .bar-chart .x-labels {
-      display: flex;
-      gap: 4px;
-      margin-top: 4px;
-    }
-    .bar-chart .x-labels span {
-      flex: 1;
-      text-align: center;
-      font-size: 10px;
-      color: var(--muted-soft);
-      min-width: 8px;
-    }
+    .bar-chart .bar:hover .tip { display: block; }
+    .bar-x { display: flex; gap: 3px; margin-top: 3px; }
+    .bar-x span { flex: 1; text-align: center; font-size: 9px; color: var(--muted-soft); min-width: 6px; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Trend Line (SVG) */
-    .trend-svg { width: 100%; height: 200px; }
-    .trend-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; }
-    .trend-area { fill: var(--primary); opacity: 0.1; }
-    .trend-dot { fill: var(--primary); stroke: #fff; stroke-width: 1.5; }
-    .trend-label { font-size: 10px; fill: var(--muted-soft); text-anchor: middle; }
-    .trend-grid-line { stroke: var(--hairline); stroke-width: 0.5; stroke-dasharray: 2,2; }
-    .trend-axis-label { font-size: 9px; fill: var(--muted-soft); }
-
-    /* Hour Heatmap */
-    .hour-heatmap { display: flex; gap: 2px; flex-wrap: wrap; }
+    /* Hour heatmap */
+    .hour-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
     .hour-cell {
-      width: 32px;
-      height: 32px;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 500;
-      color: var(--on-dark);
-      cursor: pointer;
-      transition: transform .1s;
+      aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center;
+      justify-content: center; font-size: 10px; font-weight: 500; color: var(--on-dark);
+      cursor: pointer; transition: transform .1s;
     }
-    .hour-cell:hover { transform: scale(1.2); }
-    .hour-cell.zero { background: var(--surface-card); color: var(--muted-soft); }
+    .hour-cell:hover { transform: scale(1.15); }
+    .hour-cell.zero { background: var(--surface-soft); color: var(--muted-soft); font-size: 9px; }
 
-    /* Day Chart */
-    .day-chart { display: flex; align-items: flex-end; gap: 8px; height: 120px; }
-    .day-chart .day-bar {
-      flex: 1;
-      background: var(--info);
-      border-radius: 4px 4px 0 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      transition: background .15s;
-      cursor: pointer;
+    /* Day chart */
+    .day-chart { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+    .day-bar {
+      flex: 1; background: var(--info); border-radius: 3px 3px 0 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      transition: background .15s; cursor: pointer;
     }
-    .day-chart .day-bar:hover { background: #3a7bc8; }
-    .day-chart .day-bar .count {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--on-dark);
-      padding: 2px 0;
-    }
-    .day-chart .day-bar .day-label {
-      font-size: 10px;
-      color: var(--muted-soft);
-      margin-top: 6px;
-    }
+    .day-bar:hover { background: #3a7bc8; }
+    .day-bar .cnt { font-size: 10px; font-weight: 600; color: var(--on-dark); padding: 1px 0; }
+    .day-bar .dlbl { font-size: 9px; color: var(--muted-soft); margin-top: 4px; }
 
-    /* Stats Table */
-    .stats-table-wrapper {
-      background: #fff;
-      border-radius: 12px;
-      border: 1px solid var(--hairline);
-      overflow: hidden;
-      margin-bottom: 24px;
+    /* Stats table */
+    .stbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .stbl th {
+      text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 600;
+      color: var(--muted-soft); border-bottom: 1px solid var(--hairline); background: var(--canvas);
     }
-    .stats-table-header {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--hairline);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .stats-table-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--ink);
-      margin: 0;
-    }
-    .stats-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .stats-table th {
-      text-align: left; padding: 10px 16px; font-size: 11px; font-weight: 600;
-      color: var(--muted-soft); border-bottom: 1px solid var(--hairline);
-      background: var(--canvas);
-    }
-    .stats-table td { padding: 10px 16px; border-bottom: 1px solid var(--hairline); }
-    .stats-table tr:last-child td { border-bottom: none; }
-    .stats-table td.name { font-weight: 500; color: var(--ink); }
-    .stats-table .rate-badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .stats-table .rate-badge.high { background: #f0fdf4; color: #047857; }
-    .stats-table .rate-badge.mid { background: #fefce8; color: #a16207; }
-    .stats-table .rate-badge.low { background: #fef2f2; color: #c64545; }
+    .stbl td { padding: 6px 10px; border-bottom: 1px solid var(--hairline); }
+    .stbl tr:last-child td { border-bottom: none; }
+    .stbl td.nm { font-weight: 500; color: var(--ink); }
+    .rbadge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .rbadge.hi { background: #f0fdf4; color: #047857; }
+    .rbadge.md { background: #fefce8; color: #a16207; }
+    .rbadge.lo { background: #fef2f2; color: #c64545; }
 
-    /* Personal Trend Table */
-    .personal-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .personal-table th {
-      text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 600;
-      color: var(--muted-soft); border-bottom: 1px solid var(--hairline);
-      background: var(--canvas);
+    /* Personal trend */
+    .ptbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .ptbl th {
+      text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 600;
+      color: var(--muted-soft); border-bottom: 1px solid var(--hairline); background: var(--canvas);
     }
-    .personal-table td { padding: 8px 12px; border-bottom: 1px solid var(--hairline); }
-    .personal-table td.name { font-weight: 500; color: var(--ink); }
-    .trend-dot-cell { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 2px; }
-    .trend-dot-cell.signed { background: var(--success); }
-    .trend-dot-cell.absent { background: var(--surface-card); border: 1px solid var(--hairline); }
+    .ptbl td { padding: 5px 10px; border-bottom: 1px solid var(--hairline); }
+    .ptbl td.nm { font-weight: 500; color: var(--ink); }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 1px; }
+    .dot.s { background: var(--success); }
+    .dot.a { background: var(--surface-card); border: 1px solid var(--hairline); }
 
-    /* Loading */
-    .loading {
-      display: flex; align-items: center; justify-content: center;
-      min-height: 200px; font-size: 14px; color: var(--muted-soft);
-    }
+    .loading { display: flex; align-items: center; justify-content: center; min-height: 200px; font-size: 13px; color: var(--muted-soft); }
+    .empty-state { text-align: center; padding: 40px 24px; color: var(--muted-soft); }
 
-    /* Empty */
-    .empty-state {
-      text-align: center; padding: 48px 24px; color: var(--muted-soft);
-    }
-    .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.4; }
-
-    /* Toast */
-    .toast {
-      position: fixed; top: 80px; right: 24px; z-index: 50;
-      padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
-      box-shadow: 0 8px 24px rgba(20,20,19,.12);
-      transform: translateX(120%); transition: transform .25s ease;
-    }
-    .toast.show { transform: translateX(0); }
-    .toast.ok { background: #f0fdf4; color: #047857; border: 1px solid #b7e4c7; }
-    .toast.err { background: #fef2f2; color: #c64545; border: 1px solid #f5c6cb; }
-
-    @media (max-width: 900px) {
-      .chart-grid { grid-template-columns: 1fr; }
-      .summary-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 640px) {
-      .summary-grid { grid-template-columns: 1fr; }
+    @media (max-width: 768px) {
+      .ana-grid { grid-template-columns: 1fr; }
+      .summary-strip { flex-wrap: wrap; }
+      .summary-item { min-width: calc(33% - 1px); }
     }
   </style>
 </head>
@@ -310,99 +129,72 @@
     </div>
   </header>
 
-  <main style="max-width: 1300px; margin: 0 auto; padding: 24px;">
+  <main class="admin-main">
     <div id="loadingView" class="loading">加载中...</div>
     <div id="errorView" style="display:none;">
       <div class="empty-state">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
         <p>暂无足够数据进行分析</p>
-        <a href="/teacher/classes/{{ cls.id }}" class="nav-link" style="margin-top: 12px; display: inline-flex;">返回班级管理</a>
+        <a href="/teacher/classes/{{ cls.id }}" class="nav-link" style="margin-top: 8px; display: inline-flex;">返回班级管理</a>
       </div>
     </div>
     <div id="dataView" style="display:none;">
 
-      <!-- Summary Cards -->
-      <div class="summary-grid" id="summaryGrid"></div>
+      <!-- Summary Strip -->
+      <div class="summary-strip" id="summaryStrip"></div>
 
-      <!-- Attendance Rate Stats Table -->
-      <div class="stats-table-wrapper">
-        <div class="stats-table-header">
-          <p class="stats-table-title">出勤率统计</p>
+      <!-- Charts Row 1 -->
+      <div class="ana-grid">
+        <div class="ana-card">
+          <div class="ana-card-head"><p class="ana-card-title">各批次签到趋势</p></div>
+          <div class="ana-card-body"><div id="trendChart"></div></div>
         </div>
-        <div style="overflow-x: auto;">
-          <table class="stats-table" id="statsTable"></table>
+        <div class="ana-card">
+          <div class="ana-card-head"><p class="ana-card-title">签到时段分布</p></div>
+          <div class="ana-card-body"><div id="hourChart"></div></div>
         </div>
       </div>
 
-      <!-- Charts Row 1: Session Trend + Hour Distribution -->
-      <div class="chart-grid">
-        <div class="chart-card">
-          <div class="chart-header">
-            <p class="chart-title">各批次签到趋势</p>
-          </div>
-          <div class="chart-body">
-            <div id="trendChart"></div>
-          </div>
+      <!-- Charts Row 2 -->
+      <div class="ana-grid">
+        <div class="ana-card">
+          <div class="ana-card-head"><p class="ana-card-title">星期分布</p></div>
+          <div class="ana-card-body"><div id="dayChart"></div></div>
         </div>
-        <div class="chart-card">
-          <div class="chart-header">
-            <p class="chart-title">签到时段分布</p>
-          </div>
-          <div class="chart-body">
-            <div id="hourChart"></div>
-          </div>
+        <div class="ana-card">
+          <div class="ana-card-head"><p class="ana-card-title">各批次出勤率</p></div>
+          <div class="ana-card-body"><div id="rateChart"></div></div>
         </div>
       </div>
 
-      <!-- Charts Row 2: Day Distribution + Session Rate -->
-      <div class="chart-grid">
-        <div class="chart-card">
-          <div class="chart-header">
-            <p class="chart-title">星期分布</p>
-          </div>
-          <div class="chart-body">
-            <div id="dayChart"></div>
-          </div>
+      <!-- Stats Table -->
+      <div class="ana-card">
+        <div class="ana-card-head">
+          <p class="ana-card-title">出勤率统计</p>
+          <span id="statsCount" style="font-size:11px;color:var(--muted-soft);"></span>
         </div>
-        <div class="chart-card">
-          <div class="chart-header">
-            <p class="chart-title">各批次出勤率</p>
-          </div>
-          <div class="chart-body">
-            <div id="rateChart"></div>
-          </div>
+        <div class="ana-card-body" style="padding:0;overflow-x:auto;">
+          <table class="stbl" id="statsTable"></table>
         </div>
       </div>
 
-      <!-- Personal Trend Table -->
-      <div class="chart-card">
-        <div class="chart-header">
-          <p class="chart-title">个人出勤趋势（最近 5 批次）</p>
+      <!-- Personal Trend -->
+      <div class="ana-card">
+        <div class="ana-card-head">
+          <p class="ana-card-title">个人出勤趋势（最近 5 批次）</p>
         </div>
-        <div class="chart-body" style="overflow-x: auto;">
-          <table class="personal-table" id="personalTable"></table>
+        <div class="ana-card-body" style="padding:0;overflow-x:auto;">
+          <table class="ptbl" id="personalTable"></table>
         </div>
       </div>
 
     </div>
   </main>
 
-  <div id="toast" class="toast"></div>
-
 <script>
 const CLASS_ID = {{ classId }}
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
-}
-
-function showToast(text, ok = true) {
-  const t = document.getElementById('toast')
-  t.textContent = text
-  t.className = `toast ${ok ? 'ok' : 'err'} show`
-  setTimeout(() => t.classList.remove('show'), 2500)
 }
 
 async function loadAnalytics() {
@@ -433,123 +225,106 @@ async function loadAnalytics() {
 }
 
 function renderSummary(s) {
-  document.getElementById('summaryGrid').innerHTML = `
-    <div class="summary-card"><div class="label">总批次数</div><div class="value primary">${s.totalSessions}</div></div>
-    <div class="summary-card"><div class="label">总签到人次</div><div class="value">${s.totalSignIns}</div></div>
-    <div class="summary-card"><div class="label">班级人数</div><div class="value">${s.uniqueStudents}</div></div>
-    <div class="summary-card"><div class="label">每批次平均</div><div class="value info">${s.avgPerSession}</div></div>
-    <div class="summary-card"><div class="label">整体出勤率</div><div class="value success">${s.overallRate}%</div></div>
-    <div class="summary-card"><div class="label">签到速度</div><div class="value">${s.avgSpeed}%</div><div class="label">前10min内签到占比</div></div>
+  document.getElementById('summaryStrip').innerHTML = `
+    <div class="summary-item"><div class="val primary">${s.totalSessions}</div><div class="lbl">总批次</div></div>
+    <div class="summary-item"><div class="val">${s.totalSignIns}</div><div class="lbl">签到人次</div></div>
+    <div class="summary-item"><div class="val">${s.uniqueStudents}</div><div class="lbl">班级人数</div></div>
+    <div class="summary-item"><div class="val info">${s.avgPerSession}</div><div class="lbl">批次均签</div></div>
+    <div class="summary-item"><div class="val success">${s.overallRate}%</div><div class="lbl">出勤率</div></div>
+    <div class="summary-item"><div class="val">${s.avgSpeed}%</div><div class="lbl">前10min占比</div></div>
   `
 }
 
 function renderStatsTable(stats) {
   const table = document.getElementById('statsTable')
+  const countEl = document.getElementById('statsCount')
   if (!stats.students.length) {
-    table.innerHTML = '<tr><td style="text-align:center;padding:24px;color:var(--muted-soft);">暂无数据</td></tr>'
+    table.innerHTML = '<tr><td style="text-align:center;padding:20px;color:var(--muted-soft);">暂无数据</td></tr>'
     return
   }
+  countEl.textContent = stats.students.length + ' 人'
   const rows = stats.students.map(s => {
     const rate = parseFloat(s.rate)
-    const badgeCls = rate >= 80 ? 'high' : rate >= 60 ? 'mid' : 'low'
+    const c = rate >= 80 ? 'hi' : rate >= 60 ? 'md' : 'lo'
     return `<tr>
-      <td class="name">${escHtml(s.name)}</td>
+      <td class="nm">${escHtml(s.name)}</td>
       <td>${escHtml(s.homeClass || '-')}</td>
       <td>${s.signedCount}</td>
       <td>${s.absentCount}</td>
-      <td><span class="rate-badge ${badgeCls}">${s.rate}%</span></td>
+      <td><span class="rbadge ${c}">${s.rate}%</span></td>
     </tr>`
   }).join('')
-  table.innerHTML = `<thead><tr><th>姓名</th><th>行政班级</th><th>签到</th><th>缺勤</th><th>出勤率</th></tr></thead><tbody>${rows}</tbody>`
+  table.innerHTML = `<thead><tr><th>姓名</th><th>行政班</th><th>签到</th><th>缺勤</th><th>出勤率</th></tr></thead><tbody>${rows}</tbody>`
 }
 
 function renderTrendChart(sessions) {
-  const container = document.getElementById('trendChart')
-  if (!sessions.length) {
-    container.innerHTML = '<div class="loading">暂无数据</div>'
-    return
-  }
-  const maxCount = Math.max(...sessions.map(s => s.count), 1)
-  const bars = sessions.map((s, i) => {
-    const h = Math.max((s.count / maxCount) * 140, 4)
-    return `<div class="bar" style="height:${h}px;">
-      <span class="tooltip">${escHtml(s.label.split(' · ')[0])}: ${s.count}人 (${s.rate}%)</span>
-    </div>`
+  const el = document.getElementById('trendChart')
+  if (!sessions.length) { el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted-soft);font-size:12px;">暂无数据</div>'; return }
+  const max = Math.max(...sessions.map(s => s.count), 1)
+  const bars = sessions.map(s => {
+    const h = Math.max((s.count / max) * 110, 4)
+    return `<div class="bar" style="height:${h}px;"><span class="tip">${escHtml(s.label.split(' · ')[0])}: ${s.count}人 (${s.rate}%)</span></div>`
   }).join('')
   const labels = sessions.map(s => {
-    const parts = s.label.split(' · ')[0]
-    const short = parts.length > 10 ? parts.slice(0, 10) + '…' : parts
-    return `<span title="${escHtml(s.label)}">${escHtml(short)}</span>`
+    const p = s.label.split(' · ')[0]
+    return `<span title="${escHtml(s.label)}">${escHtml(p.length > 8 ? p.slice(0,8)+'…' : p)}</span>`
   }).join('')
-  container.innerHTML = `<div class="bar-chart">${bars}</div><div class="x-labels">${labels}</div>`
+  el.innerHTML = `<div class="bar-chart">${bars}</div><div class="bar-x">${labels}</div>`
 }
 
 function renderRateChart(sessions) {
-  const container = document.getElementById('rateChart')
-  if (!sessions.length) {
-    container.innerHTML = '<div class="loading">暂无数据</div>'
-    return
-  }
-  const maxRate = Math.max(...sessions.map(s => parseFloat(s.rate)), 1)
+  const el = document.getElementById('rateChart')
+  if (!sessions.length) { el.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted-soft);font-size:12px;">暂无数据</div>'; return }
+  const max = Math.max(...sessions.map(s => parseFloat(s.rate)), 1)
   const bars = sessions.map(s => {
-    const h = Math.max((parseFloat(s.rate) / maxRate) * 140, 4)
-    const color = parseFloat(s.rate) >= 80 ? 'var(--success)' : parseFloat(s.rate) >= 60 ? 'var(--warning)' : 'var(--error)'
-    return `<div class="bar" style="height:${h}px; background:${color};">
-      <span class="tooltip">${escHtml(s.label.split(' · ')[0])}: ${s.rate}%</span>
-    </div>`
+    const r = parseFloat(s.rate)
+    const h = Math.max((r / max) * 110, 4)
+    const c = r >= 80 ? 'var(--success)' : r >= 60 ? 'var(--warning)' : 'var(--error)'
+    return `<div class="bar" style="height:${h}px;background:${c};"><span class="tip">${escHtml(s.label.split(' · ')[0])}: ${s.rate}%</span></div>`
   }).join('')
   const labels = sessions.map(s => {
-    const parts = s.label.split(' · ')[0]
-    const short = parts.length > 10 ? parts.slice(0, 10) + '…' : parts
-    return `<span title="${escHtml(s.label)}">${escHtml(short)}</span>`
+    const p = s.label.split(' · ')[0]
+    return `<span title="${escHtml(s.label)}">${escHtml(p.length > 8 ? p.slice(0,8)+'…' : p)}</span>`
   }).join('')
-  container.innerHTML = `<div class="bar-chart">${bars}</div><div class="x-labels">${labels}</div>`
+  el.innerHTML = `<div class="bar-chart">${bars}</div><div class="bar-x">${labels}</div>`
 }
 
-function renderHourChart(distribution) {
-  const container = document.getElementById('hourChart')
-  const maxVal = Math.max(...distribution, 1)
-  let html = '<div style="display:flex;flex-wrap:wrap;gap:3px;">'
+function renderHourChart(dist) {
+  const el = document.getElementById('hourChart')
+  const max = Math.max(...dist, 1)
+  let html = '<div class="hour-grid">'
   for (let h = 0; h < 24; h++) {
-    const val = distribution[h]
-    const opacity = val > 0 ? Math.max(val / maxVal, 0.15) : 0
-    const cls = val > 0 ? '' : ' zero'
-    html += `<div class="hour-cell${cls}" style="background: rgba(204,120,92,${opacity});" title="${h}:00 - ${val}次签到">
-      ${val > 0 ? val : '-'}
-    </div>`
+    const v = dist[h]
+    const op = v > 0 ? Math.max(v / max, 0.15) : 0
+    const cls = v > 0 ? '' : ' zero'
+    html += `<div class="hour-cell${cls}" style="background:rgba(204,120,92,${op});" title="${h}:00 - ${v}次">${v > 0 ? v : '-'}</div>`
   }
   html += '</div>'
-  html += '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--muted-soft);"><span>0时</span><span>6时</span><span>12时</span><span>18时</span><span>23时</span></div>'
-  container.innerHTML = html
+  html += '<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:var(--muted-soft);"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>'
+  el.innerHTML = html
 }
 
-function renderDayChart(distribution) {
-  const container = document.getElementById('dayChart')
-  const days = ['日', '一', '二', '三', '四', '五', '六']
-  const maxVal = Math.max(...distribution, 1)
-  const bars = distribution.map((val, i) => {
-    const h = Math.max((val / maxVal) * 100, 4)
-    return `<div class="day-bar" style="height:${h}px;">
-      <span class="count">${val}</span>
-      <span class="day-label">周${days[i]}</span>
-    </div>`
+function renderDayChart(dist) {
+  const el = document.getElementById('dayChart')
+  const days = ['日','一','二','三','四','五','六']
+  const max = Math.max(...dist, 1)
+  const bars = dist.map((v, i) => {
+    const h = Math.max((v / max) * 70, 4)
+    return `<div class="day-bar" style="height:${h}px;"><span class="cnt">${v}</span><span class="dlbl">周${days[i]}</span></div>`
   }).join('')
-  container.innerHTML = `<div class="day-chart">${bars}</div>`
+  el.innerHTML = `<div class="day-chart">${bars}</div>`
 }
 
 function renderPersonalTable(trends) {
   const table = document.getElementById('personalTable')
-  if (!trends.length) {
-    table.innerHTML = '<tr><td style="text-align:center;padding:24px;color:var(--muted-soft);">暂无数据</td></tr>'
-    return
-  }
+  if (!trends.length) { table.innerHTML = '<tr><td style="text-align:center;padding:16px;color:var(--muted-soft);">暂无数据</td></tr>'; return }
   const rows = trends.map(t => {
     const dots = t.history.map(h =>
-      `<span class="trend-dot-cell ${h.signed ? 'signed' : 'absent'}" title="${escHtml(h.label)}: ${h.signed ? '已签到' : '未签到'}"></span>`
+      `<span class="dot ${h.signed ? 's' : 'a'}" title="${escHtml(h.label)}: ${h.signed ? '签到' : '缺勤'}"></span>`
     ).join('')
-    return `<tr><td class="name">${escHtml(t.name)}</td><td>${dots}</td></tr>`
+    return `<tr><td class="nm">${escHtml(t.name)}</td><td>${dots}</td></tr>`
   }).join('')
-  table.innerHTML = `<thead><tr><th>姓名</th><th>签到记录</th></tr></thead><tbody>${rows}</tbody>`
+  table.innerHTML = `<thead><tr><th style="width:80px;">姓名</th><th>签到记录</th></tr></thead><tbody>${rows}</tbody>`
 }
 
 loadAnalytics()
