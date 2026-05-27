@@ -57,20 +57,12 @@
     .bchart .bar .tp {
       display: none; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
       background: var(--surface-dark); color: var(--on-dark); padding: 4px 8px;
-      border-radius: 5px; font-size: 10px; white-space: nowrap; pointer-events: none; z-index: 10;
+      border-radius: 5px; font-size: 10px; white-space: pre-line; pointer-events: none; z-index: 10;
       box-shadow: 0 4px 12px rgba(0,0,0,.15);
     }
     .bchart .bar:hover .tp { display: block; }
     .bx { display: flex; gap: 3px; margin-top: 4px; }
-    .bx span { flex: 1; text-align: center; font-size: 9px; color: var(--muted-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    /* ── Rate bar (horizontal) ── */
-    .rbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .rbar-row:last-child { margin-bottom: 0; }
-    .rbar-label { font-size: 11px; color: var(--muted); width: 70px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
-    .rbar-track { flex: 1; height: 14px; background: var(--surface-soft); border-radius: 3px; overflow: hidden; position: relative; }
-    .rbar-fill { height: 100%; border-radius: 3px; transition: width .3s; }
-    .rbar-val { font-size: 10px; font-weight: 600; color: var(--ink); width: 36px; text-align: right; flex-shrink: 0; }
+    .bx span { flex: 1; text-align: center; font-size: 9px; color: var(--muted-soft); overflow: hidden; text-overflow: ellipsis; white-space: pre-line; line-height: 1.3; }
 
     /* ── Year color legend ── */
     .year-legend { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
@@ -163,33 +155,14 @@
         </div>
       </div>
 
-      <!-- Charts: Rate bars -->
-      <div class="sec">
-        <div class="sec-head"><p class="sec-title">各批次出勤率</p></div>
-        <div class="sec-body">
-          <div id="rateBars"></div>
-          <div class="year-legend" id="rateLegend"></div>
-        </div>
-      </div>
-
-      <!-- Stats Table (multi-column) -->
+      <!-- Stats + Trend combined -->
       <div class="sec">
         <div class="sec-head">
-          <p class="sec-title">出勤率统计</p>
+          <p class="sec-title">出勤统计</p>
           <span class="sec-badge" id="statsCount"></span>
         </div>
         <div class="sec-body-np">
           <div class="name-grid" id="statsGrid"></div>
-        </div>
-      </div>
-
-      <!-- Personal Trend (multi-column) -->
-      <div class="sec">
-        <div class="sec-head">
-          <p class="sec-title">个人出勤趋势（最近 5 批次）</p>
-        </div>
-        <div class="sec-body-np">
-          <div class="name-grid" id="personalGrid"></div>
         </div>
       </div>
 
@@ -244,10 +217,8 @@ async function loadAnalytics() {
 
   _yearColorMap = {}
   renderKpi(data.summary)
-  if (stats) renderStatsGrid(stats)
+  renderStatsGrid(stats, data.personalTrend)
   renderTrendChart(data.sessionTrend)
-  renderRateBars(data.sessionTrend)
-  renderPersonalGrid(data.personalTrend)
 }
 
 function renderKpi(s) {
@@ -264,23 +235,36 @@ function renderKpi(s) {
   ).join('')
 }
 
-function renderStatsGrid(stats) {
+function renderStatsGrid(stats, trends) {
   const el = document.getElementById('statsGrid')
   const countEl = document.getElementById('statsCount')
-  if (!stats.students.length) {
+  const trendMap = new Map()
+  if (trends) trends.forEach(t => trendMap.set(t.name, t.history))
+
+  const students = stats ? stats.students : []
+  if (!students.length && (!trends || !trends.length)) {
     el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted-soft);grid-column:1/-1;">暂无数据</div>'
     return
   }
-  countEl.textContent = stats.students.length + ' 人'
-  el.innerHTML = stats.students.map(s => {
+  countEl.textContent = (students.length || trends.length) + ' 人'
+
+  const rows = students.length ? students : trends.map(t => ({ name: t.name, homeClass: '', signedCount: '', absentCount: '', rate: '' }))
+  el.innerHTML = rows.map(s => {
+    const history = trendMap.get(s.name) || []
+    const dots = history.map(h =>
+      `<span class="dot ${h.signed ? 's' : 'a'}" title="${escHtml(stripYear(h.label))}: ${h.signed ? '签到' : '缺勤'}"></span>`
+    ).join('')
     const rate = parseFloat(s.rate)
     const c = rate >= 80 ? 'hi' : rate >= 60 ? 'md' : 'lo'
+    const rateHtml = s.rate ? `<span class="rbadge ${c}">${s.rate}%</span>` : ''
+    const cntHtml = s.signedCount ? `<span class="cnt">${s.signedCount}/${s.signedCount + s.absentCount}</span>` : ''
     return `<div>
       <div class="nrow">
         <span class="nm">${escHtml(s.name)}</span>
         <span class="hc">${escHtml(s.homeClass || '')}</span>
-        <span class="cnt">${s.signedCount}/${s.signedCount + s.absentCount}</span>
-        <span class="rbadge ${c}" style="margin-left:auto;">${s.rate}%</span>
+        ${cntHtml}
+        ${dots ? `<span class="dots">${dots}</span>` : ''}
+        ${rateHtml ? `<span style="margin-left:auto;">${rateHtml}</span>` : ''}
       </div>
     </div>`
   }).join('')
@@ -299,12 +283,12 @@ function renderTrendChart(sessions) {
     const h = Math.max((s.count / max) * 120, 4)
     const year = extractYear(s.label)
     const color = getYearColor(year)
-    return `<div class="bar" style="height:${h}px;background:${color};"><span class="tp">${escHtml(stripYear(s.label))}: ${s.count}人 (${s.rate}%)</span></div>`
+    return `<div class="bar" style="height:${h}px;background:${color};"><span class="tp">${escHtml(stripYear(s.label))}<br>${s.count}人 · ${s.rate}%</span></div>`
   }).join('')
   const labels = sessions.map(s => {
     const short = stripYear(s.label.split(' · ')[0])
     const disp = short.length > 8 ? short.slice(0,8)+'…' : short
-    return `<span title="${escHtml(stripYear(s.label))}">${escHtml(disp)}</span>`
+    return `<span title="${escHtml(stripYear(s.label))}">${escHtml(disp)}<br><small style="opacity:.6;">${s.rate}%</small></span>`
   }).join('')
   el.innerHTML = `<div class="bchart">${bars}</div><div class="bx">${labels}</div>`
 
@@ -316,48 +300,6 @@ function renderTrendChart(sessions) {
   } else {
     legendEl.innerHTML = ''
   }
-}
-
-function renderRateBars(sessions) {
-  const el = document.getElementById('rateBars')
-  const legendEl = document.getElementById('rateLegend')
-  if (!sessions.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted-soft);font-size:12px;">暂无数据</div>'; return }
-
-  const years = new Set()
-  sessions.forEach(s => { const y = extractYear(s.label); if (y) years.add(y) })
-
-  el.innerHTML = sessions.map(s => {
-    const r = parseFloat(s.rate)
-    const year = extractYear(s.label)
-    const color = getYearColor(year)
-    const short = stripYear(s.label.split(' · ')[0])
-    const disp = short.length > 10 ? short.slice(0,10)+'…' : short
-    return `<div class="rbar-row">
-      <span class="rbar-label" title="${escHtml(stripYear(s.label))}">${escHtml(disp)}</span>
-      <div class="rbar-track"><div class="rbar-fill" style="width:${r}%;background:${color};"></div></div>
-      <span class="rbar-val">${s.rate}%</span>
-    </div>`
-  }).join('')
-
-  if (years.size > 1) {
-    const sorted = [...years].sort()
-    legendEl.innerHTML = sorted.map(y =>
-      `<span><span class="yd" style="background:${getYearColor(y)};"></span>${y}</span>`
-    ).join('')
-  } else {
-    legendEl.innerHTML = ''
-  }
-}
-
-function renderPersonalGrid(trends) {
-  const el = document.getElementById('personalGrid')
-  if (!trends.length) { el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted-soft);grid-column:1/-1;">暂无数据</div>'; return }
-  el.innerHTML = trends.map(t => {
-    const dots = t.history.map(h =>
-      `<span class="dot ${h.signed ? 's' : 'a'}" title="${escHtml(stripYear(h.label))}: ${h.signed ? '签到' : '缺勤'}"></span>`
-    ).join('')
-    return `<div><div class="nrow"><span class="nm">${escHtml(t.name)}</span><span class="dots">${dots}</span></div></div>`
-  }).join('')
 }
 
 loadAnalytics()
