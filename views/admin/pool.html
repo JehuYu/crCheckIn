@@ -144,6 +144,9 @@
           {% if not currentSemester and classes.length > 0 %}
           <button id="archiveSemesterBtn" class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px; margin-left: auto;">归档当前学期</button>
           {% endif %}
+          {% if currentSemester %}
+          <button id="unarchiveSemesterBtn" class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px; margin-left: auto; color: var(--success, #5db872);">撤销归档「{{ currentSemester }}」</button>
+          {% endif %}
         </div>
 
         {% if isRecycleView %}
@@ -578,6 +581,22 @@ document.getElementById('archiveSemesterBtn')?.addEventListener('click', async (
     showToast(data.message); window.location.reload()
   } else {
     showToast(data.message || '归档失败', false)
+  }
+})
+
+document.getElementById('unarchiveSemesterBtn')?.addEventListener('click', async () => {
+  const semester = '{{ currentSemester }}'
+  if (!semester) return
+  if (!await showConfirmDialog('撤销归档', `确认将「${semester}」学期的所有班级恢复到当前列表？`, '确认撤销', 'info')) return
+  const res = await fetch('/admin/api/pool/unarchive-semester', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ semester }),
+  })
+  const data = await res.json()
+  if (data.ok) {
+    showToast(data.message); window.location.href = '/admin/pool'
+  } else {
+    showToast(data.message || '撤销失败', false)
   }
 })
 

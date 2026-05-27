@@ -197,6 +197,53 @@ export async function syncPoolPhotosToTeacherClasses(poolClassId) {
 }
 
 /**
+ * 教师端上传照片后，同步到同名班级池班级
+ * @param {number} teacherClassId - 教师班级 ID
+ */
+export async function syncTeacherPhotoToPool(teacherClassId) {
+  const teacherClass = await prisma.class.findUnique({ where: { id: teacherClassId } })
+  if (!teacherClass || teacherClass.teacherId === null) return { ok: false, synced: 0 }
+
+  // 查找同名的班级池班级
+  const poolClass = await prisma.class.findFirst({
+    where: { name: teacherClass.name, teacherId: null, deletedAt: null },
+    select: { id: true },
+  })
+  if (!poolClass) return { ok: true, synced: 0 }
+
+  // 获取教师班级中有照片的学生
+  const teacherStudents = await prisma.student.findMany({
+    where: { classId: teacherClassId, photoUrl: { not: '' } },
+    select: { name: true, photoUrl: true },
+  })
+  if (teacherStudents.length === 0) return { ok: true, synced: 0 }
+
+  const teacherPhotoMap = new Map(teacherStudents.map(s => [normalizeName(s.name), s]))
+
+  // 获取班级池中没有照片的学生
+  const poolStudents = await prisma.student.findMany({
+    where: { classId: poolClass.id },
+    select: { id: true, name: true, photoUrl: true },
+  })
+
+  const updates = []
+  for (const ps of poolStudents) {
+    if (ps.photoUrl) continue
+    const tp = teacherPhotoMap.get(normalizeName(ps.name))
+    if (tp) {
+      updates.push({ id: ps.id, photoUrl: tp.photoUrl })
+    }
+  }
+
+  if (updates.length > 0) {
+    const sql = `UPDATE student SET photoUrl = CASE id ${updates.map(u => `WHEN ${u.id} THEN '${u.photoUrl.replace(/'/g, "''")}'`).join(' ')} END WHERE id IN (${updates.map(u => u.id).join(',')})`
+    await prisma.$executeRawUnsafe(sql)
+  }
+
+  return { ok: true, synced: updates.length }
+}
+
+/**
  * 获取班级池中所有学期列表
  */
 export async function getPoolSemesters() {
@@ -220,6 +267,19 @@ export async function archivePoolSemester(semester) {
     data: { isArchived: true, semester: semester.trim() },
   })
   return { ok: true, count: result.count, message: `已归档 ${result.count} 个班级` }
+}
+
+/**
+ * 撤销班级池学期归档
+ * @param {string} semester - 学期名称
+ */
+export async function unarchivePoolSemester(semester) {
+  if (!semester || !semester.trim()) return { ok: false, message: '学期名不能为空' }
+  const result = await prisma.class.updateMany({
+    where: { teacherId: null, isArchived: true, semester: semester.trim() },
+    data: { isArchived: false, semester: '' },
+  })
+  return { ok: true, count: result.count, message: `已撤销归档 ${result.count} 个班级` }
 }
 
 /**
@@ -439,8 +499,13 @@ export async function uploadStudentPhoto(classId, studentId, fileBuffer, filenam
     data: { photoUrl: url },
   })
 
-  // 同步照片到同名教师班级
-  await syncPoolPhotosToTeacherClasses(classId)
+  // 同步照片：班级池 → 教师班级，或教师班级 → 班级池
+  const cls = await prisma.class.findUnique({ where: { id: classId } })
+  if (cls && cls.teacherId === null) {
+    await syncPoolPhotosToTeacherClasses(classId)
+  } else if (cls && cls.teacherId !== null) {
+    await syncTeacherPhotoToPool(classId)
+  }
 
   return { ok: true, url, message: '照片已上传' }
 }
@@ -559,6 +624,24 @@ export async function deleteStudentPhoto(studentId, classId) {
     where: { id: studentId },
     data: { photoUrl: '' },
   })
+
+  // 同步删除：教师班级 → 班级池
+  const cls = await prisma.class.findUnique({ where: { id: classId } })
+  if (cls && cls.teacherId !== null) {
+    const poolClass = await prisma.class.findFirst({
+      where: { name: cls.name, teacherId: null, deletedAt: null },
+      select: { id: true },
+    })
+    if (poolClass) {
+      const poolStudent = await prisma.student.findFirst({
+        where: { classId: poolClass.id, name: student.name },
+        select: { id: true },
+      })
+      if (poolStudent) {
+        await prisma.student.update({ where: { id: poolStudent.id }, data: { photoUrl: '' } })
+      }
+    }
+  }
 
   return { ok: true, message: '照片已删除' }
 }

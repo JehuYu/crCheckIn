@@ -4,6 +4,7 @@ import {
   getPoolClasses,
   getPoolSemesters,
   archivePoolSemester,
+  unarchivePoolSemester,
   getRecycleBinClasses,
   softDeletePoolClass,
   restorePoolClass,
@@ -57,6 +58,12 @@ export default async function poolRoutes(app) {
   app.post('/admin/api/pool/archive-semester', { preHandler: adminRequired }, async (request, reply) => {
     const { semester } = request.body ?? {}
     const result = await archivePoolSemester(semester)
+    return reply.send(result)
+  })
+
+  app.post('/admin/api/pool/unarchive-semester', { preHandler: adminRequired }, async (request, reply) => {
+    const { semester } = request.body ?? {}
+    const result = await unarchivePoolSemester(semester)
     return reply.send(result)
   })
 
