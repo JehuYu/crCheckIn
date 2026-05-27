@@ -159,34 +159,38 @@ export async function syncPoolPhotosToTeacherClasses(poolClassId) {
       select: { id: true, name: true, photoUrl: true },
     })
 
-    const updates = []
-    const inserts = []
     const teacherMap = new Map(teacherStudents.map(s => [normalizeName(s.name), s]))
+    const updateIds = []
+    const insertData = []
 
     for (const [normName, ps] of poolPhotoMap) {
       const ts = teacherMap.get(normName)
       if (ts) {
         if (!ts.photoUrl) {
-          updates.push(prisma.student.update({
-            where: { id: ts.id },
-            data: { photoUrl: ps.photoUrl },
-          }))
+          updateIds.push({ id: ts.id, photoUrl: ps.photoUrl })
           totalSynced++
         }
       } else {
-        inserts.push(prisma.student.create({
-          data: {
-            name: ps.name,
-            homeClass: ps.homeClass,
-            photoUrl: ps.photoUrl,
-            classId: tc.id,
-          },
-        }))
+        insertData.push({
+          name: ps.name,
+          homeClass: ps.homeClass,
+          photoUrl: ps.photoUrl,
+          classId: tc.id,
+        })
         totalSynced++
       }
     }
 
-    await Promise.all([...updates, ...inserts])
+    // 批量更新（单条 SQL，避免 SQLite 锁超时）
+    if (updateIds.length > 0) {
+      const sql = `UPDATE student SET photoUrl = CASE id ${updateIds.map(u => `WHEN ${u.id} THEN '${u.photoUrl.replace(/'/g, "''")}'`).join(' ')} END WHERE id IN (${updateIds.map(u => u.id).join(',')})`
+      await prisma.$executeRawUnsafe(sql)
+    }
+
+    // 批量插入
+    if (insertData.length > 0) {
+      await prisma.student.createMany({ data: insertData })
+    }
   }
 
   return { ok: true, synced: totalSynced }
