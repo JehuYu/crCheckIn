@@ -27,8 +27,17 @@ export async function registerPlugins(app) {
   await app.register(fastifyStatic, {
     root: join(__dirname, '../../uploads'),
     prefix: '/uploads/',
+    decorateReply: false,
   })
   await app.register(dbPlugin)
   await app.register(sessionPlugin)
   await app.register(viewPlugin)
+
+  // /uploads/ 访问控制：需要教师登录
+  app.addHook('onRequest', async (request, reply) => {
+    if (!request.url.startsWith('/uploads/')) return
+    if (!request.session?.teacherId) {
+      return reply.code(401).send({ ok: false, message: '请先登录' })
+    }
+  })
 }

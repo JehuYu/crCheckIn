@@ -508,8 +508,6 @@ export async function matchStudents(query, limit = 15, classId = null) {
   }
 
   return results
-
-  return ranked
 }
 
 /**

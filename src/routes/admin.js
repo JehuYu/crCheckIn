@@ -9,10 +9,13 @@ import {
   deleteClassByAdmin,
   getAuditLogs,
   createAuditLog,
+  copyClassToPool,
 } from '../services/admin.js'
 import { adminRequired } from '../utils/auth.js'
 import { prisma } from '../plugins/db.js'
 import { randomBytes } from 'node:crypto'
+import bcrypt from 'bcrypt'
+import { addPresetTag, updatePresetTag, deletePresetTag } from '../services/tag.js'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -59,9 +62,8 @@ export default async function adminRoutes(app) {
   app.post('/admin/api/preset-tags', { preHandler: adminRequired }, async (request, reply) => {
     const { tag, color } = request.body ?? {}
     if (!tag || !tag.trim()) {
-      return reply.send({ ok: false, message: '标签名不能为空' })
+      return reply.code(400).send({ ok: false, message: '标签名不能为空' })
     }
-    const { addPresetTag } = await import('../services/tag.js')
     const result = await addPresetTag(tag.trim(), color)
     if (!result.ok) return reply.code(400).send(result)
     broadcastToAllTeachers('preset-tags-changed')
@@ -71,7 +73,6 @@ export default async function adminRoutes(app) {
   app.put('/admin/api/preset-tags/:id', { preHandler: adminRequired }, async (request, reply) => {
     const id = parseInt(request.params.id, 10)
     const { tag, color } = request.body ?? {}
-    const { updatePresetTag } = await import('../services/tag.js')
     const updateData = {}
     if (tag !== undefined) updateData.tag = tag.trim()
     if (color !== undefined) updateData.color = color
@@ -86,7 +87,6 @@ export default async function adminRoutes(app) {
 
   app.delete('/admin/api/preset-tags/:id', { preHandler: adminRequired }, async (request, reply) => {
     const id = parseInt(request.params.id, 10)
-    const { deletePresetTag } = await import('../services/tag.js')
     const result = await deletePresetTag(id)
     if (!result.ok) return reply.code(result.status || 400).send(result)
     broadcastToAllTeachers('preset-tags-changed')
@@ -117,7 +117,7 @@ export default async function adminRoutes(app) {
     const classId = parseInt(request.params.id, 10)
     const { name } = request.body ?? {}
     if (!name || !name.trim()) {
-      return reply.send({ ok: false, message: '班级名不能为空' })
+      return reply.code(400).send({ ok: false, message: '班级名不能为空' })
     }
     const cls = await prisma.class.findUnique({ where: { id: classId } })
     if (!cls) {
@@ -140,7 +140,6 @@ export default async function adminRoutes(app) {
   app.post('/admin/api/classes/:id/copy-to-pool', { preHandler: adminRequired }, async (request, reply) => {
     const classId = parseInt(request.params.id, 10)
     const ip = getClientIp(request)
-    const { copyClassToPool } = await import('../services/admin.js')
     const result = await copyClassToPool(classId, request.session.teacherId, ip)
     if (!result.ok) return reply.code(result.status || 400).send(result)
     return reply.send(result)
@@ -150,7 +149,7 @@ export default async function adminRoutes(app) {
     const classId = parseInt(request.params.id, 10)
     const { teacherId } = request.body ?? {}
     if (!teacherId) {
-      return reply.send({ ok: false, message: '请选择目标教师' })
+      return reply.code(400).send({ ok: false, message: '请选择目标教师' })
     }
     const ip = getClientIp(request)
     const result = await transferClass(classId, parseInt(teacherId, 10), request.session.teacherId, ip)
@@ -171,7 +170,7 @@ export default async function adminRoutes(app) {
   app.post('/admin/api/batch-reset-password', { preHandler: adminRequired }, async (request, reply) => {
     const { password: basePassword } = request.body ?? {}
     if (!basePassword || !basePassword.trim()) {
-      return reply.send({ ok: false, message: '密码不能为空' })
+      return reply.code(400).send({ ok: false, message: '密码不能为空' })
     }
 
     const teachers = await prisma.teacher.findMany({ where: { isAdmin: false } })
@@ -179,12 +178,10 @@ export default async function adminRoutes(app) {
       return reply.send({ ok: true, count: 0, message: '没有非管理员教师需要重置' })
     }
 
-    const bcrypt = await import('bcrypt')
-
     // Check password doesn't match any existing
     for (const t of teachers) {
       if (await bcrypt.compare(basePassword, t.passwordHash)) {
-        return reply.send({ ok: false, message: `新密码与教师「${t.username}」的当前密码相同` })
+        return reply.code(400).send({ ok: false, message: `新密码与教师「${t.username}」的当前密码相同` })
       }
     }
 
@@ -192,7 +189,7 @@ export default async function adminRoutes(app) {
     const adminTeachers = await prisma.teacher.findMany({ where: { isAdmin: true }, select: { passwordHash: true, username: true } })
     for (const t of adminTeachers) {
       if (await bcrypt.compare(basePassword, t.passwordHash)) {
-        return reply.send({ ok: false, message: `该密码与管理员「${t.username}」的密码相同` })
+        return reply.code(400).send({ ok: false, message: `该密码与管理员「${t.username}」的密码相同` })
       }
     }
 
@@ -222,7 +219,7 @@ export default async function adminRoutes(app) {
       ok: true,
       count: hashMap.length,
       message: `已重置 ${hashMap.length} 个教师的密码（每个唯一）`,
-      passwords: hashMap.map(h => ({ username: h.username, password: h.password })),
+      usernames: hashMap.map(h => h.username),
     })
   })
 
@@ -281,26 +278,26 @@ export default async function adminRoutes(app) {
   app.post('/admin/api/restore', { preHandler: adminRequired }, async (request, reply) => {
     const data = await request.file()
     if (!data) {
-      return reply.send({ ok: false, message: '请上传备份文件' })
+      return reply.code(400).send({ ok: false, message: '请上传备份文件' })
     }
 
     if (!data.mimetype.includes('sqlite') && !data.mimetype.includes('octet-stream') && data.mimetype !== '') {
-      return reply.send({ ok: false, message: '不支持的文件类型' })
+      return reply.code(400).send({ ok: false, message: '不支持的文件类型' })
     }
 
     const buffer = await data.toBuffer()
     const MAX_DB_SIZE = 100 * 1024 * 1024 // 100 MB
     if (buffer.length < 100) {
-      return reply.send({ ok: false, message: '备份文件无效（文件太小）' })
+      return reply.code(400).send({ ok: false, message: '备份文件无效（文件太小）' })
     }
     if (buffer.length > MAX_DB_SIZE) {
-      return reply.send({ ok: false, message: '备份文件过大（最大 100MB）' })
+      return reply.code(400).send({ ok: false, message: '备份文件过大（最大 100MB）' })
     }
 
     // Validate SQLite header
     const header = buffer.slice(0, 16).toString()
     if (!header.startsWith('SQLite format 3')) {
-      return reply.send({ ok: false, message: '不是有效的 SQLite 数据库文件' })
+      return reply.code(400).send({ ok: false, message: '不是有效的 SQLite 数据库文件' })
     }
 
     // Write to temp file first, validate, then swap
@@ -431,10 +428,10 @@ export default async function adminRoutes(app) {
       return reply.send({ ok: true })
     } catch (err) {
       if (err.code === 'USERNAME_TAKEN') {
-        return reply.send({ ok: false, message: '用户名已存在' })
+        return reply.code(409).send({ ok: false, message: '用户名已存在' })
       }
       if (err.code === 'PASSWORD_TOO_WEAK') {
-        return reply.send({ ok: false, message: err.message })
+        return reply.code(400).send({ ok: false, message: err.message })
       }
       throw err
     }
@@ -458,7 +455,7 @@ export default async function adminRoutes(app) {
       return reply.send(result)
     } catch (err) {
       if (err.code === 'PASSWORD_TOO_WEAK') {
-        return reply.send({ ok: false, message: err.message })
+        return reply.code(400).send({ ok: false, message: err.message })
       }
       throw err
     }

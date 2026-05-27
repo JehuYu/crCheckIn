@@ -112,6 +112,22 @@ export async function changePassword(teacherId, oldPassword, newPassword) {
 }
 
 /**
+ * 记录教师登录日志
+ * @param {number} teacherId
+ * @param {string} ip
+ * @param {boolean} success
+ */
+export async function recordLogin(teacherId, ip, success) {
+  try {
+    await prisma.loginLog.create({
+      data: { teacherId, ip, success },
+    })
+  } catch {
+    // 日志写入失败不应影响主流程
+  }
+}
+
+/**
  * 管理员重置教师密码（无需旧密码）。
  * @param {number} targetTeacherId
  * @param {string} newPassword

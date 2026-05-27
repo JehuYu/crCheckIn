@@ -38,13 +38,13 @@ export default async function poolRoutes(app) {
   app.post('/admin/api/pool/classes', { preHandler: adminRequired }, async (request, reply) => {
     const { name } = request.body ?? {}
     if (!name || !name.trim()) {
-      return reply.send({ ok: false, message: '班级名不能为空' })
+      return reply.code(400).send({ ok: false, message: '班级名不能为空' })
     }
     try {
       const cls = await createPoolClass(name.trim())
       return reply.send({ ok: true, class: { id: cls.id, name: cls.name } })
     } catch (err) {
-      return reply.send({ ok: false, message: '创建失败' })
+      return reply.code(500).send({ ok: false, message: '创建失败' })
     }
   })
 
@@ -89,7 +89,7 @@ export default async function poolRoutes(app) {
     const classId = parseInt(request.params.id, 10)
     const { teacherId } = request.body ?? {}
     if (!teacherId) {
-      return reply.send({ ok: false, message: '请选择目标教师' })
+      return reply.code(400).send({ ok: false, message: '请选择目标教师' })
     }
     const result = await claimPoolClass(classId, parseInt(teacherId, 10))
     return reply.send(result)
@@ -219,7 +219,7 @@ export default async function poolRoutes(app) {
     const classId = parseInt(request.params.id, 10)
     const cls = await prisma.class.findUnique({ where: { id: classId } })
     if (!cls || cls.teacherId !== null) {
-      return reply.send({ ok: false, message: '班级不存在或不属于班级池' })
+      return reply.code(404).send({ ok: false, message: '班级不存在或不属于班级池' })
     }
     const students = await prisma.student.findMany({
       where: { classId },

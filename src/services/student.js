@@ -1,4 +1,5 @@
 import { prisma } from '../plugins/db.js'
+import { assertClassOwner } from './class.js'
 
 function currentSignInRecordWhere(student) {
   return {
@@ -25,18 +26,6 @@ async function assertStudentOwner(studentId, teacherId, isAdmin = false) {
 }
 
 /**
- * 校验 classId 是否属于 teacherId 管辖
- */
-async function assertClassOwner(classId, teacherId, isAdmin = false) {
-  const cls = await prisma.class.findUnique({ where: { id: classId } })
-  if (!cls) return { ok: false, message: '班级不存在', status: 404 }
-  if (!isAdmin && cls.teacherId !== teacherId) {
-    return { ok: false, message: '无权限', status: 403 }
-  }
-  return { ok: true, class: cls }
-}
-
-/**
  * 创建学生
  * @param {number} classId
  * @param {string} name
@@ -46,8 +35,12 @@ async function assertClassOwner(classId, teacherId, isAdmin = false) {
  * @param {boolean} isAdmin
  */
 export async function createStudent(classId, name, homeClass = '', remark = '', teacherId, isAdmin = false) {
-  const check = await assertClassOwner(classId, teacherId, isAdmin)
-  if (!check.ok) return check
+  let cls
+  try {
+    cls = await assertClassOwner(classId, teacherId, isAdmin)
+  } catch (err) {
+    return { ok: false, message: err.message, status: err.statusCode || 500 }
+  }
 
   const trimmedName = name?.trim()
   if (!trimmedName) return { ok: false, message: '学生姓名不能为空', status: 400 }

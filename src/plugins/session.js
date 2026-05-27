@@ -22,7 +22,9 @@ async function sessionPlugin(app) {
     const origin = request.headers['origin']
     const referer = request.headers['referer']
     const host = request.headers['host']
-    if (!host) return // 跳过无 host 的请求
+    if (!host) {
+      return reply.code(403).send({ ok: false, message: 'CSRF 防护：缺少 Host 头' })
+    }
     if (origin) {
       try {
         const originHost = new URL(origin).host

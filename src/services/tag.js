@@ -13,6 +13,26 @@ const TAG_COLORS = [
 // 预设标签内存缓存（签到高频读取，写操作极少）
 let presetTagCache = null
 
+// 班级标签内存缓存（避免同一请求内重复查询）
+const classTagCache = new Map()
+let classTagCacheTimer = null
+
+function invalidateClassTagCache(classId) {
+  if (classId !== undefined) {
+    classTagCache.delete(classId)
+  } else {
+    classTagCache.clear()
+  }
+}
+
+function scheduleClassTagCacheFlush() {
+  if (classTagCacheTimer) return
+  classTagCacheTimer = setTimeout(() => {
+    classTagCacheTimer = null
+    classTagCache.clear()
+  }, 2000)
+}
+
 /**
  * 清除预设标签缓存（在增删改后调用）
  */
@@ -88,19 +108,23 @@ export async function deletePresetTag(tagId) {
   })
   await prisma.presetTag.delete({ where: { id: tagId } })
   invalidatePresetTagCache()
+  invalidateClassTagCache()
   return { ok: true }
 }
 
 /**
- * 获取班级所有学生的标签（批量）
+ * 获取班级所有学生的标签（批量，带缓存）
  */
 export async function getClassTags(classId) {
+  if (classTagCache.has(classId)) return classTagCache.get(classId)
   const tags = await prisma.studentTag.findMany({ where: { classId } })
   const map = new Map()
   for (const tag of tags) {
     if (!map.has(tag.studentId)) map.set(tag.studentId, [])
     map.get(tag.studentId).push({ id: tag.id, tag: tag.tag, color: tag.color })
   }
+  classTagCache.set(classId, map)
+  scheduleClassTagCacheFlush()
   return map
 }
 
@@ -122,6 +146,7 @@ export async function addStudentTag(classId, studentId, tagName, color) {
       color: color || TAG_COLORS[0],
     },
   })
+  invalidateClassTagCache(classId)
   return { ok: true, tag }
 }
 
@@ -140,6 +165,7 @@ export async function deleteStudentTag(classId, tagId, teacherId, isAdmin = fals
     return { ok: false, message: '无权限', status: 403 }
   }
   await prisma.studentTag.delete({ where: { id: tagId } })
+  invalidateClassTagCache(tag.classId)
   return { ok: true }
 }
 

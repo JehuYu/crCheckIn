@@ -7,6 +7,38 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads/photos')
 
+// 照片同步防抖：批量上传时延迟同步，避免 N+1 问题
+const _pendingSyncPoolClassIds = new Set()
+const _pendingSyncTeacherClassIds = new Set()
+let _syncTimer = null
+
+function _schedulePoolSync(classId) {
+  _pendingSyncPoolClassIds.add(classId)
+  _flushSyncTimer()
+}
+
+function _scheduleTeacherSync(classId) {
+  _pendingSyncTeacherClassIds.add(classId)
+  _flushSyncTimer()
+}
+
+function _flushSyncTimer() {
+  if (_syncTimer) return
+  _syncTimer = setTimeout(async () => {
+    _syncTimer = null
+    const poolIds = [..._pendingSyncPoolClassIds]
+    const teacherIds = [..._pendingSyncTeacherClassIds]
+    _pendingSyncPoolClassIds.clear()
+    _pendingSyncTeacherClassIds.clear()
+    for (const cid of poolIds) {
+      try { await syncPoolPhotosToTeacherClasses(cid) } catch {}
+    }
+    for (const cid of teacherIds) {
+      try { await syncTeacherPhotoToPool(cid) } catch {}
+    }
+  }, 500)
+}
+
 /**
  * 标准化姓名用于匹配：去除空白、全角转半角、去除标点等
  */
@@ -207,13 +239,16 @@ export async function syncPoolPhotosToTeacherClasses(poolClassId) {
 
     // 批量更新照片
     if (updatePhotoIds.length > 0) {
-      const sql = `UPDATE student SET photoUrl = CASE id ${updatePhotoIds.map(u => `WHEN ${u.id} THEN '${u.photoUrl.replace(/'/g, "''")}'`).join(' ')} END WHERE id IN (${updatePhotoIds.map(u => u.id).join(',')})`
-      await prisma.$executeRawUnsafe(sql)
+      for (const u of updatePhotoIds) {
+        await prisma.$executeRaw`UPDATE student SET photoUrl = ${u.photoUrl} WHERE id = ${u.id}`
+      }
     }
 
     // 批量清除照片
     if (clearPhotoIds.length > 0) {
-      await prisma.$executeRawUnsafe(`UPDATE student SET photoUrl = '' WHERE id IN (${clearPhotoIds.join(',')})`)
+      for (const id of clearPhotoIds) {
+        await prisma.$executeRaw`UPDATE student SET photoUrl = '' WHERE id = ${id}`
+      }
     }
 
     // 批量插入
@@ -265,8 +300,9 @@ export async function syncTeacherPhotoToPool(teacherClassId) {
   }
 
   if (updates.length > 0) {
-    const sql = `UPDATE student SET photoUrl = CASE id ${updates.map(u => `WHEN ${u.id} THEN '${u.photoUrl.replace(/'/g, "''")}'`).join(' ')} END WHERE id IN (${updates.map(u => u.id).join(',')})`
-    await prisma.$executeRawUnsafe(sql)
+    for (const u of updates) {
+      await prisma.$executeRaw`UPDATE student SET photoUrl = ${u.photoUrl} WHERE id = ${u.id}`
+    }
   }
 
   return { ok: true, synced: updates.length }
@@ -528,12 +564,12 @@ export async function uploadStudentPhoto(classId, studentId, fileBuffer, filenam
     data: { photoUrl: url },
   })
 
-  // 同步照片：班级池 → 教师班级，或教师班级 → 班级池
+  // 同步照片：班级池 → 教师班级，或教师班级 → 班级池（防抖）
   const cls = await prisma.class.findUnique({ where: { id: classId } })
   if (cls && cls.teacherId === null) {
-    await syncPoolPhotosToTeacherClasses(classId)
+    _schedulePoolSync(classId)
   } else if (cls && cls.teacherId !== null) {
-    await syncTeacherPhotoToPool(classId)
+    _scheduleTeacherSync(classId)
   }
 
   return { ok: true, url, message: '照片已上传' }
@@ -609,12 +645,11 @@ export async function bulkUploadPhotos(classId, files) {
     }
   }
 
-  // 批量更新数据库（单条 SQL，避免 SQLite 写锁竞争）
+  // 批量更新数据库
   if (dbUpdates.length > 0) {
-    const sql = `UPDATE student SET photoUrl = CASE id ${
-      dbUpdates.map(u => `WHEN ${u.studentId} THEN '${u.photoUrl.replace(/'/g, "''")}'`).join(' ')
-    } END WHERE id IN (${dbUpdates.map(u => u.studentId).join(',')})`
-    await prisma.$executeRawUnsafe(sql)
+    for (const u of dbUpdates) {
+      await prisma.$executeRaw`UPDATE student SET photoUrl = ${u.photoUrl} WHERE id = ${u.studentId}`
+    }
   }
 
   // 获取班级中没有照片的学生
@@ -623,9 +658,9 @@ export async function bulkUploadPhotos(classId, files) {
     select: { id: true, name: true, classId: true },
   })
 
-  // 同步照片到同名教师班级
+  // 同步照片到同名教师班级（防抖）
   if (matched.length > 0) {
-    await syncPoolPhotosToTeacherClasses(classId)
+    _schedulePoolSync(classId)
   }
 
   return { ok: true, matched: matched.length, unmatched, unmatchedStudents: studentsWithoutPhotos }
@@ -867,12 +902,11 @@ export async function batchUploadPoolPhotos(files) {
     }
   }
 
-  // 第 3 步：批量更新数据库（单条 SQL，避免 SQLite 写锁竞争）
+  // 第 3 步：批量更新数据库
   if (dbUpdates.length > 0) {
-    const sql = `UPDATE student SET photoUrl = CASE id ${
-      dbUpdates.map(u => `WHEN ${u.studentId} THEN '${u.photoUrl.replace(/'/g, "''")}'`).join(' ')
-    } END WHERE id IN (${dbUpdates.map(u => u.studentId).join(',')})`
-    await prisma.$executeRawUnsafe(sql)
+    for (const u of dbUpdates) {
+      await prisma.$executeRaw`UPDATE student SET photoUrl = ${u.photoUrl} WHERE id = ${u.studentId}`
+    }
   }
 
   // 获取班级池中所有没有照片的学生
@@ -888,7 +922,7 @@ export async function batchUploadPoolPhotos(files) {
       return null
     }).filter(Boolean))]
     for (const cid of affectedClassIds) {
-      await syncPoolPhotosToTeacherClasses(cid)
+      _schedulePoolSync(cid)
     }
   }
 

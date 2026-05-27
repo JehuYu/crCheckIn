@@ -2,6 +2,9 @@ import { getClasses } from '../services/class.js'
 import { teacherRequired, classOwnerRequired } from '../utils/auth.js'
 import { prisma } from '../plugins/db.js'
 import { getSessionDetailForTeacher, getSessionRosterForTeacher } from '../services/attendance.js'
+import { getPoolClasses, uploadStudentPhoto, deleteStudentPhoto } from '../services/pool.js'
+import { getSeatGrids, getSeatGridsFromArchivedRecords, getSeatGridsWithTags } from '../services/seat.js'
+import { getClassTags } from '../services/tag.js'
 
 // Set cache-control headers on all teacher-rendered pages
 function noCache(reply) {
@@ -41,7 +44,6 @@ export default async function teacherRoutes(app) {
     const maxStudentCount = Math.max(...classes.map(c => c.studentCount), 1)
 
     // Fetch pool classes for claim UI
-    const { getPoolClasses } = await import('../services/pool.js')
     const poolClasses = await getPoolClasses({ teacherId })
 
     noCache(reply)
@@ -57,6 +59,7 @@ export default async function teacherRoutes(app) {
 
   app.get('/teacher/classes/:classId', { preHandler: classOwnerRequired }, async (request, reply) => {
     const cls = await prisma.class.findUnique({ where: { id: request.classId } })
+    if (!cls) return reply.code(404).send({ ok: false, message: '班级不存在' })
     noCache(reply)
     return reply.view('teacher/class.html', { cls, teacherId: request.session.teacherId, isAdmin: request.session.isAdmin === true, sseUrl: `/api/sse` })
   })
@@ -70,7 +73,6 @@ export default async function teacherRoutes(app) {
   // 座位预览页（默认教师视角，支持前端切换）
   app.get('/teacher/classes/:classId/seats', { preHandler: classOwnerRequired }, async (request, reply) => {
     const cls = await prisma.class.findUnique({ where: { id: request.classId } })
-    const { getSeatGrids, getSeatGridsFromArchivedRecords } = await import('../services/seat.js')
     const { studentGrid, teacherGrid } = await getSeatGrids(request.classId)
     const signedCount = teacherGrid.flat().reduce((acc, cell) => acc + cell.students.length, 0)
 
@@ -130,7 +132,6 @@ export default async function teacherRoutes(app) {
     }
 
     const session = result.session
-    const { getSeatGridsWithTags } = await import('../services/seat.js')
     const { studentGrid, teacherGrid } = await getSeatGridsWithTags(session.records ?? [], session.classId)
     const signedCount = teacherGrid.flat().reduce((acc, cell) => acc + cell.students.length, 0)
 
@@ -191,7 +192,6 @@ export default async function teacherRoutes(app) {
     const classId = request.classId
     const teacherId = request.session.teacherId
     const isAdmin = request.session.isAdmin === true
-    const { getClassTags } = await import('../services/tag.js')
     const [cls, students, allClasses, tagMap] = await Promise.all([
       prisma.class.findUnique({ where: { id: classId } }),
       prisma.student.findMany({ where: { classId }, orderBy: [{ homeClass: 'asc' }, { name: 'asc' }] }),
@@ -223,7 +223,6 @@ export default async function teacherRoutes(app) {
         }
       }
       if (!fileBuffer) return reply.code(400).send({ ok: false, message: '请上传图片' })
-      const { uploadStudentPhoto } = await import('../services/pool.js')
       const result = await uploadStudentPhoto(classId, studentId, fileBuffer, filename)
       return reply.send(result)
     } catch (err) {
@@ -235,7 +234,6 @@ export default async function teacherRoutes(app) {
   app.delete('/api/classes/:classId/students/:studentId/photo', { preHandler: classOwnerRequired }, async (request, reply) => {
     const classId = request.classId
     const studentId = parseInt(request.params.studentId, 10)
-    const { deleteStudentPhoto } = await import('../services/pool.js')
     const result = await deleteStudentPhoto(studentId, classId)
     return reply.send(result)
   })

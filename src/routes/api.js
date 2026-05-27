@@ -26,8 +26,8 @@ import {
   exportSessionSeatTableToExcel,
 } from '../services/roster.js'
 import { createClass, deleteClass, archiveClass, unarchiveClass, reorderClasses } from '../services/class.js'
-import { changePassword, verifyTeacherByPassword } from '../services/auth.js'
-import { getSeatGrid, getSeatGridTeacher, getSeatGrids } from '../services/seat.js'
+import { changePassword, verifyTeacherByPassword, recordLogin } from '../services/auth.js'
+import { getSeatGrid, getSeatGridTeacher, getSeatGrids, getSeatGridsFromArchivedRecords } from '../services/seat.js'
 import { createStudent, updateStudent, deleteStudent, transferStudent } from '../services/student.js'
 import {
   getInfoCollection,
@@ -41,6 +41,7 @@ import {
   deleteSubmission,
   getSubmissionsStats,
   uploadAttachment,
+  exportInfoSubmissionsToExcel,
 } from '../services/infoCollection.js'
 import {
   getClassTags,
@@ -48,7 +49,7 @@ import {
   deleteStudentTag,
   getPresetTags,
 } from '../services/tag.js'
-import { registerSSE, broadcastToClass } from '../services/sse.js'
+import { registerSSE, broadcastToClass, invalidateClassTeacherCache } from '../services/sse.js'
 
 /**
  * 格式化当前时间为 YYYYMMDD_HHmmss
@@ -250,9 +251,14 @@ export default async function apiRoutes(fastify) {
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
   }, async (request, reply) => {
     const { password } = request.body ?? {}
+    const ip = request.headers['x-forwarded-for']?.split(',')[0]?.trim() || request.ip || 'unknown'
     const result = await verifyTeacherByPassword(password)
-    if (!result.ok) return reply.send({ ok: false, message: result.message })
+    if (!result.ok) {
+      await recordLogin(0, ip, false)
+      return reply.code(401).send({ ok: false, message: result.message })
+    }
 
+    await recordLogin(result.teacher.id, ip, true)
     request.session.teacherId = result.teacher.id
     request.session.isAdmin = result.teacher.isAdmin
     return reply.send({
@@ -271,12 +277,12 @@ export default async function apiRoutes(fastify) {
 
   // DELETE /api/classes/:classId — 需要 classOwnerRequired
   fastify.delete('/api/classes/:classId', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.params.classId, 10)
+    const classId = request.classId
     const teacherId = request.session.teacherId
     const isAdmin = request.session.isAdmin === true
 
     const cls = await prisma.class.findUnique({ where: { id: classId } })
-    if (!cls) return reply.send({ ok: false, message: '班级不存在' })
+    if (!cls) return reply.code(404).send({ ok: false, message: '班级不存在' })
 
     // 所有教师班级删除时都回归班级池
     await prisma.$transaction(async (tx) => {
@@ -286,14 +292,13 @@ export default async function apiRoutes(fastify) {
       await tx.student.deleteMany({ where: { classId } })
       await tx.class.update({ where: { id: classId }, data: { teacherId: null } })
     })
-    const { invalidateClassTeacherCache } = await import('./sse.js')
     invalidateClassTeacherCache(classId)
     return reply.send({ ok: true, message: `「${cls.name}」已归还班级池` })
   })
 
   // POST /api/classes/:classId/archive — 归档班级，需要 classOwnerRequired
   fastify.post('/api/classes/:classId/archive', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.params.classId, 10)
+    const classId = request.classId
     const teacherId = request.session.teacherId
     const isAdmin = request.session.isAdmin === true
     const result = await archiveClass(classId, teacherId, isAdmin)
@@ -302,7 +307,7 @@ export default async function apiRoutes(fastify) {
 
   // POST /api/classes/:classId/unarchive — 恢复班级，需要 classOwnerRequired
   fastify.post('/api/classes/:classId/unarchive', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const classId = parseInt(request.params.classId, 10)
+    const classId = request.classId
     const teacherId = request.session.teacherId
     const isAdmin = request.session.isAdmin === true
     const result = await unarchiveClass(classId, teacherId, isAdmin)
@@ -313,7 +318,7 @@ export default async function apiRoutes(fastify) {
   fastify.put('/api/classes/reorder', { preHandler: teacherRequired }, async (request, reply) => {
     const { classIds } = request.body ?? {}
     if (!Array.isArray(classIds) || classIds.length === 0) {
-      return reply.send({ ok: false, message: '参数错误' })
+      return reply.code(400).send({ ok: false, message: '参数错误' })
     }
     await reorderClasses(request.session.teacherId, classIds.map(Number))
     return reply.send({ ok: true })
@@ -388,7 +393,6 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/stats/export — 导出出勤统计 Excel，需要 classOwnerRequired
   fastify.get('/api/stats/export', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const { prisma } = await import('../plugins/db.js')
     const cls = await prisma.class.findUnique({ where: { id: request.classId } })
     const stats = await getAttendanceStats(request.classId)
     const buffer = await exportStatsToExcel(stats, cls)
@@ -428,9 +432,6 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/seat-grid/previous — 上一批次座位表数据，需要 classOwnerRequired
   fastify.get('/api/seat-grid/previous', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const { prisma } = await import('../plugins/db.js')
-    const { getSeatGridsFromArchivedRecords } = await import('../services/seat.js')
-
     // 找最近一次归档的批次
     const lastSession = await prisma.signInSession.findFirst({
       where: { classId: request.classId },
@@ -438,7 +439,7 @@ export default async function apiRoutes(fastify) {
       include: { records: { orderBy: { signedAt: 'asc' } } },
     })
     if (!lastSession) {
-      return reply.send({ ok: false, message: '暂无历史批次' })
+      return reply.code(404).send({ ok: false, message: '暂无历史批次' })
     }
 
     const records = lastSession.records.map(r => ({
@@ -532,7 +533,6 @@ export default async function apiRoutes(fastify) {
     const { name, type, required } = request.body
     const classId = request.classId
 
-    const { prisma } = await import('../plugins/db.js')
     // Get or create collection
     let collection = await prisma.infoCollection.findUnique({ where: { classId } })
     if (!collection) {
@@ -559,7 +559,6 @@ export default async function apiRoutes(fastify) {
     const { name, required } = request.body
     const classId = request.classId
 
-    const { prisma } = await import('../plugins/db.js')
     // Verify field belongs to this class
     const field = await prisma.infoField.findUnique({
       where: { id: fieldId },
@@ -582,7 +581,6 @@ export default async function apiRoutes(fastify) {
     const fieldId = parseInt(request.params.fieldId, 10)
     const classId = request.classId
 
-    const { prisma } = await import('../plugins/db.js')
     // Verify field belongs to this class
     const field = await prisma.infoField.findUnique({
       where: { id: fieldId },
@@ -674,7 +672,6 @@ export default async function apiRoutes(fastify) {
 
   // GET /api/info-export — 导出信息收集数据，需要 classOwnerRequired
   fastify.get('/api/info-export', { preHandler: classOwnerRequired }, async (request, reply) => {
-    const { exportInfoSubmissionsToExcel } = await import('../services/infoCollection.js')
     const buffer = await exportInfoSubmissionsToExcel(request.classId)
     const filename = `info_collection_${nowTimestamp()}.xlsx`
     reply

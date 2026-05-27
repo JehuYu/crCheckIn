@@ -55,12 +55,13 @@ describe('API routes integration', () => {
       assert.equal(response.headers.location, '/student')
     })
 
-    it('/admin returns 401 when not authenticated', async () => {
+    it('/admin redirects when not authenticated', async () => {
       const response = await app.inject({
         method: 'GET',
         url: '/admin',
       })
-      assert.equal(response.statusCode, 401)
+      assert.equal(response.statusCode, 302)
+      assert.equal(response.headers.location, '/student')
     })
   })
 
