@@ -112,32 +112,34 @@ body {
   display: flex;
   align-items: center;
   gap: 20px;
+  min-height: 72px;
+  box-sizing: border-box;
 }
 
 .banner-left { flex-shrink: 0; }
 
 .banner-nav {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   margin-left: auto;
 }
 
 .banner-nav-link {
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 500;
   color: #a09d96;
-  background: none;
-  border: none;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
   cursor: pointer;
   text-decoration: none;
   transition: all .15s;
   white-space: nowrap;
 }
 
-.banner-nav-link:hover { background: rgba(255,255,255,.08); color: var(--on-dark); }
-.banner-nav-link.active { background: rgba(255,255,255,.1); color: #fff; }
+.banner-nav-link:hover { background: rgba(255,255,255,.1); color: var(--on-dark); border-color: rgba(255,255,255,.12); }
+.banner-nav-link.active { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.18); font-weight: 600; }
 
 .banner-right {
   display: flex;

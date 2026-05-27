@@ -443,6 +443,8 @@ export async function matchStudents(query, limit = 15, classId = null) {
 
   const isPureChinese = /^[一-鿿]+$/.test(keyword)
 
+  let results = []
+
   if (isPureChinese) {
     // 纯中文：用 Prisma contains 预过滤，数据库层面缩小范围
     const students = await prisma.student.findMany({
@@ -454,7 +456,7 @@ export async function matchStudents(query, limit = 15, classId = null) {
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       take: limit,
     })
-    return students.map((s) => ({
+    results = students.map((s) => ({
       studentId: s.id,
       studentName: s.name,
       homeClass: s.homeClass,
@@ -462,37 +464,50 @@ export async function matchStudents(query, limit = 15, classId = null) {
       className: s.class.name,
       remark: s.remark || '',
     }))
+  } else {
+    // 含字母/拼音：限制加载量，避免全表扫描
+    const where = classId ? { classId } : {}
+    // 取前 200 名（按名称排序），limit=15 的输出上限意味着 200 足够覆盖
+    const allStudents = await prisma.student.findMany({
+      where,
+      include: { class: true },
+      orderBy: { name: 'asc' },
+      take: 200,
+    })
+
+    // 过滤 + 排序：前缀匹配优先，其次子串匹配
+    const matched = allStudents.filter(s => matchesPinyin(s.name, keyword))
+
+    const ranked = matched.map(s => {
+      const { full, initials } = nameToPinyin(s.name)
+      const q = keyword.toLowerCase()
+      const isPrefix = s.name.startsWith(keyword) || full.startsWith(q) || initials.startsWith(q)
+      return { isPrefix, student: s }
+    }).sort((a, b) => {
+      if (a.isPrefix !== b.isPrefix) return a.isPrefix ? -1 : 1
+      return a.student.name.localeCompare(b.student.name, 'zh')
+    }).slice(0, limit).map(r => ({
+      studentId: r.student.id,
+      studentName: r.student.name,
+      homeClass: r.student.homeClass,
+      classId: r.student.classId,
+      className: r.student.class.name,
+      remark: r.student.remark || '',
+    }))
+    results = ranked
   }
 
-  // 含字母/拼音：限制加载量，避免全表扫描
-  const where = classId ? { classId } : {}
-  // 取前 200 名（按名称排序），limit=15 的输出上限意味着 200 足够覆盖
-  const allStudents = await prisma.student.findMany({
-    where,
-    include: { class: true },
-    orderBy: { name: 'asc' },
-    take: 200,
-  })
+  // 跨班级搜索时按姓名去重，只保留每姓名的第一个结果
+  if (!classId) {
+    const seen = new Set()
+    results = results.filter(s => {
+      if (seen.has(s.studentName)) return false
+      seen.add(s.studentName)
+      return true
+    })
+  }
 
-  // 过滤 + 排序：前缀匹配优先，其次子串匹配
-  const matched = allStudents.filter(s => matchesPinyin(s.name, keyword))
-
-  const ranked = matched.map(s => {
-    const { full, initials } = nameToPinyin(s.name)
-    const q = keyword.toLowerCase()
-    const isPrefix = s.name.startsWith(keyword) || full.startsWith(q) || initials.startsWith(q)
-    return { isPrefix, student: s }
-  }).sort((a, b) => {
-    if (a.isPrefix !== b.isPrefix) return a.isPrefix ? -1 : 1
-    return a.student.name.localeCompare(b.student.name, 'zh')
-  }).slice(0, limit).map(r => ({
-    studentId: r.student.id,
-    studentName: r.student.name,
-    homeClass: r.student.homeClass,
-    classId: r.student.classId,
-    className: r.student.class.name,
-    remark: r.student.remark || '',
-  }))
+  return results
 
   return ranked
 }
