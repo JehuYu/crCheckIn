@@ -140,7 +140,10 @@ export default async function poolRoutes(app) {
 
   // === API: 批量上传照片 ===
 
-  app.post('/admin/api/pool/classes/:id/photos/bulk', { preHandler: adminRequired }, async (request, reply) => {
+  app.post('/admin/api/pool/classes/:id/photos/bulk', {
+    preHandler: adminRequired,
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
     const classId = parseInt(request.params.id, 10)
     try {
       const files = []
@@ -180,7 +183,10 @@ export default async function poolRoutes(app) {
 
   // === API: 批量上传照片到班级池 ===
 
-  app.post('/admin/api/pool/batch-photos', { preHandler: adminRequired }, async (request, reply) => {
+  app.post('/admin/api/pool/batch-photos', {
+    preHandler: adminRequired,
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } }, // 限制批量上传频率
+  }, async (request, reply) => {
     try {
       const files = []
       for await (const part of request.parts()) {

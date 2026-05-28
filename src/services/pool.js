@@ -262,18 +262,22 @@ export async function syncPoolPhotosToTeacherClasses(poolClassId) {
       }
     }
 
-    // 批量更新照片
+    // 批量更新照片（使用 Prisma transaction 批量执行）
     if (updatePhotoIds.length > 0) {
-      for (const u of updatePhotoIds) {
-        await prisma.$executeRaw`UPDATE student SET photoUrl = ${u.photoUrl} WHERE id = ${u.id}`
-      }
+      await prisma.$transaction(
+        updatePhotoIds.map(u =>
+          prisma.student.update({ where: { id: u.id }, data: { photoUrl: u.photoUrl } })
+        )
+      )
     }
 
     // 批量清除照片
     if (clearPhotoIds.length > 0) {
-      for (const id of clearPhotoIds) {
-        await prisma.$executeRaw`UPDATE student SET photoUrl = '' WHERE id = ${id}`
-      }
+      await prisma.$transaction(
+        clearPhotoIds.map(id =>
+          prisma.student.update({ where: { id }, data: { photoUrl: '' } })
+        )
+      )
     }
 
     // 批量插入
@@ -325,9 +329,11 @@ export async function syncTeacherPhotoToPool(teacherClassId) {
   }
 
   if (updates.length > 0) {
-    for (const u of updates) {
-      await prisma.$executeRaw`UPDATE student SET photoUrl = ${u.photoUrl} WHERE id = ${u.id}`
-    }
+    await prisma.$transaction(
+      updates.map(u =>
+        prisma.student.update({ where: { id: u.id }, data: { photoUrl: u.photoUrl } })
+      )
+    )
   }
 
   return { ok: true, synced: updates.length }
@@ -412,28 +418,30 @@ export async function claimPoolClass(classId, teacherId) {
     const existingMap = new Map(existingStudents.map(s => [normalizeName(s.name), s]))
 
     let mergedCount = 0
+    const claimUpdates = []
+    const claimInserts = []
     for (const ps of poolStudents) {
       if (!ps.photoUrl) continue
       const es = existingMap.get(normalizeName(ps.name))
       if (es) {
         if (!es.photoUrl) {
-          await prisma.student.update({
-            where: { id: es.id },
-            data: { photoUrl: ps.photoUrl },
-          })
+          claimUpdates.push(prisma.student.update({ where: { id: es.id }, data: { photoUrl: ps.photoUrl } }))
           mergedCount++
         }
       } else {
-        await prisma.student.create({
-          data: {
-            name: ps.name,
-            homeClass: ps.homeClass,
-            photoUrl: ps.photoUrl,
-            classId: existing.id,
-          },
-        })
+        claimInserts.push({ name: ps.name, homeClass: ps.homeClass, photoUrl: ps.photoUrl, classId: existing.id })
         mergedCount++
       }
+    }
+    // 批量执行更新和插入
+    if (claimUpdates.length > 0) {
+      const BATCH = 100
+      for (let i = 0; i < claimUpdates.length; i += BATCH) {
+        await prisma.$transaction(claimUpdates.slice(i, i + BATCH))
+      }
+    }
+    if (claimInserts.length > 0) {
+      await prisma.student.createMany({ data: claimInserts })
     }
 
     return { ok: true, message: `已将 ${mergedCount} 名学生的照片同步到「${cls.name}」` }
@@ -664,8 +672,8 @@ export async function bulkUploadPhotos(classId, files) {
     dbUpdates.push({ studentId: student.id, photoUrl: url })
   }
 
-  // 分批写文件
-  const BATCH_SIZE = 20
+  // 分批写文件（增大批次提升并行度，ext4/NTFS 可承受 50 并发写入）
+  const BATCH_SIZE = 50
   if (writeTasks.length > 0) {
     for (let i = 0; i < writeTasks.length; i += BATCH_SIZE) {
       const batch = writeTasks.slice(i, i + BATCH_SIZE)
@@ -673,18 +681,20 @@ export async function bulkUploadPhotos(classId, files) {
     }
   }
 
-  // 批量更新数据库（使用写入队列序列化）
+  // 批量更新数据库（分批事务，每批 100 条，绕过写入队列避免串行瓶颈）
   if (dbUpdates.length > 0) {
-    await _enqueueWrite(() =>
-      prisma.$transaction(
-        dbUpdates.map(u =>
+    const DB_BATCH = 100
+    for (let i = 0; i < dbUpdates.length; i += DB_BATCH) {
+      const batch = dbUpdates.slice(i, i + DB_BATCH)
+      await prisma.$transaction(
+        batch.map(u =>
           prisma.student.update({
             where: { id: u.studentId },
             data: { photoUrl: u.photoUrl },
           })
         )
       )
-    )
+    }
   }
 
   // 获取班级中没有照片的学生
@@ -935,7 +945,7 @@ export async function batchUploadPoolPhotos(files) {
   }
 
   // 第 2 步：分批并行写文件（避免 EMFILE）
-  const BATCH_SIZE = 20
+  const BATCH_SIZE = 50
   if (writeTasks.length > 0) {
     for (let i = 0; i < writeTasks.length; i += BATCH_SIZE) {
       const batch = writeTasks.slice(i, i + BATCH_SIZE)
@@ -943,10 +953,19 @@ export async function batchUploadPoolPhotos(files) {
     }
   }
 
-  // 第 3 步：批量更新数据库
+  // 第 3 步：批量更新数据库（分批事务，每批 100 条，避免超长 SQL）
   if (dbUpdates.length > 0) {
-    for (const u of dbUpdates) {
-      await prisma.$executeRaw`UPDATE student SET photoUrl = ${u.photoUrl} WHERE id = ${u.studentId}`
+    const DB_BATCH = 100
+    for (let i = 0; i < dbUpdates.length; i += DB_BATCH) {
+      const batch = dbUpdates.slice(i, i + DB_BATCH)
+      await prisma.$transaction(
+        batch.map(u =>
+          prisma.student.update({
+            where: { id: u.studentId },
+            data: { photoUrl: u.photoUrl },
+          })
+        )
+      )
     }
   }
 

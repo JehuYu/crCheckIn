@@ -274,6 +274,10 @@ describe('admin service', () => {
     const { getCrossClassAnalytics } = await import('./admin.js')
 
     it('returns aggregated statistics', async () => {
+      const beforeStats = await getCrossClassAnalytics()
+      const beforeTeacherCount = beforeStats.summary.teacherCount
+      const beforeClassCount = beforeStats.summary.classCount
+
       const admin = await factories.createTeacher({ isAdmin: true })
       const teacher = await factories.createTeacher()
       const cls = await factories.createClass({ teacherId: teacher.id })
@@ -281,8 +285,8 @@ describe('admin service', () => {
 
       const stats = await getCrossClassAnalytics()
 
-      assert.equal(stats.summary.teacherCount, 2) // admin + teacher
-      assert.equal(stats.summary.classCount, 1)
+      assert.equal(stats.summary.teacherCount, beforeTeacherCount + 2) // admin + teacher
+      assert.equal(stats.summary.classCount, beforeClassCount + 1)
     })
   })
 
