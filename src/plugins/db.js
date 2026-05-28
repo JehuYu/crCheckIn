@@ -20,6 +20,10 @@ prisma.$on('error', (e) => {
 async function dbPlugin(app) {
   app.decorate('prisma', prisma)
 
+  // 启用 WAL 模式提升并发读写性能
+  await prisma.$queryRawUnsafe('PRAGMA journal_mode=WAL')
+  await prisma.$queryRawUnsafe('PRAGMA busy_timeout=5000')
+
   app.addHook('onClose', async () => {
     await prisma.$disconnect()
   })

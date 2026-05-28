@@ -39,6 +39,31 @@ function _flushSyncTimer() {
   }, 500)
 }
 
+// 数据库写入队列：序列化并发写入，避免 SQLite 锁竞争导致超时
+const _writeQueue = []
+let _writeProcessing = false
+
+async function _enqueueWrite(fn) {
+  return new Promise((resolve, reject) => {
+    _writeQueue.push({ fn, resolve, reject })
+    _processWriteQueue()
+  })
+}
+
+async function _processWriteQueue() {
+  if (_writeProcessing) return
+  _writeProcessing = true
+  while (_writeQueue.length > 0) {
+    const { fn, resolve, reject } = _writeQueue.shift()
+    try {
+      resolve(await fn())
+    } catch (err) {
+      reject(err)
+    }
+  }
+  _writeProcessing = false
+}
+
 /**
  * 标准化姓名用于匹配：去除空白、全角转半角、去除标点等
  */
@@ -559,10 +584,13 @@ export async function uploadStudentPhoto(classId, studentId, fileBuffer, filenam
     }
   }
 
-  await prisma.student.update({
-    where: { id: studentId },
-    data: { photoUrl: url },
-  })
+  // 使用写入队列序列化数据库更新，避免并发写入导致锁竞争
+  await _enqueueWrite(() =>
+    prisma.student.update({
+      where: { id: studentId },
+      data: { photoUrl: url },
+    })
+  )
 
   // 同步照片：班级池 → 教师班级，或教师班级 → 班级池（防抖）
   const cls = await prisma.class.findUnique({ where: { id: classId } })
@@ -645,11 +673,18 @@ export async function bulkUploadPhotos(classId, files) {
     }
   }
 
-  // 批量更新数据库
+  // 批量更新数据库（使用写入队列序列化）
   if (dbUpdates.length > 0) {
-    for (const u of dbUpdates) {
-      await prisma.$executeRaw`UPDATE student SET photoUrl = ${u.photoUrl} WHERE id = ${u.studentId}`
-    }
+    await _enqueueWrite(() =>
+      prisma.$transaction(
+        dbUpdates.map(u =>
+          prisma.student.update({
+            where: { id: u.studentId },
+            data: { photoUrl: u.photoUrl },
+          })
+        )
+      )
+    )
   }
 
   // 获取班级中没有照片的学生
@@ -684,10 +719,12 @@ export async function deleteStudentPhoto(studentId, classId) {
     }
   }
 
-  await prisma.student.update({
-    where: { id: studentId },
-    data: { photoUrl: '' },
-  })
+  await _enqueueWrite(() =>
+    prisma.student.update({
+      where: { id: studentId },
+      data: { photoUrl: '' },
+    })
+  )
 
   // 同步删除
   const cls = await prisma.class.findUnique({ where: { id: classId } })
@@ -703,7 +740,9 @@ export async function deleteStudentPhoto(studentId, classId) {
         select: { id: true },
       })
       if (poolStudent) {
-        await prisma.student.update({ where: { id: poolStudent.id }, data: { photoUrl: '' } })
+        await _enqueueWrite(() =>
+          prisma.student.update({ where: { id: poolStudent.id }, data: { photoUrl: '' } })
+        )
       }
     }
   } else if (cls && cls.teacherId === null) {
@@ -718,7 +757,9 @@ export async function deleteStudentPhoto(studentId, classId) {
         select: { id: true },
       })
       if (ts) {
-        await prisma.student.update({ where: { id: ts.id }, data: { photoUrl: '' } })
+        await _enqueueWrite(() =>
+          prisma.student.update({ where: { id: ts.id }, data: { photoUrl: '' } })
+        )
       }
     }
   }
