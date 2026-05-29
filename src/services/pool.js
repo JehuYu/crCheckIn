@@ -1123,18 +1123,25 @@ setInterval(() => {
 export async function uploadZipForMatching(zipBuffer) {
   const jobId = randomUUID()
   const tempDir = path.join(ZIP_UPLOAD_DIR, jobId)
+  const zipPath = path.join(tempDir, 'upload.zip')
   await fs.mkdir(tempDir, { recursive: true })
 
   try {
-    // 解压 ZIP 到临时目录
+    // 写入 ZIP 到临时文件
+    await fs.writeFile(zipPath, zipBuffer)
+
+    // 解压到临时目录
     await new Promise((resolve, reject) => {
-      unzipper.Open.buffer(zipBuffer)
-        .then(d => d.extract({ path: tempDir }).promise())
-        .then(resolve)
-        .catch(reject)
+      fsSync.createReadStream(zipPath)
+        .pipe(unzipper.Extract({ path: tempDir }))
+        .on('close', resolve)
+        .on('error', reject)
     })
 
-    // 解析文件夹结构：grade/school/class/*.jpg
+    // 删除 ZIP 文件
+    await fs.unlink(zipPath).catch(() => {})
+
+    // 解析文件夹结构
     const folderStructure = await parseZipFolderStructure(tempDir)
 
     // 创建任务
