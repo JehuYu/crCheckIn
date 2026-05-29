@@ -19,6 +19,10 @@ import {
   batchUploadPoolPhotos,
   getStudentsWithoutPhotos,
   resolvePhotoConflict,
+  uploadZipForMatching,
+  getZipMatchProgress,
+  startZipMatching,
+  cancelZipMatch,
 } from '../services/pool.js'
 
 export default async function poolRoutes(app) {
@@ -72,6 +76,23 @@ export default async function poolRoutes(app) {
     const classId = parseInt(request.params.id, 10)
     const result = await softDeletePoolClass(classId)
     return reply.send(result)
+  })
+
+  app.patch('/admin/api/pool/classes/:id', { preHandler: adminRequired }, async (request, reply) => {
+    const classId = parseInt(request.params.id, 10)
+    const { school } = request.body ?? {}
+    if (school === undefined) {
+      return reply.code(400).send({ ok: false, message: '请提供要更新的字段' })
+    }
+    const cls = await prisma.class.findUnique({ where: { id: classId } })
+    if (!cls || cls.teacherId !== null) {
+      return reply.code(404).send({ ok: false, message: '班级不存在或不属于班级池' })
+    }
+    await prisma.class.update({
+      where: { id: classId },
+      data: { school: school.trim() },
+    })
+    return reply.send({ ok: true, message: '学校已更新' })
   })
 
   app.post('/admin/api/pool/classes/:id/restore', { preHandler: adminRequired }, async (request, reply) => {
@@ -265,7 +286,7 @@ export default async function poolRoutes(app) {
       where: { classId },
       orderBy: [{ homeClass: 'asc' }, { name: 'asc' }],
     })
-    return reply.send({ ok: true, class: { id: cls.id, name: cls.name }, students })
+    return reply.send({ ok: true, class: { id: cls.id, name: cls.name, school: cls.school }, students })
   })
 
   // === API: 教师认领班级（教师端调用） ===
@@ -281,5 +302,49 @@ export default async function poolRoutes(app) {
   app.get('/api/pool/classes', { preHandler: teacherRequired }, async (request, reply) => {
     const classes = await getPoolClasses({ teacherId: request.session.teacherId })
     return reply.send({ ok: true, classes })
+  })
+
+  // === API: ZIP 照片匹配 ===
+
+  // 上传 ZIP 并解压
+  app.post('/admin/api/pool/zip-upload', {
+    preHandler: adminRequired,
+  }, async (request, reply) => {
+    try {
+      let fileBuffer = null
+      for await (const part of request.parts()) {
+        if (part.type === 'file') {
+          const buf = await part.toBuffer()
+          fileBuffer = buf
+        }
+      }
+      if (!fileBuffer) return reply.code(400).send({ ok: false, message: '请上传 ZIP 文件' })
+      const result = await uploadZipForMatching(fileBuffer)
+      return reply.send(result)
+    } catch (err) {
+      return reply.code(500).send({ ok: false, message: '上传失败：' + err.message })
+    }
+  })
+
+  // 获取匹配进度
+  app.get('/admin/api/pool/zip-progress/:jobId', { preHandler: adminRequired }, async (request, reply) => {
+    const jobId = request.params.jobId
+    const progress = getZipMatchProgress(jobId)
+    if (!progress) return reply.code(404).send({ ok: false, message: '任务不存在' })
+    return reply.send(progress)
+  })
+
+  // 启动匹配
+  app.post('/admin/api/pool/zip-match/:jobId', { preHandler: adminRequired }, async (request, reply) => {
+    const jobId = request.params.jobId
+    const result = await startZipMatching(jobId)
+    return reply.send(result)
+  })
+
+  // 取消匹配任务
+  app.delete('/admin/api/pool/zip-match/:jobId', { preHandler: adminRequired }, async (request, reply) => {
+    const jobId = request.params.jobId
+    const result = await cancelZipMatch(jobId)
+    return reply.send(result)
   })
 }

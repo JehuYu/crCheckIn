@@ -1,7 +1,10 @@
 import { prisma } from '../plugins/db.js'
 import ExcelJS from 'exceljs'
+import unzipper from 'unzipper'
+import { randomUUID } from 'node:crypto'
 import path from 'path'
 import fs from 'fs/promises'
+import fsSync from 'fs'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -116,6 +119,7 @@ export async function getPoolClasses(opts = {}) {
     return {
       id: c.id,
       name: c.name,
+      school: c.school,
       studentCount: c._count.students,
       semester: c.semester,
       isArchived: c.isArchived,
@@ -1084,4 +1088,352 @@ export async function resolvePhotoConflict({ studentId, classId, buffer, filenam
   _schedulePoolSync(classId)
 
   return { ok: true, studentName: student.name, className: student.class.name, url }
+}
+
+// ==========================================
+// ZIP 照片匹配服务
+// ==========================================
+
+const ZIP_UPLOAD_DIR = path.resolve(__dirname, '../../uploads/zip-uploads')
+const ZIP_JOBS = new Map()
+const ZIP_CLEANUP_INTERVAL_MS = 60_000 // 每 60 秒清理过期任务
+
+// 定期清理过期任务（完成后 5 分钟 或 创建后 30 分钟）
+setInterval(() => {
+  const now = Date.now()
+  for (const [jobId, job] of ZIP_JOBS) {
+    const shouldClean =
+      (job.status === 'completed' && now - job.completedAt > 300_000) ||
+      (job.status === 'failed' && now - job.createdAt > 300_000) ||
+      (now - job.createdAt > 1_800_000) // 30 分钟无论如何都清理
+    if (shouldClean) {
+      ZIP_JOBS.delete(jobId)
+      if (job.tempDir) {
+        fs.rm(job.tempDir, { recursive: true, force: true }).catch(() => {})
+      }
+    }
+  }
+}, ZIP_CLEANUP_INTERVAL_MS).unref()
+
+/**
+ * 上传 ZIP 文件并解压到临时目录，创建匹配任务
+ * @param {Buffer} zipBuffer - ZIP 文件缓冲
+ * @returns {Promise<{ok: boolean, jobId?: string, message?: string, folderStructure?: object[]}>}
+ */
+export async function uploadZipForMatching(zipBuffer) {
+  const jobId = randomUUID()
+  const tempDir = path.join(ZIP_UPLOAD_DIR, jobId)
+  await fs.mkdir(tempDir, { recursive: true })
+
+  try {
+    // 解压 ZIP 到临时目录
+    await new Promise((resolve, reject) => {
+      unzipper.Open.buffer(zipBuffer)
+        .then(d => d.extract({ path: tempDir }).promise())
+        .then(resolve)
+        .catch(reject)
+    })
+
+    // 解析文件夹结构：grade/school/class/*.jpg
+    const folderStructure = await parseZipFolderStructure(tempDir)
+
+    // 创建任务
+    const totalPhotos = folderStructure.reduce((sum, school) =>
+      sum + school.classes.reduce((s, c) => s + c.photoCount, 0), 0
+    )
+
+    ZIP_JOBS.set(jobId, {
+      id: jobId,
+      status: 'extracted',
+      tempDir,
+      folderStructure,
+      totalPhotos,
+      progress: 0,
+      matched: 0,
+      unmatched: [],
+      missingClasses: [],
+      createdAt: Date.now(),
+      completedAt: null,
+    })
+
+    return {
+      ok: true,
+      jobId,
+      folderStructure,
+      totalPhotos,
+    }
+  } catch (err) {
+    // 清理失败的任务
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
+    return { ok: false, message: 'ZIP 解压失败：' + err.message }
+  }
+}
+
+/**
+ * 解析 ZIP 解压后的文件夹结构
+ * 识别 grade/school/class/*.jpg 层级
+ */
+async function parseZipFolderStructure(tempDir) {
+  // 找到最外层文件夹（可能是年级名或直接是学校名）
+  const topEntries = await fs.readdir(tempDir)
+  let gradeDir = null
+  let schoolDirs = []
+
+  // 判断第一层是年级还是学校
+  // 如果只有一个子目录且它包含子目录（学校），则它是年级
+  if (topEntries.length === 1) {
+    const firstStat = await fs.stat(path.join(tempDir, topEntries[0]))
+    if (firstStat.isDirectory()) {
+      gradeDir = topEntries[0]
+      const subEntries = await fs.readdir(path.join(tempDir, gradeDir))
+      for (const entry of subEntries) {
+        const entryPath = path.join(tempDir, gradeDir, entry)
+        const entryStat = await fs.stat(entryPath)
+        if (entryStat.isDirectory()) schoolDirs.push(entry)
+      }
+    } else {
+      // 第一层是文件，跳过
+    }
+  } else {
+    // 多条目，直接当学校
+    for (const entry of topEntries) {
+      const entryPath = path.join(tempDir, entry)
+      const entryStat = await fs.stat(entryPath)
+      if (entryStat.isDirectory()) schoolDirs.push(entry)
+    }
+  }
+
+  const grade = gradeDir || ''
+  const schools = []
+
+  for (const school of schoolDirs) {
+    const schoolPath = gradeDir
+      ? path.join(tempDir, gradeDir, school)
+      : path.join(tempDir, school)
+
+    const classEntries = await fs.readdir(schoolPath)
+    const classes = []
+
+    for (const classEntry of classEntries) {
+      const classPath = path.join(schoolPath, classEntry)
+      const classStat = await fs.stat(classPath)
+      if (!classStat.isDirectory()) continue
+
+      const photoFiles = []
+      const entries = await fs.readdir(classPath)
+      for (const entry of entries) {
+        const ext = path.extname(entry).toLowerCase()
+        if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
+          photoFiles.push({
+            filename: entry,
+            nameKey: normalizeName(path.basename(entry, ext)),
+            filePath: path.join(classPath, entry),
+          })
+        }
+      }
+
+      classes.push({
+        className: classEntry,
+        photoCount: photoFiles.length,
+        photos: photoFiles,
+      })
+    }
+
+    if (classes.length > 0) {
+      schools.push({ schoolName: school, classes })
+    }
+  }
+
+  return { grade, schools }
+}
+
+/**
+ * 获取匹配任务进度
+ */
+export function getZipMatchProgress(jobId) {
+  const job = ZIP_JOBS.get(jobId)
+  if (!job) return null
+
+  return {
+    ok: true,
+    jobId: job.id,
+    status: job.status,
+    totalPhotos: job.totalPhotos,
+    progress: job.progress,
+    matched: job.matched,
+    unmatched: job.unmatched,
+    missingClasses: job.missingClasses,
+    conflicts: job.conflicts || [],
+    percent: job.totalPhotos ? Math.round((job.progress / job.totalPhotos) * 100) : 0,
+  }
+}
+
+/**
+ * 启动 ZIP 照片匹配
+ * @param {string} jobId - 匹配任务 ID
+ */
+export async function startZipMatching(jobId) {
+  const job = ZIP_JOBS.get(jobId)
+  if (!job) return { ok: false, message: '任务不存在' }
+  if (job.status !== 'extracted') return { ok: false, message: '任务状态不正确' }
+
+  job.status = 'matching'
+  job.matched = 0
+  job.unmatched = []
+  job.missingClasses = []
+  job.conflicts = []
+
+  // 加载所有池班级（含 school 字段）
+  const poolClasses = await prisma.class.findMany({
+    where: { teacherId: null, deletedAt: null },
+    include: { students: true },
+  })
+
+  // 构建 school + className -> { classId, students: Map<nameKey, student> }
+  const classMap = new Map()
+  for (const cls of poolClasses) {
+    const key = `${cls.school}|||${cls.name}`
+    const studentMap = new Map()
+    for (const s of cls.students) {
+      studentMap.set(normalizeName(s.name), s)
+    }
+    classMap.set(key, { classId: cls.id, className: cls.name, school: cls.school, students: studentMap })
+  }
+
+  const now = new Date()
+  const year = String(now.getFullYear())
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const yearDir = path.join(UPLOAD_DIR, year)
+  const monthDir = path.join(yearDir, month)
+  await fs.mkdir(monthDir, { recursive: true })
+
+  // 扫描已有文件
+  const existingFiles = new Set()
+  try {
+    const entries = await fs.readdir(monthDir)
+    for (const entry of entries) existingFiles.add(entry)
+  } catch { /* ignore */ }
+
+  const writeTasks = []
+  const dbUpdates = []
+  const affectedClassIds = new Set()
+
+  // 遍历学校 -> 班级 -> 照片
+  for (const school of job.folderStructure.schools) {
+    for (const cls of school.classes) {
+      // 匹配池班级：优先精确 school+name 匹配，其次仅 name 匹配
+      const exactKey = `${school.schoolName}|||${cls.className}`
+      let poolClass = classMap.get(exactKey)
+      if (!poolClass) {
+        // 回退：仅按班级名匹配
+        for (const [key, pc] of classMap) {
+          if (pc.className === cls.className) {
+            poolClass = pc
+            break
+          }
+        }
+      }
+
+      if (!poolClass) {
+        job.missingClasses.push({
+          school: school.schoolName,
+          className: cls.className,
+          photoCount: cls.photoCount,
+        })
+        job.progress += cls.photoCount
+        continue
+      }
+
+      for (const photo of cls.photos) {
+        const student = poolClass.students.get(photo.nameKey)
+        if (!student) {
+          job.unmatched.push({
+            filename: photo.filename,
+            school: school.schoolName,
+            className: cls.className,
+            studentName: photo.nameKey,
+          })
+          job.progress++
+          continue
+        }
+
+        // 确定文件名
+        const ext = path.extname(photo.filename).toLowerCase()
+        const baseName = path.basename(photo.filename, ext)
+        let safeFilename = `${baseName}${ext}`
+        let counter = 1
+        while (existingFiles.has(safeFilename)) {
+          safeFilename = `${baseName}_${counter}${ext}`
+          counter++
+        }
+        existingFiles.add(safeFilename)
+
+        const url = `/uploads/photos/${year}/${month}/${safeFilename}`
+        const filePath = path.join(monthDir, safeFilename)
+
+        writeTasks.push({ bufferPath: photo.filePath, filePath })
+        dbUpdates.push({ studentId: student.id, photoUrl, classId: poolClass.classId })
+        job.matched++
+        job.progress++
+        affectedClassIds.add(poolClass.classId)
+      }
+    }
+  }
+
+  // 分批写文件
+  const BATCH_SIZE = 50
+  for (let i = 0; i < writeTasks.length; i += BATCH_SIZE) {
+    const batch = writeTasks.slice(i, i + BATCH_SIZE)
+    await Promise.all(batch.map(async (t) => {
+      const buf = await fs.readFile(t.bufferPath)
+      return fs.writeFile(t.filePath, buf)
+    }))
+  }
+
+  // 分批更新数据库
+  if (dbUpdates.length > 0) {
+    const DB_BATCH = 100
+    for (let i = 0; i < dbUpdates.length; i += DB_BATCH) {
+      const batch = dbUpdates.slice(i, i + DB_BATCH)
+      await prisma.$transaction(
+        batch.map(u =>
+          prisma.student.update({
+            where: { id: u.studentId },
+            data: { photoUrl: u.photoUrl },
+          })
+        )
+      )
+    }
+  }
+
+  // 同步到教师班级
+  for (const cid of affectedClassIds) {
+    _schedulePoolSync(cid)
+  }
+
+  // 清理临时文件
+  await fs.rm(job.tempDir, { recursive: true, force: true }).catch(() => {})
+
+  job.status = 'completed'
+  job.completedAt = Date.now()
+
+  return {
+    ok: true,
+    matched: job.matched,
+    unmatched: job.unmatched,
+    missingClasses: job.missingClasses,
+  }
+}
+
+/**
+ * 删除 ZIP 匹配任务（用户取消时）
+ */
+export async function cancelZipMatch(jobId) {
+  const job = ZIP_JOBS.get(jobId)
+  if (!job) return { ok: false }
+  if (job.tempDir) {
+    await fs.rm(job.tempDir, { recursive: true, force: true }).catch(() => {})
+  }
+  ZIP_JOBS.delete(jobId)
+  return { ok: true }
 }

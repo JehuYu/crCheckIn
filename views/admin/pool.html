@@ -117,6 +117,33 @@
           </div>
         </div>
 
+        <!-- ZIP Photo Match -->
+        <div class="sidebar-card">
+          <div class="sidebar-header">
+            <p class="sidebar-title">ZIP 照片匹配</p>
+          </div>
+          <div class="sidebar-body">
+            <p style="font-size: 12px; color: var(--muted-soft); margin: 0 0 12px;">上传按学校/班级分文件夹的照片 ZIP 包，自动匹配到对应班级和学生，解决跨班同名问题。</p>
+            <label class="file-label" style="width: 100%; justify-content: center;">
+              <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/>
+              </svg>
+              选择 ZIP 文件
+              <input type="file" accept=".zip" id="zipPhotoFile" style="display:none;" />
+            </label>
+            <div id="zipFileInfo" style="display: none; margin-top: 10px; padding: 8px 12px; background: var(--surface-soft); border-radius: 6px; font-size: 12px;">
+              <span id="zipFileName" style="color: var(--ink); font-weight: 500;"></span>
+              <span id="zipFileSize" style="color: var(--muted-soft);"></span>
+            </div>
+            <button id="zipUploadBtn" class="btn btn-primary" style="width: 100%; margin-top: 12px; display: none; background: var(--warning, #d4a017);">
+              <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3"/>
+              </svg>
+              上传并匹配
+            </button>
+          </div>
+        </div>
+
         <!-- View Students Without Photos -->
         <div class="sidebar-card">
           <div class="sidebar-header">
@@ -188,6 +215,7 @@
             <div class="pool-class-card {% if cls.claimedByAnyTeacher %}pool-class-claimed{% endif %}" data-class-id="{{ cls.id }}">
               <div class="pool-class-head" data-action="open-modal" data-class-id="{{ cls.id }}">
                 <div style="display: flex; align-items: center; gap: 8px;">
+                  {% if cls.school %}<span style="font-size: 11px; padding: 2px 8px; background: var(--surface-soft); border-radius: 10px; color: var(--muted-soft);">{{ cls.school }}</span>{% endif %}
                   <span class="pool-class-name">{{ cls.name }}</span>
                   <span class="pool-class-meta">{{ cls.studentCount }} 名学生</span>
                   {% if cls.claimedByAnyTeacher %}
@@ -229,6 +257,16 @@
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
         <div class="modal-title" style="margin: 0;" id="classModalTitle">班级详情</div>
         <button id="classModalClose" class="preset-close-btn">&times;</button>
+      </div>
+
+      <!-- School Name -->
+      <div style="margin-bottom: 16px; padding: 16px; background: var(--surface-soft); border-radius: 8px;">
+        <p style="font-size: 13px; font-weight: 500; margin: 0 0 4px; color: var(--ink);">学校名称</p>
+        <p style="font-size: 12px; color: var(--muted); margin: 0 0 8px;">设置学校名称后，ZIP 照片匹配可按学校精确匹配。</p>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input id="modalSchoolInput" class="input-field" type="text" placeholder="如：镇海中学、蛟川书院" style="flex: 1;" />
+          <button id="modalSchoolBtn" class="btn btn-primary" style="width: auto; padding: 6px 14px; font-size: 12px;">保存</button>
+        </div>
       </div>
 
       <!-- Import Excel -->
@@ -311,6 +349,83 @@
       <div id="conflictList" style="max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;"></div>
       <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
         <button class="btn btn-secondary" onclick="closeConflictModal()">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ZIP Match Modal -->
+  <div id="zipMatchModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 640px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <div class="modal-title" style="margin: 0;" id="zipMatchTitle">ZIP 照片匹配</div>
+        <button class="preset-close-btn" onclick="closeZipMatchModal()">&times;</button>
+      </div>
+
+      <!-- Step 1: Folder structure preview -->
+      <div id="zipStepPreview">
+        <p style="font-size: 12px; color: var(--muted-soft); margin: 0 0 8px;">识别到的文件夹结构：</p>
+        <div id="zipFolderTree" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--hairline); border-radius: 8px; padding: 10px; font-size: 12px; background: #fff; line-height: 1.8;"></div>
+        <div style="margin-top: 12px; display: flex; justify-content: space-between;">
+          <button class="btn btn-secondary" onclick="cancelZipUpload()">取消</button>
+          <button class="btn btn-primary" id="zipStartMatchBtn" onclick="startZipMatch()">开始匹配</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Progress -->
+      <div id="zipStepProgress" style="display: none;">
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="font-size: 13px; font-weight: 500;" id="zipProgressText">匹配中...</span>
+            <span style="font-size: 13px; font-weight: 700; color: var(--primary);" id="zipProgressPercent">0%</span>
+          </div>
+          <div class="progress-track" style="height: 10px; border-radius: 999px; background: var(--surface-soft); overflow: hidden;">
+            <div id="zipProgressBar" style="height: 100%; width: 0; border-radius: inherit; background: var(--primary); transition: width .3s ease;"></div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px;">
+          <div style="padding: 10px; background: var(--surface-soft); border-radius: 8px; text-align: center;">
+            <p style="font-size: 22px; font-weight: 700; color: var(--primary); margin: 0;" id="zipMatchedCount">0</p>
+            <p style="font-size: 11px; color: var(--muted-soft); margin: 2px 0 0;">已匹配</p>
+          </div>
+          <div style="padding: 10px; background: var(--surface-soft); border-radius: 8px; text-align: center;">
+            <p style="font-size: 22px; font-weight: 700; color: var(--muted); margin: 0;" id="zipTotalCount">0</p>
+            <p style="font-size: 11px; color: var(--muted-soft); margin: 2px 0 0;">总照片</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Results -->
+      <div id="zipStepResults" style="display: none;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
+          <div style="padding: 10px; background: #f0fdf4; border-radius: 8px; text-align: center;">
+            <p style="font-size: 22px; font-weight: 700; color: #176b31; margin: 0;" id="zipResultMatched">0</p>
+            <p style="font-size: 11px; color: #23824a; margin: 2px 0 0;">已匹配</p>
+          </div>
+          <div style="padding: 10px; background: #fef2f2; border-radius: 8px; text-align: center;">
+            <p style="font-size: 22px; font-weight: 700; color: var(--error); margin: 0;" id="zipResultUnmatched">0</p>
+            <p style="font-size: 11px; color: var(--error); margin: 2px 0 0;">未匹配</p>
+          </div>
+          <div style="padding: 10px; background: var(--surface-soft); border-radius: 8px; text-align: center;">
+            <p style="font-size: 22px; font-weight: 700; color: var(--muted); margin: 0;" id="zipResultMissing">0</p>
+            <p style="font-size: 11px; color: var(--muted-soft); margin: 2px 0 0;">缺班级</p>
+          </div>
+        </div>
+
+        <!-- Missing classes -->
+        <div id="zipMissingSection" style="display: none; margin-bottom: 12px;">
+          <p style="font-size: 12px; font-weight: 500; color: var(--muted); margin: 0 0 6px;">以下班级在池中没有对应，已跳过：</p>
+          <div id="zipMissingList" style="max-height: 120px; overflow-y: auto; border: 1px solid var(--hairline); border-radius: 8px; padding: 8px; background: #fff; font-size: 12px;"></div>
+        </div>
+
+        <!-- Unmatched students -->
+        <div id="zipUnmatchedSection" style="display: none; margin-bottom: 12px;">
+          <p style="font-size: 12px; font-weight: 500; color: var(--muted); margin: 0 0 6px;">以下照片未匹配到学生（该学生可能不在池中）：</p>
+          <div id="zipUnmatchedList" style="max-height: 160px; overflow-y: auto; border: 1px solid var(--hairline); border-radius: 8px; padding: 8px; background: #fff; font-size: 12px;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end;">
+          <button class="btn btn-secondary" onclick="closeZipMatchModal()">完成</button>
+        </div>
       </div>
     </div>
   </div>
@@ -439,6 +554,13 @@ async function loadClassStudents(classId) {
   const data = await res.json()
   if (!data.ok) return
 
+  // Update school input
+  if (data.class.school) {
+    document.getElementById('modalSchoolInput').value = data.class.school
+  } else {
+    document.getElementById('modalSchoolInput').value = ''
+  }
+
   const container = document.getElementById('modalStudentList')
   if (!data.students.length) {
     container.innerHTML = '<div style="padding: 12px 16px; text-align: center; color: var(--muted-soft); font-size: 12px;">暂无学生</div>'
@@ -495,6 +617,23 @@ document.addEventListener('click', async (e) => {
     } else {
       showToast(data.message || '删除失败', false)
     }
+  }
+})
+
+// === Save School Name ===
+document.getElementById('modalSchoolBtn').addEventListener('click', async () => {
+  if (!currentClassId) return
+  const school = document.getElementById('modalSchoolInput').value.trim()
+  const res = await fetch(`/admin/api/pool/classes/${currentClassId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ school }),
+  })
+  const data = await res.json()
+  if (data.ok) {
+    showToast('学校名称已保存')
+  } else {
+    showToast(data.message || '保存失败', false)
   }
 })
 
@@ -942,6 +1081,204 @@ document.addEventListener('click', async (e) => {
     statusEl.style.color = 'var(--muted-soft)'
     e.target.closest('.conflict-item').style.opacity = '0.6'
   }
+})
+
+// === ZIP Photo Match ===
+
+let zipCurrentFile = null
+let zipCurrentJobId = null
+let zipPollTimer = null
+
+document.getElementById('zipPhotoFile').addEventListener('change', (e) => {
+  const file = e.target.files[0]
+  const infoEl = document.getElementById('zipFileInfo')
+  const btnEl = document.getElementById('zipUploadBtn')
+  if (file) {
+    zipCurrentFile = file
+    document.getElementById('zipFileName').textContent = file.name
+    document.getElementById('zipFileSize').textContent = ` (${(file.size / 1024 / 1024).toFixed(1)} MB)`
+    infoEl.style.display = ''
+    btnEl.style.display = ''
+  } else {
+    zipCurrentFile = null
+    infoEl.style.display = 'none'
+    btnEl.style.display = 'none'
+  }
+})
+
+document.getElementById('zipUploadBtn').addEventListener('click', async () => {
+  if (!zipCurrentFile) return
+  const btn = document.getElementById('zipUploadBtn')
+  btn.disabled = true; btn.textContent = '上传中...'
+
+  const fd = new FormData()
+  fd.append('file', zipCurrentFile)
+
+  try {
+    const res = await fetch('/admin/api/pool/zip-upload', { method: 'POST', body: fd })
+    const data = await res.json()
+    btn.disabled = false
+    btn.innerHTML = '<svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3"/></svg>上传并匹配'
+
+    if (!data.ok) {
+      showToast(data.message || '上传失败', false)
+      return
+    }
+
+    // Show folder preview
+    zipCurrentJobId = data.jobId
+    renderZipFolderTree(data.folderStructure)
+    document.getElementById('zipTotalCount').textContent = data.totalPhotos
+    document.getElementById('zipStepPreview').style.display = ''
+    document.getElementById('zipStepProgress').style.display = 'none'
+    document.getElementById('zipStepResults').style.display = 'none'
+    document.getElementById('zipMatchTitle').textContent = `ZIP 照片匹配（${data.totalPhotos} 张照片）`
+    document.getElementById('zipMatchModal').classList.add('active')
+  } catch {
+    btn.disabled = false
+    btn.innerHTML = '<svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3"/></svg>上传并匹配'
+    showToast('上传失败，请重试', false)
+  }
+
+  // Reset file input
+  document.getElementById('zipPhotoFile').value = ''
+  zipCurrentFile = null
+  document.getElementById('zipFileInfo').style.display = 'none'
+  btn.style.display = 'none'
+})
+
+function renderZipFolderTree(structure) {
+  const container = document.getElementById('zipFolderTree')
+  if (!structure || !structure.schools.length) {
+    container.innerHTML = '<div style="color: var(--error);">未识别到有效的文件夹结构</div>'
+    document.getElementById('zipStartMatchBtn').disabled = true
+    return
+  }
+
+  let html = ''
+  if (structure.grade) {
+    html += `<div style="color: var(--muted); font-weight: 500;">📁 ${escHtml(structure.grade)}</div>`
+  }
+
+  for (const school of structure.schools) {
+    html += `<div style="padding-left: 16px; color: var(--ink); font-weight: 600;">📁 ${escHtml(school.schoolName)}</div>`
+    for (const cls of school.classes) {
+      html += `<div style="padding-left: 32px; color: var(--body);">📁 ${escHtml(cls.className)} <span style="color: var(--muted-soft);">(${cls.photoCount} 张照片)</span></div>`
+    }
+  }
+
+  container.innerHTML = html
+  document.getElementById('zipStartMatchBtn').disabled = false
+}
+
+async function startZipMatch() {
+  if (!zipCurrentJobId) return
+  document.getElementById('zipStartMatchBtn').disabled = true
+  document.getElementById('zipStartMatchBtn').textContent = '匹配中...'
+  document.getElementById('zipStepPreview').style.display = 'none'
+  document.getElementById('zipStepProgress').style.display = ''
+
+  // Start matching on server
+  try {
+    await fetch(`/admin/api/pool/zip-match/${zipCurrentJobId}`, { method: 'POST' })
+  } catch {
+    showToast('启动匹配失败', false)
+    return
+  }
+
+  // Poll progress
+  startZipPolling()
+}
+
+function startZipPolling() {
+  if (zipPollTimer) clearInterval(zipPollTimer)
+  zipPollTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`/admin/api/pool/zip-progress/${zipCurrentJobId}`)
+      const data = await res.json()
+      if (!data.ok) return
+
+      updateZipProgress(data)
+
+      if (data.status === 'completed' || data.status === 'failed') {
+        clearInterval(zipPollTimer)
+        zipPollTimer = null
+        showZipResults(data)
+      }
+    } catch {
+      // Silently ignore polling errors
+    }
+  }, 500)
+}
+
+function updateZipProgress(data) {
+  const percent = data.percent || 0
+  document.getElementById('zipProgressPercent').textContent = `${percent}%`
+  document.getElementById('zipProgressBar').style.width = `${percent}%`
+  document.getElementById('zipMatchedCount').textContent = data.matched
+  document.getElementById('zipProgressText').textContent = data.status === 'completed' ? '匹配完成' : '匹配中...'
+}
+
+function showZipResults(data) {
+  document.getElementById('zipStepProgress').style.display = 'none'
+  document.getElementById('zipStepResults').style.display = ''
+
+  document.getElementById('zipResultMatched').textContent = data.matched || 0
+  document.getElementById('zipResultUnmatched').textContent = (data.unmatched && data.unmatched.length) || 0
+  document.getElementById('zipResultMissing').textContent = (data.missingClasses && data.missingClasses.length) || 0
+
+  // Missing classes
+  if (data.missingClasses && data.missingClasses.length > 0) {
+    document.getElementById('zipMissingSection').style.display = ''
+    document.getElementById('zipMissingList').innerHTML = data.missingClasses.map(c =>
+      `<div style="padding: 4px 0; border-bottom: 1px solid var(--hairline);">${escHtml(c.school)} / ${escHtml(c.className)} <span style="color: var(--muted-soft);">（${c.photoCount} 张照片未匹配）</span></div>`
+    ).join('')
+  } else {
+    document.getElementById('zipMissingSection').style.display = 'none'
+  }
+
+  // Unmatched students
+  if (data.unmatched && data.unmatched.length > 0) {
+    document.getElementById('zipUnmatchedSection').style.display = ''
+    document.getElementById('zipUnmatchedList').innerHTML = data.unmatched.slice(0, 50).map(u =>
+      `<div style="padding: 4px 0; border-bottom: 1px solid var(--hairline);">${escHtml(u.filename)} <span style="color: var(--muted-soft);">→ ${escHtml(u.school)} / ${escHtml(u.className)}</span></div>`
+    ).join('') + (data.unmatched.length > 50 ? `<div style="padding: 4px 0; color: var(--muted-soft);">… 还有 ${data.unmatched.length - 50} 条</div>` : '')
+  } else {
+    document.getElementById('zipUnmatchedSection').style.display = 'none'
+  }
+
+  // Show toast summary
+  let msg = `已匹配 ${data.matched} 张照片`
+  if (data.unmatched && data.unmatched.length) msg += `，${data.unmatched.length} 张未匹配`
+  if (data.missingClasses && data.missingClasses.length) msg += `，${data.missingClasses.length} 个班级不存在`
+  showToast(msg)
+
+  // Reload page after a delay to reflect changes
+  setTimeout(() => window.location.reload(), 5000)
+}
+
+function cancelZipUpload() {
+  if (zipCurrentJobId) {
+    fetch(`/admin/api/pool/zip-match/${zipCurrentJobId}`, { method: 'DELETE' }).catch(() => {})
+    zipCurrentJobId = null
+  }
+  closeZipMatchModal()
+}
+
+function closeZipMatchModal() {
+  if (zipPollTimer) {
+    clearInterval(zipPollTimer)
+    zipPollTimer = null
+  }
+  document.getElementById('zipMatchModal').classList.remove('active')
+  document.getElementById('zipStepPreview').style.display = ''
+  document.getElementById('zipStepProgress').style.display = 'none'
+  document.getElementById('zipStepResults').style.display = 'none'
+  zipCurrentJobId = null
+}
+
+document.getElementById('zipMatchModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeZipMatchModal()
 })
 </script>
 </body>
