@@ -51,14 +51,18 @@
           </div>
           <div class="sidebar-body">
             <div style="display: flex; gap: 16px;">
-              {% set totalStudents = 0 %}
-              {% for cls in classes %}{% set totalStudents = totalStudents + cls.studentCount %}{% endfor %}
+              {% set totalClasses = 0 %}
+              {% for grade, gradeClasses in classes %}
+                {% for cls in gradeClasses %}
+                  {% set totalClasses = totalClasses + 1 %}
+                {% endfor %}
+              {% endfor %}
               <div style="flex:1; text-align:center; padding:12px; background:var(--surface-soft); border-radius:8px;">
-                <p style="font-family:Georgia,serif; font-size:28px; font-weight:400; color:var(--primary); margin:0;">{{ classes | length }}</p>
+                <p style="font-family:Georgia,serif; font-size:28px; font-weight:400; color:var(--primary); margin:0;">{{ totalClasses }}</p>
                 <p style="font-size:12px; color:var(--muted-soft); margin:4px 0 0;">个班级</p>
               </div>
               <div style="flex:1; text-align:center; padding:12px; background:var(--surface-soft); border-radius:8px;">
-                <p style="font-family:Georgia,serif; font-size:28px; font-weight:400; color:var(--primary); margin:0;">{{ totalStudents }}</p>
+                <p style="font-family:Georgia,serif; font-size:28px; font-weight:400; color:var(--primary); margin:0;">{{ totalUniqueStudents }}</p>
                 <p style="font-size:12px; color:var(--muted-soft); margin:4px 0 0;">名学生</p>
               </div>
             </div>

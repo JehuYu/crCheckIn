@@ -118,7 +118,7 @@ export async function getPoolClasses(opts = {}) {
     include: {
       _count: { select: { students: true } },
       students: {
-        select: { homeClass: true },
+        select: { name: true, homeClass: true },
       },
     },
   })
@@ -136,7 +136,8 @@ export async function getPoolClasses(opts = {}) {
 
   // Enrich classes with computed fields
   const enriched = classes.map(c => {
-    // 计算行政班组成
+    // 教学班内学生已唯一（classId+name 唯一约束），直接使用 _count
+    // 行政班组成：同一教学班内按 homeClass 分组
     const homeClassCount = new Map()
     for (const s of c.students) {
       const hc = s.homeClass || '未分组'
@@ -163,6 +164,18 @@ export async function getPoolClasses(opts = {}) {
     }
   })
 
+  // 概览学生总数：跨教学班去重（同一学生在不同学科教学班只计一次）
+  const allStudents = classes.flatMap(c => c.students)
+  const uniqueStudentMap = new Map()
+  for (const s of allStudents) {
+    const hc = s.homeClass || '未分组'
+    const key = `${s.name}|||${hc}`
+    if (!uniqueStudentMap.has(key)) {
+      uniqueStudentMap.set(key, true)
+    }
+  }
+  const totalUniqueStudents = uniqueStudentMap.size
+
   // Group by grade
   const gradeOrder = ['高一', '高二', '高三']
   const grouped = {}
@@ -176,7 +189,7 @@ export async function getPoolClasses(opts = {}) {
     }
   }
 
-  return grouped
+  return { classes: grouped, totalUniqueStudents }
 }
 
 /**
