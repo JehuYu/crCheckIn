@@ -1191,8 +1191,9 @@ function showZipResults(data) {
   if (data.conflicts && data.conflicts.length > 0) {
     document.getElementById('zipConflictsSection').style.display = ''
     window._zipConflicts = data.conflicts
+    window._zipJobId = zipCurrentJobId
     document.getElementById('zipConflictsList').innerHTML = data.conflicts.map((c, idx) => {
-      const photoUrl = URL.createObjectURL(new Blob([c.buffer], { type: 'image/jpeg' }))
+      const photoUrl = `/admin/api/pool/zip-conflict-photo/${zipCurrentJobId}/${idx}`
       return `
       <div class="zip-conflict-item" data-idx="${idx}" style="padding: 12px; background: #fff; border: 1px solid var(--hairline); border-radius: 8px;">
         <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--ink);">
@@ -1200,7 +1201,7 @@ function showZipResults(data) {
         </div>
         <div style="display: flex; gap: 12px; align-items: flex-start;">
           <div style="flex-shrink: 0;">
-            <img src="${photoUrl}" style="width: 80px; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid var(--hairline);" />
+            <img src="${photoUrl}" style="width: 80px; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid var(--hairline);" onerror="this.style.display='none'" />
           </div>
           <div style="flex: 1; min-width: 0;">
             <p style="font-size: 11px; color: var(--muted-soft); margin: 0 0 6px;">匹配到 ${c.candidates.length} 名同名学生：</p>
@@ -1277,12 +1278,15 @@ document.addEventListener('click', async (e) => {
     statusEl.textContent = '匹配中...'
     e.target.disabled = true
 
-    const fd = new FormData()
-    fd.append('file', new Blob([conflict.buffer], { type: 'image/jpeg' }), conflict.filename)
-    fd.append('studentId', selected.value)
-    fd.append('classId', selected.dataset.classId)
-
+    // Fetch the photo from server and send as form data
     try {
+      const photoRes = await fetch(`/admin/api/pool/zip-conflict-photo/${window._zipJobId}/${idx}`)
+      const blob = await photoRes.blob()
+      const fd = new FormData()
+      fd.append('file', blob, conflict.filename)
+      fd.append('studentId', selected.value)
+      fd.append('classId', selected.dataset.classId)
+
       const res = await fetch('/admin/api/pool/photos/resolve-zip', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.ok) {

@@ -1,5 +1,7 @@
 import { adminRequired, teacherRequired } from '../utils/auth.js'
 import { prisma } from '../plugins/db.js'
+import fs from 'fs/promises'
+import path from 'path'
 import {
   getPoolClasses,
   getPoolSemesters,
@@ -24,6 +26,7 @@ import {
   startZipMatching,
   cancelZipMatch,
   resolveZipConflict,
+  ZIP_JOBS,
 } from '../services/pool.js'
 
 export default async function poolRoutes(app) {
@@ -330,6 +333,27 @@ export default async function poolRoutes(app) {
     const jobId = request.params.jobId
     const result = await cancelZipMatch(jobId)
     return reply.send(result)
+  })
+
+  // 获取冲突照片预览
+  app.get('/admin/api/pool/zip-conflict-photo/:jobId/:idx', {
+    preHandler: adminRequired,
+  }, async (request, reply) => {
+    const job = ZIP_JOBS.get(request.params.jobId)
+    if (!job || !job.conflicts || !job.conflicts[request.params.idx]) {
+      return reply.code(404).send({ ok: false, message: '照片不存在' })
+    }
+    const conflict = job.conflicts[request.params.idx]
+    try {
+      const buf = await fs.readFile(conflict.filePath)
+      const ext = path.extname(conflict.filename).toLowerCase()
+      const mimeMap = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }
+      reply.header('Content-Type', mimeMap[ext] || 'image/jpeg')
+      reply.header('Cache-Control', 'private, max-age=300')
+      return reply.send(buf)
+    } catch {
+      return reply.code(404).send({ ok: false, message: '照片文件不存在' })
+    }
   })
 
   // 解决同名冲突

@@ -1144,7 +1144,7 @@ export async function resolvePhotoConflict({ studentId, classId, buffer, filenam
 // ==========================================
 
 const ZIP_UPLOAD_DIR = path.resolve(__dirname, '../../uploads/zip-uploads')
-const ZIP_JOBS = new Map()
+export const ZIP_JOBS = new Map()
 const ZIP_CLEANUP_INTERVAL_MS = 60_000 // 每 60 秒清理过期任务
 
 // 定期清理过期任务（完成后 5 分钟 或 创建后 30 分钟）
@@ -1519,20 +1519,14 @@ export async function startZipMatching(jobId) {
           continue
         }
 
-        // 多个同名学生 → 冲突
-        // 读取文件缓冲用于前端预览
-        let photoBuffer = null
-        try {
-          photoBuffer = await fs.readFile(photo.filePath)
-        } catch { /* 文件可能已被删除 */ }
-
+        // 多个同名学生 → 冲突（只存文件路径，不存缓冲，避免 JSON 过大）
         job.conflicts.push({
           filename: photo.filename,
+          filePath: photo.filePath,
           grade: zipGrade || job.folderStructure.grade,
           school: school.schoolName,
           className: cls.className,
           studentName: photo.nameKey,
-          buffer: photoBuffer,
           candidates: candidates.map(c => ({
             studentId: c.student.id,
             studentName: c.student.name,
