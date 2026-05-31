@@ -1398,12 +1398,15 @@ export async function startZipMatching(jobId) {
       if (!classMap.has(hc.classNum)) classMap.set(hc.classNum, [])
       classMap.get(hc.classNum).push({ classId: cls.id, className: cls.name, student: s })
 
-      // school 级索引
+      // school 级索引（按 name + homeClass 去重：同一学生在不同教学班只存一条）
       const nameKey = normalizeName(s.name)
       if (!sIndex.has(hc.school)) sIndex.set(hc.school, new Map())
       const nameMap = sIndex.get(hc.school)
       if (!nameMap.has(nameKey)) nameMap.set(nameKey, [])
-      nameMap.get(nameKey).push({ classId: cls.id, className: cls.name, student: s, homeClass: s.homeClass })
+      // 去重：同名且同行政班 = 同一人
+      if (!nameMap.get(nameKey).find(e => e.homeClass === s.homeClass)) {
+        nameMap.get(nameKey).push({ classId: cls.id, className: cls.name, student: s, homeClass: s.homeClass })
+      }
     }
   }
 
