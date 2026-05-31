@@ -571,28 +571,28 @@ export async function getAttendanceAnalytics(classId) {
   // 并行查询当前签到记录和归档记录的时段/星期分布
   const [hourResult, archivedHourResult, dayResult, archivedDayResult] = await Promise.all([
     prisma.$queryRaw`
-      SELECT CAST(strftime('%H', signedAt) AS INTEGER) as hour, COUNT(*) as cnt
-      FROM SignInRecord WHERE classId = ${classId}
-      GROUP BY hour
+      SELECT EXTRACT(HOUR FROM "signedAt")::int as hour, COUNT(*)::int as cnt
+      FROM "SignInRecord" WHERE "classId" = ${classId}
+      GROUP BY 1
     `,
     prisma.$queryRaw`
-      SELECT CAST(strftime('%H', signedAt) AS INTEGER) as hour, COUNT(*) as cnt
-      FROM ArchivedRecord ar
-      JOIN SignInSession ss ON ar.sessionId = ss.id
-      WHERE ss.classId = ${classId}
-      GROUP BY hour
+      SELECT EXTRACT(HOUR FROM ar."signedAt")::int as hour, COUNT(*)::int as cnt
+      FROM "ArchivedRecord" ar
+      JOIN "SignInSession" ss ON ar."sessionId" = ss.id
+      WHERE ss."classId" = ${classId}
+      GROUP BY 1
     `,
     prisma.$queryRaw`
-      SELECT CAST(strftime('%w', signedAt) AS INTEGER) as day, COUNT(*) as cnt
-      FROM SignInRecord WHERE classId = ${classId}
-      GROUP BY day
+      SELECT EXTRACT(DOW FROM "signedAt")::int as day, COUNT(*)::int as cnt
+      FROM "SignInRecord" WHERE "classId" = ${classId}
+      GROUP BY 1
     `,
     prisma.$queryRaw`
-      SELECT CAST(strftime('%w', signedAt) AS INTEGER) as day, COUNT(*) as cnt
-      FROM ArchivedRecord ar
-      JOIN SignInSession ss ON ar.sessionId = ss.id
-      WHERE ss.classId = ${classId}
-      GROUP BY day
+      SELECT EXTRACT(DOW FROM ar."signedAt")::int as day, COUNT(*)::int as cnt
+      FROM "ArchivedRecord" ar
+      JOIN "SignInSession" ss ON ar."sessionId" = ss.id
+      WHERE ss."classId" = ${classId}
+      GROUP BY 1
     `,
   ])
 

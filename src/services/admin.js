@@ -16,7 +16,7 @@ export async function createAuditLog({ adminId, action, target, detail = '', ip 
 export async function getAuditLogs({ limit = 50, offset = 0 } = {}) {
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
       skip: offset,
     }),
@@ -257,26 +257,45 @@ export async function copyClassToPool(classId, adminId, ip = '') {
 
   const teacherName = cls.teacher?.username ?? '未知'
 
-  // 在池中新建同名班级
-  const poolClass = await prisma.class.create({
-    data: {
+  // 复用池中已有的同名班级，避免重复卡片。
+  let poolClass = await prisma.class.findFirst({
+    where: {
       name: cls.name,
       teacherId: null,
-      signInConfig: { create: {} },
+      deletedAt: null,
+      isArchived: false,
     },
+    select: { id: true },
   })
+  const reusedExistingPoolClass = !!poolClass
+  if (!poolClass) {
+    poolClass = await prisma.class.create({
+      data: {
+        name: cls.name,
+        teacherId: null,
+        signInConfig: { create: {} },
+      },
+    })
+  }
 
-  // 复制学生到新池班级
+  // 将缺少的学生补充到池班级。
   const students = await prisma.student.findMany({
     where: { classId },
-    select: { name: true, homeClass: true, remark: true },
+    select: { name: true, homeClass: true, remark: true, photoUrl: true },
   })
-  if (students.length > 0) {
+  const existingStudents = await prisma.student.findMany({
+    where: { classId: poolClass.id },
+    select: { name: true },
+  })
+  const existingNames = new Set(existingStudents.map(student => student.name))
+  const studentsToCopy = students.filter(student => !existingNames.has(student.name))
+  if (studentsToCopy.length > 0) {
     await prisma.student.createMany({
-      data: students.map(s => ({
+      data: studentsToCopy.map(s => ({
         name: s.name,
         homeClass: s.homeClass,
         remark: s.remark,
+        photoUrl: s.photoUrl,
         classId: poolClass.id,
       })),
     })
@@ -286,9 +305,9 @@ export async function copyClassToPool(classId, adminId, ip = '') {
     adminId,
     action: 'COPY_TO_POOL',
     target: `班级「${cls.name}」→ 班级池 (${poolClass.id})`,
-    detail: JSON.stringify({ from: teacherName, fromId: cls.teacherId, originalClassId: classId, newClassId: poolClass.id, studentCount: students.length }),
+    detail: JSON.stringify({ from: teacherName, fromId: cls.teacherId, originalClassId: classId, newClassId: poolClass.id, studentCount: studentsToCopy.length, reusedExistingPoolClass }),
     ip,
   })
 
-  return { ok: true, message: `已将「${cls.name}」及 ${students.length} 名学生复制到班级池` }
+  return { ok: true, message: `已将「${cls.name}」及 ${studentsToCopy.length} 名学生同步到班级池` }
 }

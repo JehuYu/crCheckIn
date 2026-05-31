@@ -651,6 +651,15 @@
           </div>
         </div>
 
+        <div class="sidebar-card">
+          <div class="sidebar-header">
+            <p class="sidebar-title">小题成绩</p>
+          </div>
+          <div class="sidebar-body">
+            <a href="/teacher/exam-analysis" class="btn btn-primary" style="width: 100%;">进入处理</a>
+          </div>
+        </div>
+
         <!-- Claim from Pool -->
         <div class="sidebar-card" id="claimPoolCard">
           <div class="sidebar-header">
@@ -915,7 +924,9 @@ function closeUnarchiveModal() {
 }
 
 // Event delegation for archive/unarchive/delete buttons
-document.querySelector('.class-grid').addEventListener('click', (e) => {
+const classActionGrid = document.querySelector('.class-grid')
+if (classActionGrid) {
+  classActionGrid.addEventListener('click', (e) => {
   const item = e.target.closest('.class-item')
   if (!item) return
   const classId = item.dataset.classId
@@ -934,7 +945,8 @@ document.querySelector('.class-grid').addEventListener('click', (e) => {
   } else if (action === 'unarchive') {
     showUnarchiveModal(classId, className)
   }
-})
+  })
+}
 
 // Modal close buttons
 document.addEventListener('click', (e) => {
@@ -1039,13 +1051,17 @@ importBtn.addEventListener('click', async () => {
 const poolSelect = document.getElementById('poolClassSelect')
 const poolClaimBtn = document.getElementById('poolClaimBtn')
 
-if (poolSelect) {
-  poolSelect.addEventListener('change', () => {
-    poolClaimBtn.disabled = !poolSelect.value
-  })
+function syncPoolClaimButton() {
+  if (!poolSelect || !poolClaimBtn) return
+  const selectedOption = poolSelect.options[poolSelect.selectedIndex]
+  poolClaimBtn.disabled = !poolSelect.value || selectedOption?.disabled === true
 }
 
-poolClaimBtn.addEventListener('click', async () => {
+if (poolSelect && poolClaimBtn) {
+  syncPoolClaimButton()
+  poolSelect.addEventListener('change', syncPoolClaimButton)
+
+  poolClaimBtn.addEventListener('click', async () => {
   const classId = poolSelect.value
   if (!classId) return
   const selectedOption = poolSelect.options[poolSelect.selectedIndex]
@@ -1060,7 +1076,8 @@ poolClaimBtn.addEventListener('click', async () => {
   } else {
     showToast(data.message || '认领失败', false)
   }
-})
+  })
+}
 
 // === Drag and Drop Reorder ===
 const classGrid = document.getElementById('classGrid')

@@ -16,13 +16,63 @@ import { prisma } from '../plugins/db.js'
 import { randomBytes } from 'node:crypto'
 import bcrypt from 'bcrypt'
 import { addPresetTag, updatePresetTag, deletePresetTag } from '../services/tag.js'
+import { DATABASE_URL } from '../config.js'
+import { resolveSqlitePath } from '../utils/database.js'
+import { existsSync } from 'node:fs'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { spawn } from 'node:child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DB_PATH = path.resolve(__dirname, '../../prisma/attendance.db')
-const SYSTEM_BACKUP_PATH = path.resolve(__dirname, '../../prisma/attendance.system.db')
+const DB_PATH = resolveSqlitePath()
+const BACKUP_DIR = path.resolve(__dirname, '../../backups')
+const SQLITE_SYSTEM_BACKUP_PATH = path.resolve(__dirname, '../../prisma/attendance.system.db')
+const POSTGRES_SYSTEM_BACKUP_PATH = path.join(BACKUP_DIR, 'crcheckin.system.dump')
+const IS_POSTGRES = DATABASE_URL.startsWith('postgresql:') || DATABASE_URL.startsWith('postgres:')
+
+function getSystemBackupPath() {
+  return IS_POSTGRES ? POSTGRES_SYSTEM_BACKUP_PATH : SQLITE_SYSTEM_BACKUP_PATH
+}
+
+function runCommand(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      windowsHide: true,
+      ...options,
+    })
+    let stderr = ''
+    child.stderr?.on('data', (chunk) => { stderr += chunk.toString() })
+    child.on('error', reject)
+    child.on('exit', (code) => {
+      if (code === 0) {
+        resolve()
+        return
+      }
+      reject(new Error(stderr.trim() || `${command} exited with code ${code ?? 'unknown'}`))
+    })
+  })
+}
+
+async function createPostgresBackup() {
+  const url = new URL(DATABASE_URL)
+  const pgDump = process.env.PG_DUMP_PATH || 'pg_dump'
+  await fs.mkdir(BACKUP_DIR, { recursive: true })
+  await runCommand(pgDump, [
+    '-h', url.hostname,
+    '-p', url.port || '5432',
+    '-U', decodeURIComponent(url.username),
+    '-d', decodeURIComponent(url.pathname.replace(/^\//, '')),
+    '--format=custom',
+    '--file', POSTGRES_SYSTEM_BACKUP_PATH,
+  ], {
+    env: {
+      ...process.env,
+      PGPASSWORD: decodeURIComponent(url.password),
+    },
+  })
+  return fs.readFile(POSTGRES_SYSTEM_BACKUP_PATH)
+}
 
 // Prevent concurrent database restores
 let isRestoring = false
@@ -107,6 +157,48 @@ export default async function adminRoutes(app) {
       username: t.username,
       isAdmin: t.isAdmin,
     })))
+  })
+
+  app.get('/admin/api/teachers/:id/classes', { preHandler: adminRequired }, async (request, reply) => {
+    const teacherId = parseInt(request.params.id, 10)
+    if (!Number.isInteger(teacherId)) {
+      return reply.code(400).send({ ok: false, message: '教师 ID 无效' })
+    }
+
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: {
+        id: true,
+        username: true,
+        classes: {
+          where: { deletedAt: null },
+          orderBy: [{ isArchived: 'asc' }, { name: 'asc' }],
+          select: {
+            id: true,
+            name: true,
+            isArchived: true,
+            semester: true,
+            _count: { select: { students: true } },
+          },
+        },
+      },
+    })
+
+    if (!teacher) {
+      return reply.code(404).send({ ok: false, message: '教师不存在' })
+    }
+
+    return reply.send({
+      ok: true,
+      teacher: { id: teacher.id, username: teacher.username },
+      classes: teacher.classes.map(cls => ({
+        id: cls.id,
+        name: cls.name,
+        isArchived: cls.isArchived,
+        semester: cls.semester,
+        studentCount: cls._count.students,
+      })),
+    })
   })
 
   // === API: Class Management ===
@@ -239,8 +331,13 @@ export default async function adminRoutes(app) {
   // === API: System Backup ===
   app.get('/admin/api/system-backup', { preHandler: adminRequired }, async (request, reply) => {
     try {
-      const data = await fs.readFile(DB_PATH)
-      await fs.writeFile(SYSTEM_BACKUP_PATH, data)
+      let data
+      if (IS_POSTGRES) {
+        data = await createPostgresBackup()
+      } else {
+        data = await fs.readFile(DB_PATH)
+        await fs.writeFile(SQLITE_SYSTEM_BACKUP_PATH, data)
+      }
       await createAuditLog({
         adminId: request.session.teacherId,
         action: 'BACKUP',
@@ -257,10 +354,11 @@ export default async function adminRoutes(app) {
   // === API: Database Backup ===
   app.get('/admin/api/backup', { preHandler: adminRequired }, async (request, reply) => {
     try {
-      if (!fs.existsSync(SYSTEM_BACKUP_PATH)) {
+      const backupPath = getSystemBackupPath()
+      if (!existsSync(backupPath)) {
         return reply.code(404).send({ ok: false, message: '请先点击「系统备份」' })
       }
-      const data = await fs.readFile(SYSTEM_BACKUP_PATH)
+      const data = await fs.readFile(backupPath)
       await createAuditLog({
         adminId: request.session.teacherId,
         action: 'BACKUP',
@@ -269,7 +367,7 @@ export default async function adminRoutes(app) {
         ip: getClientIp(request),
       })
       reply.header('Content-Type', 'application/octet-stream')
-      reply.header('Content-Disposition', `attachment; filename="crcheckin_backup_${Date.now()}.db"`)
+      reply.header('Content-Disposition', `attachment; filename="crcheckin_backup_${Date.now()}${IS_POSTGRES ? '.dump' : '.db'}"`)
       return reply.send(data)
     } catch (err) {
       return reply.code(500).send({ ok: false, message: '备份失败：' + err.message })
@@ -285,13 +383,20 @@ export default async function adminRoutes(app) {
     isRestoring = true
 
     try {
-      await doRestore(request, reply)
+      return await doRestore(request, reply)
     } finally {
       isRestoring = false
     }
   })
 
   async function doRestore(request, reply) {
+    if (IS_POSTGRES) {
+      return reply.code(400).send({
+        ok: false,
+        message: 'PostgreSQL 数据库恢复需要由服务器管理员操作，请勿上传 SQLite .db 文件。',
+      })
+    }
+
     const data = await request.file()
     if (!data) {
       return reply.code(400).send({ ok: false, message: '请上传备份文件' })
@@ -373,10 +478,14 @@ export default async function adminRoutes(app) {
     let dbOk = false
     let dbError = ''
     try {
-      const stat = await fs.stat(DB_PATH)
-      dbSize = stat.size
-      // Test query
       await prisma.$queryRaw`SELECT 1`
+      if (IS_POSTGRES) {
+        const [{ size }] = await prisma.$queryRaw`SELECT pg_database_size(current_database()) AS size`
+        dbSize = Number(size)
+      } else {
+        const stat = await fs.stat(DB_PATH)
+        dbSize = stat.size
+      }
       dbOk = true
     } catch (err) {
       dbError = err.message

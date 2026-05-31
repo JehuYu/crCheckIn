@@ -227,7 +227,32 @@
       display: grid;
       place-items: center;
     }
-    body[data-mode="study"] .stage { cursor: pointer; }
+    body[data-mode="study"] .stage {
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      transition: transform .18s ease, box-shadow .18s ease;
+      will-change: transform;
+    }
+    body[data-mode="study"] .stage.is-dragging {
+      cursor: grabbing;
+      transition: none;
+      box-shadow: 0 16px 40px rgba(20,20,19,.16);
+    }
+    body[data-mode="study"] .stage.swipe-commit-right {
+      transform: translateX(125%) rotate(14deg);
+    }
+    body[data-mode="study"] .stage.swipe-commit-left {
+      transform: translateX(-125%) rotate(-14deg);
+    }
+    body[data-mode="study"] .stage.keyboard-preview-right {
+      transform: translateX(34px) rotate(8deg);
+      box-shadow: 0 16px 40px rgba(20,20,19,.14);
+    }
+    body[data-mode="study"] .stage.keyboard-preview-left {
+      transform: translateX(-34px) rotate(-8deg);
+      box-shadow: 0 16px 40px rgba(20,20,19,.14);
+    }
     .student-photo {
       width: 100%;
       height: 100%;
@@ -235,6 +260,8 @@
       object-fit: cover;
       object-position: center top;
       background: var(--surface-card);
+      user-select: none;
+      -webkit-user-drag: none;
     }
     .name-prompt {
       width: 100%;
@@ -259,6 +286,42 @@
       text-align: center;
       backdrop-filter: blur(8px);
     }
+    .swipe-cue {
+      position: absolute;
+      top: 18px;
+      z-index: 3;
+      min-width: 92px;
+      padding: 8px 14px;
+      border: 2px solid currentColor;
+      border-radius: 999px;
+      background: rgba(255,255,255,.84);
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-align: center;
+      opacity: 0;
+      transform: scale(.92);
+      transition: opacity .12s ease, transform .12s ease;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+    }
+    .swipe-cue-left {
+      left: 16px;
+      color: var(--error);
+      transform: rotate(-10deg) scale(.92);
+    }
+    .swipe-cue-right {
+      right: 16px;
+      color: var(--success);
+      transform: rotate(10deg) scale(.92);
+    }
+    .stage[data-swipe-direction="left"] .swipe-cue-left,
+    .stage[data-swipe-direction="right"] .swipe-cue-right {
+      opacity: 1;
+      transform: rotate(var(--cue-rotate, 0deg)) scale(1);
+    }
+    .stage[data-swipe-direction="left"] .swipe-cue-left { --cue-rotate: -10deg; }
+    .stage[data-swipe-direction="right"] .swipe-cue-right { --cue-rotate: 10deg; }
     .options {
       width: min(680px, 100%);
       display: grid;
@@ -499,9 +562,11 @@
     <div id="memoryShell" class="memory-shell">
       <section class="practice-card" aria-live="polite">
         <div id="stage" class="stage">
-          <img id="studentPhoto" class="student-photo" src="" alt="学生照片">
+          <img id="studentPhoto" class="student-photo" src="" alt="学生照片" draggable="false">
           <div id="namePrompt" class="name-prompt" hidden></div>
           <div id="nameReveal" class="name-reveal" hidden></div>
+          <div id="swipeLeftCue" class="swipe-cue swipe-cue-left" aria-hidden="true">没背</div>
+          <div id="swipeRightCue" class="swipe-cue swipe-cue-right" aria-hidden="true">已背</div>
         </div>
 
         <div id="options" class="options" hidden></div>
@@ -549,6 +614,11 @@ const MODES = {
 }
 const QUIZ_MODES = [MODES.photoToName, MODES.nameToPhoto]
 const OPTION_COUNT = 4
+const SWIPE_REVEAL_THRESHOLD = 56
+const SWIPE_THRESHOLD = 96
+const SWIPE_VERTICAL_LIMIT = 120
+const SWIPE_EXIT_MS = 180
+const KEYBOARD_PREVIEW_CLASSES = ['keyboard-preview-left', 'keyboard-preview-right']
 
 const state = {
   classes: MEMORY_CLASSES,
@@ -560,7 +630,26 @@ const state = {
   isStudyNameVisible: false,
   currentQuestion: null,
   answerResult: null,
+  suppressStageClick: false,
 }
+
+const swipeState = {
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  deltaX: 0,
+  deltaY: 0,
+  isDragging: false,
+  isAnimating: false,
+  wasNameVisible: false,
+  didRevealName: false,
+}
+
+const keyboardState = {
+  direction: null,
+}
+
+let stageClickSuppressTimer = null
 
 const els = {
   classSelect: document.getElementById('classSelect'),
@@ -574,6 +663,8 @@ const els = {
   studentPhoto: document.getElementById('studentPhoto'),
   namePrompt: document.getElementById('namePrompt'),
   nameReveal: document.getElementById('nameReveal'),
+  swipeLeftCue: document.getElementById('swipeLeftCue'),
+  swipeRightCue: document.getElementById('swipeRightCue'),
   options: document.getElementById('options'),
   feedback: document.getElementById('feedback'),
   primaryButton: document.getElementById('primaryButton'),
@@ -618,9 +709,29 @@ function bindEvents() {
     renderCurrent()
   })
 
-  els.stage.addEventListener('click', () => {
+  els.stage.addEventListener('click', (event) => {
+    if (state.suppressStageClick) {
+      event.preventDefault()
+      clearStageClickSuppression()
+      return
+    }
     if (state.mode === MODES.study) handlePrimaryAction()
   })
+  if (window.PointerEvent) {
+    els.stage.addEventListener('pointerdown', handleStagePointerDown)
+    els.stage.addEventListener('pointermove', handleStagePointerMove)
+    els.stage.addEventListener('pointerup', handleStagePointerUp)
+    els.stage.addEventListener('pointercancel', cancelStageSwipe)
+  } else {
+    els.stage.addEventListener('mousedown', handleStageMouseDown)
+    els.stage.addEventListener('touchstart', handleStageTouchStart, { passive: true })
+    els.stage.addEventListener('touchmove', handleStageTouchMove, { passive: false })
+    els.stage.addEventListener('touchend', handleStageTouchEnd)
+    els.stage.addEventListener('touchcancel', handleStageTouchCancel)
+  }
+  els.stage.addEventListener('dragstart', preventNativeDrag)
+  els.studentPhoto.addEventListener('dragstart', preventNativeDrag)
+  document.addEventListener('keydown', handleStudyKeydown)
   els.primaryButton.addEventListener('click', handlePrimaryAction)
   els.masteredButton.addEventListener('click', handleMastered)
   els.nextButton.addEventListener('click', () => {
@@ -758,6 +869,7 @@ function renderStats(classInfo) {
 }
 
 function renderStudy(student, isNameVisible) {
+  resetStageTransform()
   els.studentPhoto.hidden = false
   els.studentPhoto.src = student.photoUrl
   els.studentPhoto.alt = isNameVisible ? student.name : '学生照片'
@@ -775,6 +887,7 @@ function renderStudy(student, isNameVisible) {
 }
 
 function renderQuestion(question, result) {
+  resetStageTransform()
   const isAnswered = Boolean(result)
   const isNameToPhoto = question.mode === MODES.nameToPhoto
   els.studentPhoto.hidden = isNameToPhoto
@@ -833,6 +946,7 @@ function renderQuestion(question, result) {
 }
 
 function renderDone(title, subtitle) {
+  resetStageTransform()
   els.options.hidden = true
   els.primaryButton.hidden = false
   els.masteredButton.hidden = false
@@ -870,6 +984,266 @@ function handleMastered() {
   state.queues[getQueueKey()] = advanceQueue(queue, true)
   state.isStudyNameVisible = false
   renderCurrent()
+}
+
+function handleStudySwipe(direction) {
+  if (state.mode !== MODES.study) return
+
+  if (direction === 'right') {
+    handleMastered()
+    return
+  }
+
+  state.queues[getQueueKey()] = advanceQueue(getActiveQueue(), false)
+  state.isStudyNameVisible = false
+  renderCurrent()
+}
+
+function handleStudyKeydown(event) {
+  if (state.mode !== MODES.study || swipeState.isDragging || swipeState.isAnimating) return
+  if (isFormControl(event.target)) return
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+
+  event.preventDefault()
+  const direction = event.key === 'ArrowRight' ? 'right' : 'left'
+  if (keyboardState.direction === direction) {
+    commitKeyboardDirection(direction)
+    return
+  }
+
+  previewKeyboardDirection(direction)
+}
+
+function previewKeyboardDirection(direction) {
+  const student = getActiveQueue()[0]
+  if (!student) return
+
+  keyboardState.direction = direction
+  revealSwipeNamePreview()
+  els.stage.classList.remove(...KEYBOARD_PREVIEW_CLASSES, 'swipe-commit-left', 'swipe-commit-right')
+  els.stage.classList.add(direction === 'right' ? 'keyboard-preview-right' : 'keyboard-preview-left')
+  els.stage.dataset.swipeDirection = direction
+}
+
+function commitKeyboardDirection(direction) {
+  if (!getActiveQueue().length) return
+
+  keyboardState.direction = null
+  swipeState.isAnimating = true
+  els.stage.classList.remove(...KEYBOARD_PREVIEW_CLASSES)
+  els.stage.dataset.swipeDirection = direction
+  els.stage.classList.add(direction === 'right' ? 'swipe-commit-right' : 'swipe-commit-left')
+
+  window.setTimeout(() => {
+    swipeState.isAnimating = false
+    handleStudySwipe(direction)
+  }, SWIPE_EXIT_MS)
+}
+
+function startStageSwipe(pointerId, clientX, clientY) {
+  if (state.mode !== MODES.study || swipeState.isAnimating) return
+  const queue = getActiveQueue()
+  if (!queue.length) return
+  clearKeyboardPreview()
+
+  swipeState.pointerId = pointerId
+  swipeState.startX = clientX
+  swipeState.startY = clientY
+  swipeState.deltaX = 0
+  swipeState.deltaY = 0
+  swipeState.isDragging = true
+  swipeState.wasNameVisible = state.isStudyNameVisible
+  swipeState.didRevealName = false
+  els.stage.classList.add('is-dragging')
+}
+
+function moveStageSwipe(pointerId, clientX, clientY) {
+  if (!swipeState.isDragging || pointerId !== swipeState.pointerId) return
+
+  swipeState.deltaX = clientX - swipeState.startX
+  swipeState.deltaY = clientY - swipeState.startY
+  const rotation = Math.max(-12, Math.min(12, swipeState.deltaX / 18))
+  els.stage.style.transform = `translate(${swipeState.deltaX}px, ${swipeState.deltaY}px) rotate(${rotation}deg)`
+
+  const progress = Math.min(Math.abs(swipeState.deltaX) / SWIPE_THRESHOLD, 1)
+  els.stage.style.opacity = String(1 - progress * .08)
+
+  if (swipeState.deltaX > 28) {
+    els.stage.dataset.swipeDirection = 'right'
+  } else if (swipeState.deltaX < -28) {
+    els.stage.dataset.swipeDirection = 'left'
+  } else {
+    delete els.stage.dataset.swipeDirection
+  }
+
+  if (Math.abs(swipeState.deltaX) >= SWIPE_REVEAL_THRESHOLD) {
+    revealSwipeNamePreview()
+  }
+}
+
+function finishStageSwipe(pointerId) {
+  if (!swipeState.isDragging || pointerId !== swipeState.pointerId) return
+  const direction = swipeState.deltaX > 0 ? 'right' : 'left'
+  const shouldCommit = Math.abs(swipeState.deltaX) >= SWIPE_THRESHOLD && Math.abs(swipeState.deltaY) <= SWIPE_VERTICAL_LIMIT
+
+  swipeState.isDragging = false
+  els.stage.classList.remove('is-dragging')
+
+  if (!shouldCommit) {
+    if (Math.abs(swipeState.deltaX) > 8 || Math.abs(swipeState.deltaY) > 8) {
+      suppressNextStageClick()
+    }
+    resetStageTransform()
+    return
+  }
+
+  swipeState.isAnimating = true
+  suppressNextStageClick()
+  els.stage.dataset.swipeDirection = direction
+  els.stage.style.transform = ''
+  els.stage.style.opacity = ''
+  els.stage.classList.add(direction === 'right' ? 'swipe-commit-right' : 'swipe-commit-left')
+
+  window.setTimeout(() => {
+    swipeState.isAnimating = false
+    handleStudySwipe(direction)
+  }, SWIPE_EXIT_MS)
+}
+
+function cancelSwipe(pointerId) {
+  if (!swipeState.isDragging || pointerId !== swipeState.pointerId) return
+  swipeState.isDragging = false
+  resetStageTransform()
+}
+
+function handleStagePointerDown(event) {
+  event.preventDefault()
+  startStageSwipe(event.pointerId, event.clientX, event.clientY)
+  if (swipeState.isDragging) els.stage.setPointerCapture(event.pointerId)
+}
+
+function handleStagePointerMove(event) {
+  moveStageSwipe(event.pointerId, event.clientX, event.clientY)
+}
+
+function handleStagePointerUp(event) {
+  finishPointerCapture(event.pointerId)
+  finishStageSwipe(event.pointerId)
+}
+
+function cancelStageSwipe(event) {
+  finishPointerCapture(event.pointerId)
+  cancelSwipe(event.pointerId)
+}
+
+function handleStageMouseDown(event) {
+  if (event.button !== 0) return
+  event.preventDefault()
+  startStageSwipe('mouse', event.clientX, event.clientY)
+  if (!swipeState.isDragging) return
+  window.addEventListener('mousemove', handleStageMouseMove)
+  window.addEventListener('mouseup', handleStageMouseUp, { once: true })
+}
+
+function handleStageMouseMove(event) {
+  moveStageSwipe('mouse', event.clientX, event.clientY)
+}
+
+function handleStageMouseUp(event) {
+  window.removeEventListener('mousemove', handleStageMouseMove)
+  finishStageSwipe('mouse')
+}
+
+function handleStageTouchStart(event) {
+  if (event.touches.length !== 1) return
+  const touch = event.touches[0]
+  startStageSwipe(touch.identifier, touch.clientX, touch.clientY)
+}
+
+function handleStageTouchMove(event) {
+  const touch = getActiveTouch(event.touches)
+  if (!touch) return
+  event.preventDefault()
+  moveStageSwipe(touch.identifier, touch.clientX, touch.clientY)
+}
+
+function handleStageTouchEnd(event) {
+  const touch = getActiveTouch(event.changedTouches)
+  if (!touch) return
+  finishStageSwipe(touch.identifier)
+}
+
+function handleStageTouchCancel(event) {
+  const touch = getActiveTouch(event.changedTouches)
+  if (!touch) return
+  cancelSwipe(touch.identifier)
+}
+
+function getActiveTouch(touchList) {
+  for (const touch of touchList) {
+    if (touch.identifier === swipeState.pointerId) return touch
+  }
+  return null
+}
+
+function preventNativeDrag(event) {
+  event.preventDefault()
+}
+
+function isFormControl(target) {
+  if (!target || !target.tagName) return false
+  const tag = target.tagName.toLowerCase()
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable
+}
+
+function revealSwipeNamePreview() {
+  const student = getActiveQueue()[0]
+  if (!student) return
+  state.isStudyNameVisible = true
+  swipeState.didRevealName = true
+  els.nameReveal.hidden = false
+  els.nameReveal.textContent = student.name
+  els.studentPhoto.alt = student.name
+  els.primaryButton.textContent = '下一张'
+}
+
+function resetStageTransform() {
+  swipeState.pointerId = null
+  swipeState.deltaX = 0
+  swipeState.deltaY = 0
+  swipeState.isDragging = false
+  swipeState.wasNameVisible = state.isStudyNameVisible
+  swipeState.didRevealName = false
+  clearKeyboardPreview()
+  els.stage.classList.remove('is-dragging', 'swipe-commit-left', 'swipe-commit-right')
+  els.stage.style.transform = ''
+  els.stage.style.opacity = ''
+  delete els.stage.dataset.swipeDirection
+}
+
+function clearKeyboardPreview() {
+  keyboardState.direction = null
+  els.stage.classList.remove(...KEYBOARD_PREVIEW_CLASSES)
+}
+
+function finishPointerCapture(pointerId) {
+  if (els.stage.hasPointerCapture(pointerId)) {
+    els.stage.releasePointerCapture(pointerId)
+  }
+}
+
+function suppressNextStageClick() {
+  state.suppressStageClick = true
+  if (stageClickSuppressTimer) window.clearTimeout(stageClickSuppressTimer)
+  stageClickSuppressTimer = window.setTimeout(clearStageClickSuppression, 350)
+}
+
+function clearStageClickSuppression() {
+  state.suppressStageClick = false
+  if (stageClickSuppressTimer) {
+    window.clearTimeout(stageClickSuppressTimer)
+    stageClickSuppressTimer = null
+  }
 }
 
 function handleOptionClick(event) {
@@ -957,9 +1331,15 @@ function advanceQueue(queue, isCorrect) {
   const [current, ...rest] = queue
   if (!current) return []
   const nextQueue = [...rest]
-  const insertAt = Math.min(3, nextQueue.length)
+  const insertAt = getWrongRequeueIndex(nextQueue.length)
   nextQueue.splice(insertAt, 0, current)
   return nextQueue
+}
+
+function getWrongRequeueIndex(remainingLength) {
+  if (remainingLength <= 1) return remainingLength
+  // Keep a wrong card away from the immediate next slot, then randomize the rest.
+  return 1 + Math.floor(Math.random() * remainingLength)
 }
 
 function shuffle(input) {

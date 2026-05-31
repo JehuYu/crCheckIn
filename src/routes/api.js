@@ -26,6 +26,7 @@ import {
   exportSessionSeatTableToExcel,
 } from '../services/roster.js'
 import { createClass, deleteClass, archiveClass, unarchiveClass, reorderClasses } from '../services/class.js'
+import { returnTeacherClassToPool } from '../services/pool.js'
 import { changePassword, verifyTeacherByPassword, recordLogin } from '../services/auth.js'
 import { getSeatGrids, getSeatGridsFromArchivedRecords } from '../services/seat.js'
 import { createStudent, updateStudent, deleteStudent, transferStudent } from '../services/student.js'
@@ -299,16 +300,9 @@ export default async function apiRoutes(fastify) {
     const cls = await prisma.class.findUnique({ where: { id: classId } })
     if (!cls) return reply.code(404).send({ ok: false, message: '班级不存在' })
 
-    // 所有教师班级删除时都回归班级池
-    await prisma.$transaction(async (tx) => {
-      await tx.signInSession.deleteMany({ where: { classId } })
-      await tx.signInConfig.deleteMany({ where: { classId } })
-      await tx.signInRecord.deleteMany({ where: { classId } })
-      await tx.student.deleteMany({ where: { classId } })
-      await tx.class.update({ where: { id: classId }, data: { teacherId: null } })
-    })
+    const result = await returnTeacherClassToPool(classId)
     invalidateClassTeacherCache(classId)
-    return reply.send({ ok: true, message: `「${cls.name}」已归还班级池` })
+    return reply.code(result.status || 200).send(result)
   })
 
   // POST /api/classes/:classId/archive — 归档班级，需要 classOwnerRequired
