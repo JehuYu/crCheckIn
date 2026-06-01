@@ -10,6 +10,11 @@ const STARTUP_TIMEOUT_MS = 30_000
 
 let app = null
 let expiredCheckInterval = null
+let expiredCheckPaused = false
+
+// 导出供 restore 接口暂停/恢复定时器
+export function pauseExpiredCheck() { expiredCheckPaused = true }
+export function resumeExpiredCheck() { expiredCheckPaused = false }
 
 const startupTimer = setTimeout(() => {
   console.error('[startup] 启动超时（30s），强制退出')
@@ -33,6 +38,7 @@ try {
 
   // 运行时每分钟检查一次过期倒计时
   expiredCheckInterval = setInterval(async () => {
+    if (expiredCheckPaused) return
     try {
       await recoverExpiredCountdowns()
     } catch (err) {
@@ -68,10 +74,10 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 // 未捕获异常兜底
 process.on('uncaughtException', (err) => {
   console.error('[fatal] uncaught exception:', err)
-  gracefulShutdown('uncaughtException')
+  gracefulShutdown('uncaughtException').then(() => process.exit(1))
 })
 
 process.on('unhandledRejection', (reason) => {
   console.error('[fatal] unhandled rejection:', reason)
-  gracefulShutdown('unhandledRejection')
+  gracefulShutdown('unhandledRejection').then(() => process.exit(1))
 })

@@ -309,7 +309,7 @@ export default async function teacherRoutes(app) {
   })
 
   // Student photo upload (teacher-facing)
-  app.post('/api/classes/:classId/students/:studentId/photo', { preHandler: classOwnerRequired }, async (request, reply) => {
+  app.post('/api/classes/:classId/students/:studentId/photo', { preHandler: classOwnerRequired, config: { bodyLimit: 10 * 1024 * 1024 } }, async (request, reply) => {
     const classId = request.classId
     const studentId = parseInt(request.params.studentId, 10)
     try {

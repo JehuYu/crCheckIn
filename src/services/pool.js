@@ -1262,9 +1262,17 @@ export async function uploadZipForMatching(zipBuffer) {
 
     // 使用系统 unzip 命令解压（正确处理 GBK 编码文件名）
     await new Promise((resolve, reject) => {
-      exec(`unzip -o '${zipPath}' -d '${tempDir}'`, (err) => {
-        if (err) reject(err)
-        else resolve()
+      exec(`unzip -o '${zipPath.replace(/'/g, "'\\''")}' -d '${tempDir.replace(/'/g, "'\\''")}'`, (err, stdout, stderr) => {
+        if (err) {
+          // 提供更友好的错误信息
+          if (stderr.includes('command not found') || err.code === 'ENOENT') {
+            reject(new Error('系统未安装 unzip 命令，请执行 apt install unzip 或 yum install unzip 安装'))
+          } else {
+            reject(new Error('ZIP 解压失败：' + (stderr || err.message)))
+          }
+        } else {
+          resolve()
+        }
       })
     })
 
@@ -1344,15 +1352,22 @@ async function parseZipFolderStructure(tempDir) {
   const schools = []
 
   for (const school of schoolDirs) {
+    // 安全过滤：去除路径遍历字符
+    const safeSchool = school.replace(/\.\./g, '').replace(/[\\/]/g, '')
+    if (!safeSchool) continue
     const schoolPath = gradeDir
-      ? path.join(tempDir, gradeDir, school)
-      : path.join(tempDir, school)
+      ? path.join(tempDir, gradeDir, safeSchool)
+      : path.join(tempDir, safeSchool)
+    if (!fsSync.existsSync(schoolPath)) continue
 
     const classEntries = await fs.readdir(schoolPath)
     const classes = []
 
     for (const classEntry of classEntries) {
-      const classPath = path.join(schoolPath, classEntry)
+      // 安全过滤：去除路径遍历字符
+      const safeClass = classEntry.replace(/\.\./g, '').replace(/[\\/]/g, '')
+      if (!safeClass) continue
+      const classPath = path.join(schoolPath, safeClass)
       const classStat = await fs.stat(classPath)
       if (!classStat.isDirectory()) continue
 
@@ -1370,14 +1385,14 @@ async function parseZipFolderStructure(tempDir) {
       }
 
       classes.push({
-        className: classEntry,
+        className: safeClass,
         photoCount: photoFiles.length,
         photos: photoFiles,
       })
     }
 
     if (classes.length > 0) {
-      schools.push({ schoolName: school, classes })
+      schools.push({ schoolName: safeSchool, classes })
     }
   }
 

@@ -6,7 +6,7 @@ import { registerRoutes } from './routes/index.js'
 export async function buildApp(opts = {}) {
   const app = Fastify({
     logger: true,
-    bodyLimit: 500 * 1024 * 1024, // 500MB — 支持批量上传 1000+ 张照片
+    bodyLimit: 1 * 1024 * 1024, // 1MB default
     ...opts,
     ignoreTrailingSlash: true,
   })

@@ -117,7 +117,7 @@ export default async function poolRoutes(app) {
 
   // === API: Excel 导入学生到班级池 ===
 
-  app.post('/admin/api/pool/classes/:id/import', { preHandler: adminRequired }, async (request, reply) => {
+  app.post('/admin/api/pool/classes/:id/import', { preHandler: adminRequired, config: { bodyLimit: 50 * 1024 * 1024 } }, async (request, reply) => {
     const classId = parseInt(request.params.id, 10)
     try {
       let fileBuffer = null
@@ -138,7 +138,7 @@ export default async function poolRoutes(app) {
 
   // === API: 上传学生照片 ===
 
-  app.post('/admin/api/pool/classes/:id/students/:studentId/photo', { preHandler: adminRequired }, async (request, reply) => {
+  app.post('/admin/api/pool/classes/:id/students/:studentId/photo', { preHandler: adminRequired, config: { bodyLimit: 10 * 1024 * 1024 } }, async (request, reply) => {
     const classId = parseInt(request.params.id, 10)
     const studentId = parseInt(request.params.studentId, 10)
     try {
@@ -160,7 +160,7 @@ export default async function poolRoutes(app) {
 
   // === API: 批量上传照片 ===
 
-  app.post('/admin/api/pool/classes/:id/photos/bulk', {
+  app.post('/admin/api/pool/classes/:id/photos/bulk', { config: { bodyLimit: 500 * 1024 * 1024 },
     preHandler: adminRequired,
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
   }, async (request, reply) => {
@@ -183,7 +183,7 @@ export default async function poolRoutes(app) {
 
   // === API: 批量导入学生到班级池 ===
 
-  app.post('/admin/api/pool/batch-import', { preHandler: adminRequired }, async (request, reply) => {
+  app.post('/admin/api/pool/batch-import', { preHandler: adminRequired, config: { bodyLimit: 50 * 1024 * 1024 } }, async (request, reply) => {
     try {
       let fileBuffer = null
       for await (const part of request.parts()) {
@@ -203,7 +203,7 @@ export default async function poolRoutes(app) {
 
   // === API: 批量上传照片到班级池 ===
 
-  app.post('/admin/api/pool/batch-photos', {
+  app.post('/admin/api/pool/batch-photos', { config: { bodyLimit: 500 * 1024 * 1024 },
     preHandler: adminRequired,
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } }, // 限制批量上传频率
   }, async (request, reply) => {
@@ -225,7 +225,7 @@ export default async function poolRoutes(app) {
 
   // === API: 解决照片冲突（同名学生手动匹配）===
 
-  app.post('/admin/api/pool/photos/resolve', {
+  app.post('/admin/api/pool/photos/resolve', { config: { bodyLimit: 10 * 1024 * 1024 },
     preHandler: adminRequired,
   }, async (request, reply) => {
     try {
@@ -265,7 +265,7 @@ export default async function poolRoutes(app) {
 
   // === API: 按 name+homeClass 上传照片（跨所有教学班）===
 
-  app.post('/admin/api/pool/students/by-name/photo', { preHandler: adminRequired }, async (request, reply) => {
+  app.post('/admin/api/pool/students/by-name/photo', { preHandler: adminRequired, config: { bodyLimit: 10 * 1024 * 1024 } }, async (request, reply) => {
     try {
       let fileBuffer = null
       let filename = 'photo.jpg'
@@ -348,7 +348,7 @@ export default async function poolRoutes(app) {
   // === API: ZIP 照片匹配 ===
 
   // 上传 ZIP 并解压
-  app.post('/admin/api/pool/zip-upload', {
+  app.post('/admin/api/pool/zip-upload', { config: { bodyLimit: 500 * 1024 * 1024 },
     preHandler: adminRequired,
   }, async (request, reply) => {
     try {
@@ -411,7 +411,7 @@ export default async function poolRoutes(app) {
   })
 
   // 解决同名冲突
-  app.post('/admin/api/pool/photos/resolve-zip', {
+  app.post('/admin/api/pool/photos/resolve-zip', { config: { bodyLimit: 10 * 1024 * 1024 },
     preHandler: adminRequired,
   }, async (request, reply) => {
     try {

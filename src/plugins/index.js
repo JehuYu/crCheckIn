@@ -9,9 +9,18 @@ import viewPlugin from './view.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export async function registerPlugins(app) {
+  // 安全响应头
+  app.addHook('onSend', async (request, reply) => {
+    reply.header('X-Frame-Options', 'SAMEORIGIN')
+    reply.header('X-Content-Type-Options', 'nosniff')
+    reply.header('X-XSS-Protection', '1; mode=block')
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  })
+
   await app.register(fastifyRateLimit, {
     global: true,
-    max: 10000,
+    max: 1000,
     timeWindow: '1 minute',
     keyGenerator(req) {
       // 教师端页面按 session 区分，避免同 IP 多浏览器互相影响

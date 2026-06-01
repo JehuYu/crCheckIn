@@ -19,6 +19,7 @@ import { addPresetTag, updatePresetTag, deletePresetTag } from '../services/tag.
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { pauseExpiredCheck, resumeExpiredCheck } from '../../server.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DB_PATH = path.resolve(__dirname, '../../prisma/attendance.db')
@@ -316,6 +317,9 @@ export default async function adminRoutes(app) {
       return reply.code(400).send({ ok: false, message: '不是有效的 SQLite 数据库文件' })
     }
 
+    // 暂停倒计时恢复定时器，避免在断开连接期间报错
+    pauseExpiredCheck()
+
     // Write to temp file first, validate, then swap
     const tempPath = DB_PATH + `.restore_${Date.now()}`
     await fs.writeFile(tempPath, buffer)
@@ -340,6 +344,9 @@ export default async function adminRoutes(app) {
       // Rollback to backup
       await fs.copyFile(backupPath, DB_PATH)
       return reply.send({ ok: false, message: '数据库无法加载，已回滚到恢复前的状态：' + err.message })
+    } finally {
+      // 恢复倒计时恢复定时器
+      resumeExpiredCheck()
     }
 
     // Clean up old backups (keep last 5)
@@ -362,6 +369,17 @@ export default async function adminRoutes(app) {
 
     return reply.send({ ok: true, message: '数据库已恢复，完整性校验通过' })
   }
+
+  // === API: Public Health Check (no auth required) ===
+
+  app.get('/health', async (request, reply) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`
+      return reply.send({ ok: true, status: 'healthy' })
+    } catch {
+      return reply.code(503).send({ ok: false, status: 'unhealthy' })
+    }
+  })
 
   // === API: System Health ===
 
