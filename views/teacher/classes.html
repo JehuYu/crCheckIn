@@ -613,8 +613,8 @@
         {% set classCount = 0 %}
         {% set totalStudents = 0 %}
         {% set totalSigned = 0 %}
-        {% for grade in gradeOrder %}
-        {% for cls in classes[grade] | default([]) %}
+        {% for group in classes %}
+        {% for cls in group.classes %}
         {% set classCount = classCount + 1 %}
         {% set totalStudents = totalStudents + cls.studentCount %}
         {% set totalSigned = totalSigned + cls.signedCount %}
@@ -725,8 +725,8 @@
             <h2 class="section-title">已归档班级</h2>
             <div style="display: flex; align-items: center; gap: 8px;">
               {% set archivedTotal = 0 %}
-              {% for grade in gradeOrder %}
-              {% set archivedTotal = archivedTotal + (classes[grade] | default([]) | length) %}
+              {% for group in classes %}
+              {% set archivedTotal = archivedTotal + group.classes | length %}
               {% endfor %}
               <span style="font-size: 12px; color: var(--muted-soft); background: var(--surface-card); padding: 4px 10px; border-radius: 9999px;">{{ archivedTotal }} 个</span>
               <a href="/teacher/classes" style="font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 500;">返回活跃班级</a>
@@ -735,8 +735,8 @@
             <h2 class="section-title">我的班级</h2>
             <div style="display: flex; align-items: center; gap: 8px;">
               {% set activeTotal = 0 %}
-              {% for grade in gradeOrder %}
-              {% set activeTotal = activeTotal + (classes[grade] | default([]) | length) %}
+              {% for group in classes %}
+              {% set activeTotal = activeTotal + group.classes | length %}
               {% endfor %}
               <span style="font-size: 12px; color: var(--muted-soft); background: var(--surface-card); padding: 4px 10px; border-radius: 9999px;">{{ activeTotal }} 个</span>
               {% if archivedCount > 0 %}
@@ -747,8 +747,8 @@
           </div>
 
           {% set hasAnyClasses = false %}
-          {% for grade in gradeOrder %}
-          {% if classes[grade] and classes[grade] | length > 0 %}
+          {% for group in classes %}
+          {% if group.classes | length > 0 %}
           {% set hasAnyClasses = true %}
           {% endif %}
           {% endfor %}
@@ -763,15 +763,14 @@
             <p style="font-size: 14px; color: var(--muted-soft); margin: 0;">暂无班级，请先在右侧创建或导入</p>
           </div>
           {% else %}
-          {% for grade in gradeOrder %}
-          {% set gradeClasses = classes[grade] %}
-          {% if gradeClasses and gradeClasses | length > 0 %}
+          {% for group in classes %}
+          {% if group.classes | length > 0 %}
           <div class="grade-section" style="margin-bottom: 20px;">
             <h3 style="font-size: 15px; font-weight: 600; color: var(--ink); margin: 0 0 12px; padding: 8px 12px; background: var(--surface-card); border-radius: 8px;">
-              {{ grade }}（{{ gradeClasses | length }} 个班级）
+              {{ group.grade }}（{{ group.classes | length }} 个班级）
             </h3>
             <div class="class-grid">
-            {% for cls in gradeClasses %}
+            {% for cls in group.classes %}
             <div class="class-item{% if cls.isArchived %} archived{% endif %}" data-class-id="{{ cls.id }}" data-class-name="{{ cls.name }}" draggable="{% if not cls.isArchived %}true{% else %}false{% endif %}">
               <a href="/teacher/classes/{{ cls.id }}" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 12px; flex: 1;">
                 <div class="class-item-head">
