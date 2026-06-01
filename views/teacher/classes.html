@@ -744,8 +744,16 @@
             <p style="font-size: 14px; color: var(--muted-soft); margin: 0;">暂无班级，请先在右侧创建或导入</p>
           </div>
           {% else %}
-          <div class="class-grid" id="classGrid">
-            {% for cls in classes %}
+          {% set gradeOrder = ['高一', '高二', '高三', '高四', '其他'] %}
+          {% for grade in gradeOrder %}
+          {% set gradeClasses = classes | selectattr("grade", "equalto", grade) | list %}
+          {% if gradeClasses | length > 0 %}
+          <div class="grade-section" style="margin-bottom: 20px;">
+            <h3 style="font-size: 15px; font-weight: 600; color: var(--ink); margin: 0 0 12px; padding: 8px 12px; background: var(--surface-card); border-radius: 8px;">
+              {{ grade }}（{{ gradeClasses | length }} 个班级）
+            </h3>
+            <div class="class-grid">
+            {% for cls in gradeClasses %}
             <div class="class-item{% if cls.isArchived %} archived{% endif %}" data-class-id="{{ cls.id }}" data-class-name="{{ cls.name }}" draggable="{% if not cls.isArchived %}true{% else %}false{% endif %}">
               <a href="/teacher/classes/{{ cls.id }}" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 12px; flex: 1;">
                 <div class="class-item-head">
@@ -781,7 +789,10 @@
               </div>
             </div>
             {% endfor %}
+            </div>
           </div>
+          {% endif %}
+          {% endfor %}
           {% endif %}
         </div>
       </div>
@@ -1063,10 +1074,11 @@ poolClaimBtn.addEventListener('click', async () => {
 })
 
 // === Drag and Drop Reorder ===
-const classGrid = document.getElementById('classGrid')
 let draggedItem = null
+const allClassGrids = document.querySelectorAll('.class-grid')
+const mainContainer = document.querySelector('.section-card') || document.body
 
-if (classGrid) {
+allClassGrids.forEach(classGrid => {
   classGrid.addEventListener('dragstart', (e) => {
     const item = e.target.closest('.class-item')
     if (!item || item.classList.contains('archived')) return
@@ -1080,8 +1092,7 @@ if (classGrid) {
     const item = e.target.closest('.class-item')
     if (item) item.style.opacity = ''
     draggedItem = null
-    // Remove all drag-over indicators
-    classGrid.querySelectorAll('.class-item').forEach(i => i.classList.remove('drag-over'))
+    document.querySelectorAll('.class-item').forEach(i => i.classList.remove('drag-over'))
   })
 
   classGrid.addEventListener('dragover', (e) => {
@@ -1089,8 +1100,7 @@ if (classGrid) {
     e.dataTransfer.dropEffect = 'move'
     const target = e.target.closest('.class-item')
     if (!target || target === draggedItem || target.classList.contains('archived')) return
-    // Remove previous indicators
-    classGrid.querySelectorAll('.class-item').forEach(i => i.classList.remove('drag-over'))
+    document.querySelectorAll('.class-item').forEach(i => i.classList.remove('drag-over'))
     target.classList.add('drag-over')
   })
 
@@ -1105,10 +1115,10 @@ if (classGrid) {
     if (!target || target === draggedItem || !draggedItem) return
     target.classList.remove('drag-over')
 
-    // Determine position
-    const items = [...classGrid.querySelectorAll('.class-item:not(.archived)')]
-    const draggedIndex = items.indexOf(draggedItem)
-    const targetIndex = items.indexOf(target)
+    // Collect all non-archived items across all grids
+    const allItems = [...document.querySelectorAll('.class-item:not(.archived)')]
+    const draggedIndex = allItems.indexOf(draggedItem)
+    const targetIndex = allItems.indexOf(target)
 
     if (draggedIndex === -1 || targetIndex === -1) return
 
@@ -1119,8 +1129,8 @@ if (classGrid) {
       target.before(draggedItem)
     }
 
-    // Collect new order and save
-    const newOrder = [...classGrid.querySelectorAll('.class-item')].map(i => parseInt(i.dataset.classId))
+    // Collect new order from all grids
+    const newOrder = [...document.querySelectorAll('.class-item:not(.archived)')].map(i => parseInt(i.dataset.classId))
     const res = await fetch('/api/classes/reorder', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1132,7 +1142,7 @@ if (classGrid) {
       window.location.reload()
     }
   })
-}
+})
 </script>
 </body>
 </html>
