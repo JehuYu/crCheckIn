@@ -6,7 +6,7 @@ import { registerRoutes } from './routes/index.js'
 export async function buildApp(opts = {}) {
   const app = Fastify({
     logger: true,
-    bodyLimit: 1 * 1024 * 1024, // 1MB default
+    bodyLimit: 100 * 1024 * 1024, // 100MB default
     ...opts,
     ignoreTrailingSlash: true,
   })

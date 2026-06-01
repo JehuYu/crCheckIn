@@ -20,7 +20,7 @@ export async function registerPlugins(app) {
 
   await app.register(fastifyRateLimit, {
     global: true,
-    max: 1000,
+    max: 10000,
     timeWindow: '1 minute',
     keyGenerator(req) {
       // 教师端页面按 session 区分，避免同 IP 多浏览器互相影响
