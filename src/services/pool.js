@@ -83,14 +83,24 @@ function normalizeName(name) {
 }
 
 /**
- * 学生复合身份标识：姓名 + 行政班，用于跨班级匹配同一真实学生
- * 旧数据 homeClass 为空时退化为仅姓名匹配
+ * 从班级名提取学科标识
+ * "一职B4" → "职", "二劳A3" → "劳", "二信B7" → "信", "临时班" → ""
  */
-function getStudentIdentityKey(student) {
+function extractSubjectFromClass(className) {
+  const match = String(className || '').match(/[一二三四五六七八九十]([^\d])/)
+  return match ? match[1] : ''
+}
+
+/**
+ * 学生复合身份标识：姓名 + 行政班 + 学科，用于跨班级匹配同一真实学生
+ * 同一学生在不同学科（一职/一劳）是不同的课程记录，不应互相覆盖
+ */
+function getStudentIdentityKey(student, className = '') {
   const nameKey = normalizeName(student?.name)
   if (!nameKey) return ''
   const homeClassKey = normalizeName(student?.homeClass || '')
-  return `${nameKey}::${homeClassKey}`
+  const subject = extractSubjectFromClass(className)
+  return `${nameKey}::${homeClassKey}::${subject}`
 }
 
 /**
@@ -175,12 +185,11 @@ export async function getPoolClasses(opts = {}) {
     }
   })
 
-  // 概览学生总数 + 缺照片数：跨教学班去重
-  const allStudents = classes.flatMap(c => c.students)
+  // 概览学生总数 + 缺照片数：跨教学班去重（按姓名+行政班+学科）
+  const allStudents = classes.flatMap(c => c.students.map(s => ({ ...s, _className: c.name })))
   const uniqueStudentMap = new Map()
   for (const s of allStudents) {
-    const hc = s.homeClass || '未分组'
-    const key = `${s.name}|||${hc}`
+    const key = getStudentIdentityKey(s, s._className)
     if (!uniqueStudentMap.has(key)) {
       uniqueStudentMap.set(key, { hasPhoto: !!s.photoUrl })
     } else if (s.photoUrl) {
@@ -202,11 +211,10 @@ export async function getPoolClasses(opts = {}) {
       const gradeChar = extractGradeFromClass(c.name)
       return gradeCharToName(gradeChar) === grade
     })
-    const gradeStudents = gradeClasses.flatMap(c => c.students)
+    const gradeStudents = gradeClasses.flatMap(c => c.students.map(s => ({ ...s, _className: c.name })))
     const gradeUniqueMap = new Map()
     for (const s of gradeStudents) {
-      const hc = s.homeClass || '未分组'
-      const key = `${s.name}|||${hc}`
+      const key = getStudentIdentityKey(s, s._className)
       if (!gradeUniqueMap.has(key)) {
         gradeUniqueMap.set(key, { hasPhoto: !!s.photoUrl })
       } else if (s.photoUrl) {
@@ -315,7 +323,7 @@ export async function syncPoolPhotosToTeacherClasses(poolClassId) {
   const poolPhotoMap = new Map(
     poolStudents
       .filter(s => s.photoUrl)
-      .map(s => [getStudentIdentityKey(s), s])
+      .map(s => [getStudentIdentityKey(s, poolClass.name), s])
   )
 
   let totalSynced = 0
@@ -329,7 +337,7 @@ export async function syncPoolPhotosToTeacherClasses(poolClassId) {
     const updatePhotoIds = []
 
     for (const ts of teacherStudents) {
-      const identityKey = getStudentIdentityKey(ts)
+      const identityKey = getStudentIdentityKey(ts, poolClass.name)
       const poolPhoto = poolPhotoMap.get(identityKey)
       if (poolPhoto && ts.photoUrl !== poolPhoto.photoUrl) {
         // 班级池有照片，教师照片不同（含为空）→ 更新
@@ -373,7 +381,7 @@ export async function syncTeacherPhotoToPool(teacherClassId) {
   })
   if (teacherStudents.length === 0) return { ok: true, synced: 0 }
 
-  const teacherPhotoMap = new Map(teacherStudents.map(s => [getStudentIdentityKey(s), s]))
+  const teacherPhotoMap = new Map(teacherStudents.map(s => [getStudentIdentityKey(s, teacherClass.name), s]))
 
   // 获取班级池中没有照片的学生
   const poolStudents = await prisma.student.findMany({
@@ -383,7 +391,7 @@ export async function syncTeacherPhotoToPool(teacherClassId) {
 
   const updates = []
   for (const ps of poolStudents) {
-    const tp = teacherPhotoMap.get(getStudentIdentityKey(ps))
+    const tp = teacherPhotoMap.get(getStudentIdentityKey(ps, teacherClass.name))
     if (tp && ps.photoUrl !== tp.photoUrl) {
       // 教师有照片，班级池照片不同（含为空）→ 更新
       updates.push({ id: ps.id, photoUrl: tp.photoUrl })
@@ -477,14 +485,14 @@ export async function claimPoolClass(classId, teacherId) {
       where: { classId: existing.id },
       select: { id: true, name: true, homeClass: true, photoUrl: true },
     })
-    const existingMap = new Map(existingStudents.map(s => [getStudentIdentityKey(s), s]))
+    const existingMap = new Map(existingStudents.map(s => [getStudentIdentityKey(s, cls.name), s]))
 
     let mergedCount = 0
     const claimUpdates = []
     const claimInserts = []
     for (const ps of poolStudents) {
       if (!ps.photoUrl) continue
-      const es = existingMap.get(getStudentIdentityKey(ps))
+      const es = existingMap.get(getStudentIdentityKey(ps, cls.name))
       if (es) {
         if (es.photoUrl !== ps.photoUrl) {
           claimUpdates.push(prisma.student.update({ where: { id: es.id }, data: { photoUrl: ps.photoUrl } }))
