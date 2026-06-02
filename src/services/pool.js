@@ -191,11 +191,11 @@ export async function getPoolClasses(opts = {}) {
     }
   })
 
-  // 概览学生总数 + 缺照片数：跨教学班去重（按姓名+行政班+学科）
-  const allStudents = classes.flatMap(c => c.students.map(s => ({ ...s, _className: c.name })))
+  // 概览学生总数 + 缺照片数：跨教学班去重（按姓名+行政班）
+  const allStudents = classes.flatMap(c => c.students)
   const uniqueStudentMap = new Map()
   for (const s of allStudents) {
-    const key = getStudentIdentityKey(s, s._className)
+    const key = `${s.name}|||${s.homeClass || ''}`
     if (!uniqueStudentMap.has(key)) {
       uniqueStudentMap.set(key, { hasPhoto: !!s.photoUrl })
     } else if (s.photoUrl) {
@@ -217,10 +217,10 @@ export async function getPoolClasses(opts = {}) {
       const gradeChar = extractGradeFromClass(c.name)
       return gradeCharToName(gradeChar) === grade
     })
-    const gradeStudents = gradeClasses.flatMap(c => c.students.map(s => ({ ...s, _className: c.name })))
+    const gradeStudents = gradeClasses.flatMap(c => c.students)
     const gradeUniqueMap = new Map()
     for (const s of gradeStudents) {
-      const key = getStudentIdentityKey(s, s._className)
+      const key = `${s.name}|||${s.homeClass || ''}`
       if (!gradeUniqueMap.has(key)) {
         gradeUniqueMap.set(key, { hasPhoto: !!s.photoUrl })
       } else if (s.photoUrl) {
