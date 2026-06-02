@@ -81,6 +81,20 @@
       transition: all .15s ease;
     }
     .nav-action:hover { background: var(--surface-card); color: var(--ink); }
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all .15s ease;
+    }
+    .nav-link:hover { background: var(--surface-card); color: var(--ink); }
+    .text-lg { font-size: 18px; }
 
     .memory-page {
       max-width: 1300px;
@@ -497,9 +511,15 @@
   <header class="header-bar">
     <div class="header-inner">
       <div class="header-left">
-        <h1 class="page-title">学生照片记忆卡</h1>
+        <a href="{{ backHref }}" class="nav-link">
+          <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+          返回
+        </a>
+        <span style="color: var(--hairline);">|</span>
+        <span class="page-title text-lg">学生照片记忆卡</span>
       </div>
-      <a class="nav-action" href="{{ backHref }}">返回班级</a>
     </div>
   </header>
 
