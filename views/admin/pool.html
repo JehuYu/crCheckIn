@@ -51,14 +51,8 @@
           </div>
           <div class="sidebar-body">
             <div style="display: flex; gap: 16px;">
-              {% set totalClasses = 0 %}
-              {% for grade, gradeClasses in classes %}
-                {% for cls in gradeClasses %}
-                  {% set totalClasses = totalClasses + 1 %}
-                {% endfor %}
-              {% endfor %}
               <div style="flex:1; text-align:center; padding:12px; background:var(--surface-soft); border-radius:8px;">
-                <p style="font-family:Georgia,serif; font-size:28px; font-weight:400; color:var(--primary); margin:0;">{{ totalClasses }}</p>
+                <p style="font-family:Georgia,serif; font-size:28px; font-weight:400; color:var(--primary); margin:0;">{{ totalClassCount }}</p>
                 <p style="font-size:12px; color:var(--muted-soft); margin:4px 0 0;">个班级</p>
               </div>
               <div style="flex:1; text-align:center; padding:12px; background:var(--surface-soft); border-radius:8px;">
@@ -166,13 +160,36 @@
             <svg style="width:12px;height:12px;margin-right:4px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             回收站{% if recycleBin.length > 0 %} ({{ recycleBin.length }}){% endif %}
           </a>
-          {% if not currentSemester and classes.length > 0 %}
+          {% if not currentSemester and totalClassCount > 0 %}
           <button id="archiveSemesterBtn" class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px; margin-left: auto;">归档当前学期</button>
           {% endif %}
           {% if currentSemester %}
           <button id="unarchiveSemesterBtn" class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px; margin-left: auto; color: var(--success, #5db872);">撤销归档「{{ currentSemester }}」</button>
           {% endif %}
         </div>
+
+        {% if not isRecycleView and totalClassCount > 0 %}
+        <div class="pool-filter-bar" id="poolFilters">
+          <div class="pool-filter-set">
+            <span class="pool-filter-label">方向</span>
+            <div class="pool-filter-options" role="group" aria-label="按方向筛选">
+              <button type="button" class="pool-filter-btn active" data-filter-type="direction" data-filter-value="all" aria-pressed="true">全部</button>
+              <button type="button" class="pool-filter-btn" data-filter-type="direction" data-filter-value="通" aria-pressed="false">通（劳）</button>
+              <button type="button" class="pool-filter-btn" data-filter-type="direction" data-filter-value="信" aria-pressed="false">信（职）</button>
+            </div>
+          </div>
+          <div class="pool-filter-set">
+            <span class="pool-filter-label">年级</span>
+            <div class="pool-filter-options" role="group" aria-label="按年级筛选">
+              <button type="button" class="pool-filter-btn active" data-filter-type="grade" data-filter-value="all" aria-pressed="true">全部</button>
+              <button type="button" class="pool-filter-btn" data-filter-type="grade" data-filter-value="一" aria-pressed="false">高一</button>
+              <button type="button" class="pool-filter-btn" data-filter-type="grade" data-filter-value="二" aria-pressed="false">高二</button>
+              <button type="button" class="pool-filter-btn" data-filter-type="grade" data-filter-value="三" aria-pressed="false">高三</button>
+            </div>
+          </div>
+          <span class="pool-filter-result" id="poolFilterResult"></span>
+        </div>
+        {% endif %}
 
         {% if isRecycleView %}
           <!-- Recycle Bin View -->
@@ -181,7 +198,7 @@
           {% else %}
           <div class="pool-grid">
             {% for cls in recycleBin %}
-            <div class="pool-class-card" style="opacity: 0.75;">
+            <div class="pool-class-card {% if cls.assessmentType %}pool-class-card--{{ cls.assessmentType }}{% endif %}" style="opacity: 0.75;">
               <div class="pool-class-head" style="cursor: default;">
                 <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
                   <span class="pool-class-name">{{ cls.name }}</span>
@@ -213,7 +230,7 @@
             </button>
             <div class="grade-class-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">
               {% for cls in gradeClasses %}
-              <div class="pool-class-card {% if cls.claimedByAnyTeacher %}pool-class-claimed{% endif %}" data-class-id="{{ cls.id }}">
+              <div class="pool-class-card {% if cls.assessmentType %}pool-class-card--{{ cls.assessmentType }}{% endif %} {% if cls.claimedByAnyTeacher %}pool-class-claimed{% endif %}" data-class-id="{{ cls.id }}" data-pool-class-name="{{ cls.name }}">
                 <div class="pool-class-head" data-action="open-modal" data-class-id="{{ cls.id }}">
                   <div style="display: flex; align-items: center; gap: 6px;">
                     <span class="pool-class-name">{{ cls.name }}</span>
@@ -227,8 +244,8 @@
                     {% for g in cls.homeClassGroups %}{{ g.name }}{% if not loop.last %}, {% endif %}{% endfor %}
                   </div>
                   {% endif %}
-                  {% if not currentSemester and not cls.claimedByAnyTeacher %}
-                  <button data-action="delete-class" data-class-id="{{ cls.id }}" class="pool-action-btn" style="color: var(--error); font-size: 10px;">删除</button>
+                  {% if not currentSemester %}
+                  <button data-action="delete-class" data-class-id="{{ cls.id }}" data-claimed="{{ cls.claimedByAnyTeacher }}" class="pool-action-btn" style="color: var(--error); font-size: 10px;">删除</button>
                   {% endif %}
                 </div>
               </div>
@@ -239,6 +256,7 @@
           {% endfor %}
           {% endif %}
         {% endif %}
+        <div class="pool-filter-empty" id="poolFilterEmpty" hidden>没有符合筛选条件的班级</div>
       </div>
     </div>
   </main>
@@ -480,6 +498,56 @@ function showToast(text, ok = true) {
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
+// === Pool Class Filters ===
+const poolFilterState = { direction: 'all', grade: 'all' }
+
+function getPoolClassFilters(name) {
+  const normalizedName = String(name || '').trim()
+  const grade = normalizedName.match(/[一二三]/)?.[0] || ''
+  let direction = ''
+  if (/[通劳]/.test(normalizedName)) direction = '通'
+  else if (/[信职]/.test(normalizedName)) direction = '信'
+  return { direction, grade }
+}
+
+function applyPoolClassFilters() {
+  const cards = document.querySelectorAll('.pool-class-card[data-pool-class-name]')
+  let visibleCount = 0
+  cards.forEach(card => {
+    const filters = getPoolClassFilters(card.dataset.poolClassName)
+    const matchesDirection = poolFilterState.direction === 'all' || filters.direction === poolFilterState.direction
+    const matchesGrade = poolFilterState.grade === 'all' || filters.grade === poolFilterState.grade
+    const isVisible = matchesDirection && matchesGrade
+    card.style.display = isVisible ? '' : 'none'
+    if (isVisible) visibleCount++
+  })
+
+  document.querySelectorAll('.grade-section').forEach(section => {
+    const hasVisibleCard = [...section.querySelectorAll('.pool-class-card')].some(card => card.style.display !== 'none')
+    section.style.display = hasVisibleCard ? '' : 'none'
+  })
+
+  const result = document.getElementById('poolFilterResult')
+  const empty = document.getElementById('poolFilterEmpty')
+  if (result) result.textContent = cards.length ? `${visibleCount} / ${cards.length} 个班级` : ''
+  if (empty) empty.hidden = cards.length === 0 || visibleCount > 0
+}
+
+document.getElementById('poolFilters')?.addEventListener('click', (e) => {
+  const button = e.target.closest('.pool-filter-btn')
+  if (!button) return
+  const type = button.dataset.filterType
+  poolFilterState[type] = button.dataset.filterValue
+  document.querySelectorAll(`.pool-filter-btn[data-filter-type="${type}"]`).forEach(option => {
+    const isActive = option === button
+    option.classList.toggle('active', isActive)
+    option.setAttribute('aria-pressed', String(isActive))
+  })
+  applyPoolClassFilters()
+})
+
+applyPoolClassFilters()
+
 // === Grade Section Toggle ===
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.grade-toggle-btn')
@@ -686,7 +754,11 @@ document.addEventListener('click', async (e) => {
   if (e.target.dataset.action === 'delete-class') {
     e.stopPropagation()
     const classId = e.target.dataset.classId
-    if (!await showConfirmDialog('移入回收站', '确认将此班级移入回收站？可从回收站恢复。', '确认移入', 'warn')) return
+    const isClaimed = e.target.dataset.claimed === 'true'
+    const message = isClaimed
+      ? '该班级已被教师认领。确认将班级池中的班级移入回收站？教师已认领的课程不会被删除，可从回收站恢复。'
+      : '确认将此班级移入回收站？可从回收站恢复。'
+    if (!await showConfirmDialog('移入回收站', message, '确认移入', 'warn')) return
     const res = await fetch(`/admin/api/pool/classes/${classId}`, { method: 'DELETE' })
     const data = await res.json()
     if (data.ok) { window.location.reload() }

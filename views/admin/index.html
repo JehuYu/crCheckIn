@@ -136,26 +136,38 @@
         <div class="empty-state">暂无教师账号</div>
         {% else %}
         {% for t in teachers %}
-        <div class="teacher-item">
-          <div class="teacher-info">
-            <div class="teacher-avatar">{{ t.username[0] | upper }}</div>
-            <div style="min-width: 0;">
-              <div style="display: flex; align-items: center;">
-                <span class="teacher-name">{{ t.username }}</span>
-                {% if t.isAdmin %}
-                <span class="teacher-badge">管理员</span>
-                {% endif %}
+        <div class="teacher-item-group" data-teacher-id="{{ t.id }}">
+          <div class="teacher-item teacher-toggle" data-teacher-id="{{ t.id }}" role="button" tabindex="0"
+            aria-expanded="false" aria-controls="teacherClasses{{ t.id }}">
+            <div class="teacher-info">
+              <div class="teacher-avatar">{{ t.username[0] | upper }}</div>
+              <div style="min-width: 0;">
+                <div style="display: flex; align-items: center;">
+                  <span class="teacher-name">{{ t.username }}</span>
+                  {% if t.isAdmin %}
+                  <span class="teacher-badge">管理员</span>
+                  {% endif %}
+                </div>
+                <p class="teacher-meta">{{ t.classCount }} 个班级</p>
               </div>
-              <p class="teacher-meta">{{ t.classCount }} 个班级</p>
+            </div>
+            <div class="teacher-actions">
+              <button data-action="toggle-classes" data-id="{{ t.id }}" type="button"
+                class="teacher-expand-button" aria-label="查看认领班级" title="查看认领班级">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+              <button data-action="reset" data-id="{{ t.id }}" data-name="{{ t.username }}" type="button"
+                class="teacher-action" style="color: var(--primary);" onmouseover="this.style.background='#fef3ec'" onmouseout="this.style.background=''">改密</button>
+              {% if not t.isAdmin %}
+              <button data-action="delete" data-id="{{ t.id }}" data-name="{{ t.username }}" type="button"
+                class="teacher-action" style="color: var(--error);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">删除</button>
+              {% endif %}
             </div>
           </div>
-          <div class="teacher-actions">
-            <button data-action="reset" data-id="{{ t.id }}" data-name="{{ t.username }}"
-              class="teacher-action" style="color: var(--primary);" onmouseover="this.style.background='#fef3ec'" onmouseout="this.style.background=''">改密</button>
-            {% if not t.isAdmin %}
-            <button data-action="delete" data-id="{{ t.id }}" data-name="{{ t.username }}"
-              class="teacher-action" style="color: var(--error);" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">删除</button>
-            {% endif %}
+          <div class="teacher-class-panel" id="teacherClasses{{ t.id }}" hidden>
+            <div class="teacher-class-note">正在加载班级...</div>
           </div>
         </div>
         {% endfor %}
@@ -278,15 +290,85 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async () =
   }
 })
 
-// Teacher action buttons via event delegation (avoids inline onclick XSS)
-document.addEventListener('click', (e) => {
+const teacherClassCache = new Map()
+
+function renderTeacherClasses(classes) {
+  if (!classes.length) {
+    return '<div class="teacher-class-note">暂未认领班级</div>'
+  }
+  return `
+    <div class="teacher-class-list">
+      ${classes.map(cls => `
+        <span class="teacher-class-card${cls.isArchived ? ' teacher-class-card--archived' : ''}">${escHtml(cls.name)}</span>
+      `).join('')}
+    </div>
+  `
+}
+
+async function toggleTeacherClasses(teacherId) {
+  const group = document.querySelector(`.teacher-item-group[data-teacher-id="${teacherId}"]`)
+  if (!group) return
+  const row = group.querySelector('.teacher-toggle')
+  const panel = group.querySelector('.teacher-class-panel')
+  const expandButton = group.querySelector('.teacher-expand-button')
+  const isOpening = panel.hidden
+
+  panel.hidden = !isOpening
+  group.classList.toggle('expanded', isOpening)
+  row.setAttribute('aria-expanded', String(isOpening))
+  expandButton.setAttribute('aria-label', isOpening ? '收起认领班级' : '查看认领班级')
+  expandButton.title = isOpening ? '收起认领班级' : '查看认领班级'
+  if (!isOpening) return
+
+  if (teacherClassCache.has(teacherId)) {
+    panel.innerHTML = renderTeacherClasses(teacherClassCache.get(teacherId))
+    return
+  }
+
+  panel.innerHTML = '<div class="teacher-class-note">正在加载班级...</div>'
+  try {
+    const res = await fetch(`/admin/api/teachers/${teacherId}/classes`)
+    if (res.status === 401 || res.status === 403) {
+      window.location.href = '/student'
+      return
+    }
+    const data = await res.json()
+    if (!data.ok) throw new Error(data.message || '加载失败')
+    teacherClassCache.set(teacherId, data.classes || [])
+    panel.innerHTML = renderTeacherClasses(data.classes || [])
+  } catch (err) {
+    panel.innerHTML = `<div class="teacher-class-note">${escHtml(err.message || '班级加载失败')}</div>`
+  }
+}
+
+// Teacher row expansion and action buttons via event delegation.
+document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.teacher-action')
-  if (!btn) return
-  const action = btn.dataset.action
-  const id = parseInt(btn.dataset.id, 10)
-  const name = btn.dataset.name || ''
-  if (action === 'delete') deleteTeacher(id, name)
-  else if (action === 'reset') openResetPassword(id, name)
+  if (btn) {
+    const action = btn.dataset.action
+    const id = parseInt(btn.dataset.id, 10)
+    const name = btn.dataset.name || ''
+    if (action === 'delete') deleteTeacher(id, name)
+    else if (action === 'reset') openResetPassword(id, name)
+    return
+  }
+
+  const expandButton = e.target.closest('.teacher-expand-button')
+  if (expandButton) {
+    await toggleTeacherClasses(parseInt(expandButton.dataset.id, 10))
+    return
+  }
+
+  const row = e.target.closest('.teacher-toggle')
+  if (row) await toggleTeacherClasses(parseInt(row.dataset.teacherId, 10))
+})
+
+document.addEventListener('keydown', async (e) => {
+  const row = e.target.closest('.teacher-toggle')
+  if (!row || e.target.closest('button')) return
+  if (e.key !== 'Enter' && e.key !== ' ') return
+  e.preventDefault()
+  await toggleTeacherClasses(parseInt(row.dataset.teacherId, 10))
 })
 
 document.getElementById('cancelDeleteBtn').addEventListener('click', closeDeleteModal)
@@ -313,6 +395,46 @@ document.getElementById('resetModal').addEventListener('click', (e) => {
 })
 document.getElementById('resetPasswordInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('confirmResetBtn').click()
+})
+document.getElementById('confirmResetBtn').addEventListener('click', async () => {
+  if (!resetTeacherId) return
+  const passwordInput = document.getElementById('resetPasswordInput')
+  const errorBox = document.getElementById('resetError')
+  const confirmButton = document.getElementById('confirmResetBtn')
+  const password = passwordInput.value
+
+  errorBox.textContent = ''
+  if (!password || password.length < 6) {
+    errorBox.textContent = '请输入至少 6 位的新密码'
+    passwordInput.focus()
+    return
+  }
+
+  confirmButton.disabled = true
+  confirmButton.textContent = '正在重置...'
+  try {
+    const res = await fetch(`/admin/teachers/${resetTeacherId}/password`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
+    if (res.status === 401 || res.status === 403) {
+      window.location.href = '/student'
+      return
+    }
+    const data = await res.json()
+    if (!data.ok) {
+      errorBox.textContent = data.message || '重置失败'
+      return
+    }
+    closeResetPassword()
+    showToast('教师密码已重置', true)
+  } catch {
+    errorBox.textContent = '重置失败，请稍后再试'
+  } finally {
+    confirmButton.disabled = false
+    confirmButton.textContent = '确认重置'
+  }
 })
 
 // === Database Backup ===

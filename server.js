@@ -4,17 +4,13 @@ import { prisma } from './src/plugins/db.js'
 import { seed } from './prisma/seed.js'
 import { deployDatabase } from './src/utils/database.js'
 import { migrateTeacherClassesToPool } from './src/utils/migrate-classes-to-pool.js'
+import { isExpiredCheckPaused } from './src/services/expiredCheck.js'
 
 // 启动超时：30 秒
 const STARTUP_TIMEOUT_MS = 30_000
 
 let app = null
 let expiredCheckInterval = null
-let expiredCheckPaused = false
-
-// 导出供 restore 接口暂停/恢复定时器
-export function pauseExpiredCheck() { expiredCheckPaused = true }
-export function resumeExpiredCheck() { expiredCheckPaused = false }
 
 const startupTimer = setTimeout(() => {
   console.error('[startup] 启动超时（30s），强制退出')
@@ -38,7 +34,7 @@ try {
 
   // 运行时每分钟检查一次过期倒计时
   expiredCheckInterval = setInterval(async () => {
-    if (expiredCheckPaused) return
+    if (isExpiredCheckPaused()) return
     try {
       await recoverExpiredCountdowns()
     } catch (err) {

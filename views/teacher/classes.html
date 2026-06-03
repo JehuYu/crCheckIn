@@ -655,6 +655,15 @@
           </div>
         </div>
 
+        <div class="sidebar-card">
+          <div class="sidebar-header">
+            <p class="sidebar-title">小题成绩</p>
+          </div>
+          <div class="sidebar-body">
+            <a href="/teacher/exam-analysis" class="btn btn-primary" style="width: 100%;">进入处理</a>
+          </div>
+        </div>
+
         <!-- Claim from Pool -->
         <div class="sidebar-card" id="claimPoolCard">
           <div class="sidebar-header">
@@ -906,7 +915,7 @@ let unarchiveClassName = ''
 function showDeleteModal(id, name) {
   deleteClassId = id
   deleteClassName = name
-  document.getElementById('deleteModalDesc').textContent = `确认删除班级「${name}」？此操作将同时删除该班级的所有学生和签到记录，不可恢复。`
+  document.getElementById('deleteModalDesc').textContent = `确认移除班级「${name}」？该班级将退回班级池，学生名单会保留，当前签到记录和教师侧历史数据将清理。`
   document.getElementById('deleteModal').classList.remove('hidden')
 }
 
@@ -943,25 +952,27 @@ function closeUnarchiveModal() {
 }
 
 // Event delegation for archive/unarchive/delete buttons
-document.querySelector('.class-grid').addEventListener('click', (e) => {
-  const item = e.target.closest('.class-item')
-  if (!item) return
-  const classId = item.dataset.classId
-  const className = item.dataset.className
-  const btn = e.target.closest('[data-action]')
-  if (!btn) return
+document.querySelectorAll('.class-grid').forEach((classActionGrid) => {
+  classActionGrid.addEventListener('click', (e) => {
+    const item = e.target.closest('.class-item')
+    if (!item) return
+    const classId = item.dataset.classId
+    const className = item.dataset.className
+    const btn = e.target.closest('[data-action]')
+    if (!btn) return
 
-  e.preventDefault()
-  e.stopPropagation()
+    e.preventDefault()
+    e.stopPropagation()
 
-  const action = btn.dataset.action
-  if (action === 'delete') {
-    showDeleteModal(classId, className)
-  } else if (action === 'archive') {
-    showArchiveModal(classId, className)
-  } else if (action === 'unarchive') {
-    showUnarchiveModal(classId, className)
-  }
+    const action = btn.dataset.action
+    if (action === 'delete') {
+      showDeleteModal(classId, className)
+    } else if (action === 'archive') {
+      showArchiveModal(classId, className)
+    } else if (action === 'unarchive') {
+      showUnarchiveModal(classId, className)
+    }
+  })
 })
 
 // Modal close buttons
@@ -1067,13 +1078,17 @@ importBtn.addEventListener('click', async () => {
 const poolSelect = document.getElementById('poolClassSelect')
 const poolClaimBtn = document.getElementById('poolClaimBtn')
 
-if (poolSelect) {
-  poolSelect.addEventListener('change', () => {
-    poolClaimBtn.disabled = !poolSelect.value
-  })
+function syncPoolClaimButton() {
+  if (!poolSelect || !poolClaimBtn) return
+  const selectedOption = poolSelect.options[poolSelect.selectedIndex]
+  poolClaimBtn.disabled = !poolSelect.value || selectedOption?.disabled === true
 }
 
-poolClaimBtn.addEventListener('click', async () => {
+if (poolSelect && poolClaimBtn) {
+  syncPoolClaimButton()
+  poolSelect.addEventListener('change', syncPoolClaimButton)
+
+  poolClaimBtn.addEventListener('click', async () => {
   const classId = poolSelect.value
   if (!classId) return
   const selectedOption = poolSelect.options[poolSelect.selectedIndex]
@@ -1088,7 +1103,8 @@ poolClaimBtn.addEventListener('click', async () => {
   } else {
     showToast(data.message || '认领失败', false)
   }
-})
+  })
+}
 
 // === Drag and Drop Reorder ===
 let draggedItem = null

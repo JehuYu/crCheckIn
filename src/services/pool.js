@@ -9,6 +9,22 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads/photos')
+const PHOTO_MAX_SIZE = 5 * 1024 * 1024
+const ALLOWED_PHOTO_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
+const CLASS_NAME_COLLATOR = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
+
+export function compareClassNames(a, b) {
+  const nameA = String(a || '')
+  const nameB = String(b || '')
+  const result = CLASS_NAME_COLLATOR.compare(nameA, nameB)
+  return result !== 0 ? result : nameA.localeCompare(nameB, 'zh-CN')
+}
+
+export function getPoolClassAssessmentType(name) {
+  const match = String(name || '').match(/[AB](?=\d)/i)
+  if (!match) return ''
+  return match[0].toUpperCase() === 'A' ? 'elective' : 'academic'
+}
 
 // 数据库写入队列：序列化并发写入，避免 SQLite 锁竞争导致超时
 const _writeQueue = []
@@ -39,7 +55,7 @@ async function _processWriteQueue() {
  * 标准化姓名用于匹配：去除空白、全角转半角、去除标点等
  */
 function normalizeName(name) {
-  return name
+  return String(name || '')
     .replace(/[﻿​‌‍ ]/g, '')   // BOM、零宽空格、不间断空格
     .trim()
     .replace(/\s+/g, '')                                   // 去除所有空白
@@ -48,6 +64,23 @@ function normalizeName(name) {
     .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) // 全角数字→半角
     .replace(/^[.\-_\s]+|[.\-_\s]+$/g, '')                 // 去除首尾标点
     .toLowerCase()
+}
+
+function getAllowedPhotoExt(filename) {
+  const ext = path.extname(filename || '').toLowerCase()
+  return ALLOWED_PHOTO_EXTS.has(ext) ? ext : null
+}
+
+function makeStoredPhotoFilename(studentId, ext, existingFiles = new Set()) {
+  const baseName = `student_${studentId}_${randomUUID().replace(/-/g, '').slice(0, 12)}`
+  let safeFilename = `${baseName}${ext}`
+  let counter = 1
+  while (existingFiles.has(safeFilename)) {
+    safeFilename = `${baseName}_${counter}${ext}`
+    counter++
+  }
+  existingFiles.add(safeFilename)
+  return safeFilename
 }
 
 /**
@@ -59,7 +92,12 @@ function normalizeName(name) {
  */
 async function syncPhotoAcrossAllClasses(studentName, homeClass, photoUrl) {
   const students = await prisma.student.findMany({
-    where: { name: studentName, homeClass: homeClass || '', photoUrl: { not: photoUrl } },
+    where: {
+      name: studentName,
+      homeClass: homeClass || '',
+      photoUrl: { not: photoUrl },
+      class: { deletedAt: null },
+    },
     select: { id: true, photoUrl: true },
   })
   if (students.length === 0) return 0
@@ -99,6 +137,68 @@ function getStudentIdentityKey(student) {
   return `${nameKey}::${homeClassKey}`
 }
 
+export async function syncPhotosAcrossSharedStudents(sourceStudents) {
+  const sourcesByKey = new Map()
+  const conflictKeys = new Set()
+
+  for (const student of sourceStudents) {
+    if (!student?.photoUrl) continue
+    const key = getStudentIdentityKey(student)
+    if (!key) continue
+    const previous = sourcesByKey.get(key)
+    if (previous && previous.photoUrl !== student.photoUrl) {
+      conflictKeys.add(key)
+      continue
+    }
+    sourcesByKey.set(key, student)
+  }
+
+  let synced = 0
+  for (const [key, student] of sourcesByKey) {
+    if (conflictKeys.has(key)) continue
+    synced += await syncPhotoAcrossAllClasses(student.name, student.homeClass, student.photoUrl)
+  }
+
+  return { synced, conflictCount: conflictKeys.size }
+}
+
+export async function backfillSharedStudentPhotos() {
+  const students = await prisma.student.findMany({
+    where: { class: { deletedAt: null } },
+    select: { name: true, homeClass: true, photoUrl: true },
+  })
+  const groups = new Map()
+  for (const student of students) {
+    const key = getStudentIdentityKey(student)
+    if (!key) continue
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(student)
+  }
+
+  let synced = 0
+  let conflictCount = 0
+  for (const group of groups.values()) {
+    const photoUrls = [...new Set(group.map(student => student.photoUrl).filter(Boolean))]
+    if (photoUrls.length === 0) continue
+    if (photoUrls.length > 1) {
+      conflictCount++
+      continue
+    }
+    synced += await syncPhotoAcrossAllClasses(group[0].name, group[0].homeClass, photoUrls[0])
+  }
+
+  return { synced, conflictCount }
+}
+
+export async function syncPoolPhotosToTeacherClasses(poolClassId) {
+  const poolClass = await prisma.class.findFirst({
+    where: { id: poolClassId, teacherId: null, deletedAt: null },
+    include: { students: true },
+  })
+  if (!poolClass) return { synced: 0, conflictCount: 0 }
+  return syncPhotosAcrossSharedStudents(poolClass.students)
+}
+
 /**
  * 从班级名提取年级标识（任意位置匹配）
  * "一职B4" → "一", "二劳A3" → "二", "二信B7" → "二"
@@ -131,7 +231,7 @@ export async function getPoolClasses(opts = {}) {
   }
   const classes = await prisma.class.findMany({
     where,
-    orderBy: { name: 'asc' },
+    orderBy: { id: 'asc' },
     include: {
       _count: { select: { students: true } },
       students: {
@@ -176,6 +276,7 @@ export async function getPoolClasses(opts = {}) {
       semester: c.semester,
       isArchived: c.isArchived,
       createdAt: c.createdAt,
+      assessmentType: getPoolClassAssessmentType(c.name),
       claimedByAnyTeacher: !!teachers && teachers.size > 0,
       claimedByCurrentTeacher: !!teachers && opts.teacherId != null && teachers.has(opts.teacherId),
     }
@@ -235,8 +336,17 @@ export async function getPoolClasses(opts = {}) {
       grouped[c.grade].push(c)
     }
   }
+  for (const grade of gradeOrder) {
+    grouped[grade].sort((a, b) => compareClassNames(a.name, b.name))
+  }
 
-  return { classes: grouped, totalUniqueStudents, totalWithoutPhotos, gradeWithoutPhotos }
+  return {
+    classes: grouped,
+    totalClassCount: enriched.length,
+    totalUniqueStudents,
+    totalWithoutPhotos,
+    gradeWithoutPhotos,
+  }
 }
 
 /**
@@ -255,6 +365,7 @@ export async function getRecycleBinClasses() {
     name: c.name,
     studentCount: c._count.students,
     deletedAt: c.deletedAt ? new Date(c.deletedAt).toLocaleDateString('zh-CN') : '',
+    assessmentType: getPoolClassAssessmentType(c.name),
   }))
 }
 
@@ -277,6 +388,17 @@ export async function softDeletePoolClass(classId) {
 export async function restorePoolClass(classId) {
   const cls = await prisma.class.findUnique({ where: { id: classId } })
   if (!cls || cls.deletedAt === null) return { ok: false, message: '班级不在回收站中' }
+  const existing = await prisma.class.findFirst({
+    where: {
+      id: { not: classId },
+      name: cls.name,
+      teacherId: null,
+      deletedAt: null,
+      isArchived: false,
+    },
+    select: { id: true },
+  })
+  if (existing) return { ok: false, message: `当前班级池中已存在「${cls.name}」，请勿重复恢复` }
   await prisma.class.update({
     where: { id: classId },
     data: { deletedAt: null },
@@ -340,13 +462,96 @@ export async function unarchivePoolSemester(semester) {
  * 在班级池中创建班级（teacherId = null）
  */
 export async function createPoolClass(name) {
+  const trimmedName = name.trim()
+  const existing = await prisma.class.findFirst({
+    where: {
+      name: trimmedName,
+      teacherId: null,
+      deletedAt: null,
+      isArchived: false,
+    },
+    select: { id: true },
+  })
+  if (existing) {
+    const err = new Error(`班级池中已存在「${trimmedName}」`)
+    err.statusCode = 409
+    throw err
+  }
   return prisma.class.create({
     data: {
-      name,
+      name: trimmedName,
       teacherId: null,
       signInConfig: { create: {} },
     },
   })
+}
+
+/**
+ * Return a teacher-owned class to the pool while preserving its students.
+ * If an active pool class already exists, keep that pool copy and remove the
+ * teacher-owned duplicate.
+ */
+export async function returnTeacherClassToPool(classId) {
+  const cls = await prisma.class.findUnique({ where: { id: classId } })
+  if (!cls) return { ok: false, message: '班级不存在', status: 404 }
+  if (cls.teacherId === null) return { ok: false, message: '该班级已在班级池中', status: 409 }
+
+  let reusedExistingPoolClass = false
+  await prisma.$transaction(async (tx) => {
+    const existingPoolClass = await tx.class.findFirst({
+      where: {
+        name: cls.name,
+        teacherId: null,
+        deletedAt: null,
+        isArchived: false,
+      },
+      select: { id: true },
+    })
+
+    if (existingPoolClass) {
+      const { deleteClassesCascadeWithTx } = await import('./class.js')
+      await deleteClassesCascadeWithTx(tx, [classId])
+      reusedExistingPoolClass = true
+      return
+    }
+
+    const sessions = await tx.signInSession.findMany({
+      where: { classId },
+      select: { id: true },
+    })
+    const sessionIds = sessions.map(session => session.id)
+    if (sessionIds.length > 0) {
+      await tx.archivedRecord.deleteMany({ where: { sessionId: { in: sessionIds } } })
+    }
+
+    const collection = await tx.infoCollection.findUnique({
+      where: { classId },
+      select: { id: true },
+    })
+    await tx.infoSubmission.deleteMany({ where: { classId } })
+    if (collection) {
+      await tx.infoResponse.deleteMany({ where: { field: { collectionId: collection.id } } })
+      await tx.infoField.deleteMany({ where: { collectionId: collection.id } })
+      await tx.infoCollection.delete({ where: { id: collection.id } })
+    }
+
+    await tx.signInSession.deleteMany({ where: { classId } })
+    await tx.signInConfig.deleteMany({ where: { classId } })
+    await tx.signInRecord.deleteMany({ where: { classId } })
+    await tx.studentTag.deleteMany({ where: { classId } })
+    await tx.class.update({
+      where: { id: classId },
+      data: { teacherId: null, sortOrder: 0 },
+    })
+  })
+
+  return {
+    ok: true,
+    reusedExistingPoolClass,
+    message: reusedExistingPoolClass
+      ? `「${cls.name}」已从教师课程中删除，班级池保留原班级`
+      : `「${cls.name}」已归还班级池`,
+  }
 }
 
 /**
@@ -498,16 +703,12 @@ export async function importPoolStudentsFromExcel(classId, buffer) {
  * @returns {{ ok: boolean, url: string, message?: string }}
  */
 export async function uploadStudentPhoto(classId, studentId, fileBuffer, filename) {
-  const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
-  const ext = path.extname(filename).toLowerCase()
-  const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
-
-  if (!ALLOWED_EXTS.has(ext)) {
+  const ext = getAllowedPhotoExt(filename)
+  if (!ext) {
     return { ok: false, message: '仅支持 JPG、PNG、WebP 格式图片' }
   }
 
-  const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-  if (fileBuffer.length > MAX_SIZE) {
+  if (fileBuffer.length > PHOTO_MAX_SIZE) {
     return { ok: false, message: '图片大小不能超过 5MB' }
   }
 
@@ -517,8 +718,7 @@ export async function uploadStudentPhoto(classId, studentId, fileBuffer, filenam
     return { ok: false, message: '学生不存在或不属于该班级' }
   }
 
-  // 保存到 uploads/photos/{YYYY}/{MM}/{original_filename}
-  // 文件名冲突时添加时间戳后缀
+  // Save under an generated name so Windows-forbidden source characters are harmless.
   const now = new Date()
   const year = String(now.getFullYear())
   const month = String(now.getMonth() + 1).padStart(2, '0')
@@ -526,14 +726,8 @@ export async function uploadStudentPhoto(classId, studentId, fileBuffer, filenam
   const monthDir = path.join(yearDir, month)
   await fs.mkdir(monthDir, { recursive: true })
 
-  // 处理文件名冲突：检查文件是否存在，存在则添加 _1, _2... 后缀
-  const baseName = path.basename(filename, ext)
-  let safeFilename = `${baseName}${ext}`
-  let counter = 1
-  while (await fs.access(path.join(monthDir, safeFilename)).then(() => true).catch(() => false)) {
-    safeFilename = `${baseName}_${counter}${ext}`
-    counter++
-  }
+  const existingFiles = new Set(await fs.readdir(monthDir).catch(() => []))
+  const safeFilename = makeStoredPhotoFilename(student.id, ext, existingFiles)
 
   const filePath = path.join(monthDir, safeFilename)
   await fs.writeFile(filePath, fileBuffer)
@@ -559,9 +753,9 @@ export async function uploadStudentPhoto(classId, studentId, fileBuffer, filenam
   )
 
   // 全局同步：同行政班的所有学生都更新照片
-  await syncPhotoAcrossAllClasses(student.name, student.homeClass, url)
+  const synced = await syncPhotoAcrossAllClasses(student.name, student.homeClass, url)
 
-  return { ok: true, url, message: '照片已上传' }
+  return { ok: true, url, synced, message: '照片已上传' }
 }
 
 /**
@@ -573,7 +767,7 @@ export async function uploadStudentPhoto(classId, studentId, fileBuffer, filenam
 export async function bulkUploadPhotos(classId, files) {
   const students = await prisma.student.findMany({
     where: { classId },
-    select: { id: true, name: true, photoUrl: true },
+    select: { id: true, name: true, homeClass: true, photoUrl: true },
   })
   const studentMap = new Map()
   for (const s of students) {
@@ -606,16 +800,12 @@ export async function bulkUploadPhotos(classId, files) {
       continue
     }
 
-    // 确定不冲突的文件名
-    const ext = path.extname(file.filename).toLowerCase()
-    const baseName = path.basename(file.filename, ext)
-    let safeFilename = `${baseName}${ext}`
-    let counter = 1
-    while (existingFiles.has(safeFilename)) {
-      safeFilename = `${baseName}_${counter}${ext}`
-      counter++
+    const ext = getAllowedPhotoExt(file.filename)
+    if (!ext || file.buffer.length > PHOTO_MAX_SIZE) {
+      unmatched.push(file.filename)
+      continue
     }
-    existingFiles.add(safeFilename)
+    const safeFilename = makeStoredPhotoFilename(student.id, ext, existingFiles)
 
     const url = `/uploads/photos/${year}/${month}/${safeFilename}`
     const filePath = path.join(monthDir, safeFilename)
@@ -652,12 +842,13 @@ export async function bulkUploadPhotos(classId, files) {
 
   // 获取班级中没有照片的学生
   const studentsWithoutPhotos = await prisma.student.findMany({
-    where: { classId, OR: [{ photoUrl: null }, { photoUrl: '' }] },
+    where: { classId, photoUrl: '' },
     select: { id: true, name: true, classId: true },
   })
 
   // 全局同步：按行政班同步到所有班级
   const syncedKeys = new Set()
+  let synced = 0
   for (const m of matched) {
     const student = dbUpdates.find(u => u.photoUrl === m.url)
     if (!student) continue
@@ -666,10 +857,17 @@ export async function bulkUploadPhotos(classId, files) {
     const key = `${s.name}|||${s.homeClass || ''}`
     if (syncedKeys.has(key)) continue
     syncedKeys.add(key)
-    await syncPhotoAcrossAllClasses(s.name, s.homeClass, m.url)
+    synced += await syncPhotoAcrossAllClasses(s.name, s.homeClass, m.url)
   }
 
-  return { ok: true, matched: matched.length, unmatched, unmatchedStudents: studentsWithoutPhotos }
+  const updatedStudentIds = new Set(dbUpdates.map(update => update.studentId))
+  return {
+    ok: true,
+    matched: matched.length,
+    unmatched,
+    unmatchedStudents: studentsWithoutPhotos,
+    synced: updatedStudentIds.size + synced
+  }
 }
 
 /**
@@ -747,7 +945,7 @@ export async function batchImportPoolStudentsFromExcel(buffer) {
 
   // 获取所有班级池班级
   const poolClasses = await prisma.class.findMany({
-    where: { teacherId: null },
+    where: { teacherId: null, deletedAt: null, isArchived: false },
     select: { id: true, name: true },
   })
   const classMap = new Map()
@@ -825,7 +1023,7 @@ export async function getStudentsWithoutPhotos() {
         })
       }
       studentGroups.get(key).classes.push({ classId: cls.id, className: cls.name })
-      if (s.photoUrl) {
+      if (isPhotoFileValid(s.photoUrl)) {
         studentGroups.get(key).hasPhoto = true
       }
     }
@@ -860,7 +1058,7 @@ export async function getStudentsWithoutPhotos() {
 export async function batchUploadPoolPhotos(files) {
   // 加载所有班级池班级和学生
   const poolClasses = await prisma.class.findMany({
-    where: { teacherId: null },
+    where: { teacherId: null, deletedAt: null, isArchived: false },
     include: { students: true },
   })
 
@@ -905,12 +1103,19 @@ export async function batchUploadPoolPhotos(files) {
       continue
     }
 
-    if (candidates.length > 1) {
-      // 同名多学生，需要管理员手动匹配
+    const candidateGroups = new Map()
+    for (const candidate of candidates) {
+      const identityKey = getStudentIdentityKey(candidate.student)
+      if (!candidateGroups.has(identityKey)) candidateGroups.set(identityKey, [])
+      candidateGroups.get(identityKey).push(candidate)
+    }
+
+    if (candidateGroups.size > 1) {
+      // Same name but different administrative classes: let the admin decide.
       conflicts.push({
         filename: file.filename,
         buffer: file.buffer,
-        candidates: candidates.map(c => ({
+        candidates: [...candidateGroups.values()].map(group => group[0]).map(c => ({
           studentId: c.student.id,
           studentName: c.student.name,
           className: c.className,
@@ -920,26 +1125,23 @@ export async function batchUploadPoolPhotos(files) {
       continue
     }
 
-    // 唯一匹配，正常流程
-    const match = candidates[0]
+    // One real student may occur in multiple course classes. Update one record
+    // here and let the global sync below propagate the shared photo.
+    const match = [...candidateGroups.values()][0][0]
 
-    // 确定不冲突的文件名
-    const ext = path.extname(file.filename).toLowerCase()
-    const baseName = path.basename(file.filename, ext)
-    let safeFilename = `${baseName}${ext}`
-    let counter = 1
-    while (existingFiles.has(safeFilename)) {
-      safeFilename = `${baseName}_${counter}${ext}`
-      counter++
+    const ext = getAllowedPhotoExt(file.filename)
+    if (!ext || file.buffer.length > PHOTO_MAX_SIZE) {
+      unmatched.push(file.filename)
+      continue
     }
-    existingFiles.add(safeFilename)
+    const safeFilename = makeStoredPhotoFilename(match.student.id, ext, existingFiles)
 
     const url = `/uploads/photos/${year}/${month}/${safeFilename}`
     const filePath = path.join(monthDir, safeFilename)
 
     matched.push({ name: nameKey, url })
     writeTasks.push({ buffer: file.buffer, filePath })
-    dbUpdates.push({ studentId: match.student.id, photoUrl: url })
+    dbUpdates.push({ studentId: match.student.id, photoUrl: url, student: match.student })
   }
 
   // 第 2 步：分批并行写文件（避免 EMFILE）
@@ -970,25 +1172,19 @@ export async function batchUploadPoolPhotos(files) {
   // 获取班级池中所有没有照片的学生
   const unmatchedStudents = await getStudentsWithoutPhotos()
 
-  // 全局同步：按行政班同步到所有班级
-  const syncedKeys = new Set()
-  for (const u of dbUpdates) {
-    // 从 studentMultiMap 反查学生信息
-    let studentInfo = null
-    for (const [key, vals] of studentMultiMap) {
-      for (const v of vals) {
-        if (v.student.id === u.studentId) { studentInfo = v.student; break }
-      }
-      if (studentInfo) break
-    }
-    if (!studentInfo) continue
-    const identityKey = `${studentInfo.name}|||${studentInfo.homeClass || ''}`
-    if (syncedKeys.has(identityKey)) continue
-    syncedKeys.add(identityKey)
-    await syncPhotoAcrossAllClasses(studentInfo.name, studentInfo.homeClass, u.photoUrl)
-  }
+  const sharedSync = await syncPhotosAcrossSharedStudents(
+    dbUpdates.map(update => ({ ...update.student, photoUrl: update.photoUrl }))
+  )
 
-  return { ok: true, matched: matched.length, unmatched, conflicts, unmatchedStudents }
+  return {
+    ok: true,
+    matched: matched.length,
+    unmatched,
+    conflicts,
+    unmatchedStudents,
+    synced: dbUpdates.length + sharedSync.synced,
+    conflictCount: sharedSync.conflictCount,
+  }
 }
 
 /**
@@ -1014,9 +1210,8 @@ export async function resolvePhotoConflict({ studentId, classId, buffer, filenam
   }
 
   // 验证文件
-  const ext = path.extname(filename).toLowerCase()
-  const allowed = ['.jpg', '.jpeg', '.png', '.webp']
-  if (!allowed.includes(ext)) {
+  const ext = getAllowedPhotoExt(filename)
+  if (!ext) {
     return { ok: false, message: '不支持的图片格式' }
   }
 
@@ -1026,19 +1221,12 @@ export async function resolvePhotoConflict({ studentId, classId, buffer, filenam
   const monthDir = path.join(UPLOAD_DIR, year, month)
   await fs.mkdir(monthDir, { recursive: true })
 
-  // 处理文件名冲突
-  const baseName = path.basename(filename, ext)
-  let safeFilename = `${baseName}${ext}`
-  let counter = 1
   const existingFiles = new Set()
   try {
     const entries = await fs.readdir(monthDir)
     for (const entry of entries) existingFiles.add(entry)
   } catch { /* 目录不存在 */ }
-  while (existingFiles.has(safeFilename)) {
-    safeFilename = `${baseName}_${counter}${ext}`
-    counter++
-  }
+  const safeFilename = makeStoredPhotoFilename(student.id, ext, existingFiles)
 
   const filePath = path.join(monthDir, safeFilename)
   const url = `/uploads/photos/${year}/${month}/${safeFilename}`
@@ -1061,9 +1249,9 @@ export async function resolvePhotoConflict({ studentId, classId, buffer, filenam
   })
 
   // 全局同步：同行政班的所有学生都更新照片
-  await syncPhotoAcrossAllClasses(student.name, student.homeClass, url)
+  const synced = await syncPhotoAcrossAllClasses(student.name, student.homeClass, url)
 
-  return { ok: true, studentName: student.name, className: student.class.name, url }
+  return { ok: true, studentName: student.name, className: student.class.name, url, synced }
 }
 
 // ==========================================
@@ -1405,17 +1593,9 @@ export async function startZipMatching(jobId, opts = {}) {
   const zipGrade = job.folderStructure.grade || null
 
   // 确定文件名工具
-  function getSafeFilename(filename) {
-    const ext = path.extname(filename).toLowerCase()
-    const baseName = path.basename(filename, ext)
-    let safeFilename = `${baseName}${ext}`
-    let counter = 1
-    while (existingFiles.has(safeFilename)) {
-      safeFilename = `${baseName}_${counter}${ext}`
-      counter++
-    }
-    existingFiles.add(safeFilename)
-    return safeFilename
+  function getSafeFilename(studentId, filename) {
+    const ext = getAllowedPhotoExt(filename)
+    return ext ? makeStoredPhotoFilename(studentId, ext, existingFiles) : null
   }
 
   function processMatch(entry, photo, filename, grade, school, className) {
@@ -1434,7 +1614,8 @@ export async function startZipMatching(jobId, opts = {}) {
       } catch { /* 旧文件可能已被删除 */ }
     }
 
-    const safeFilename = getSafeFilename(filename)
+    const safeFilename = getSafeFilename(entry.student.id, filename)
+    if (!safeFilename) return false
     const url = `/uploads/photos/${year}/${month}/${safeFilename}`
     const filePath = path.join(monthDir, safeFilename)
 
@@ -1605,8 +1786,8 @@ export async function resolveZipConflict({ studentId, classId, filename, buffer 
   if (!student) return { ok: false, message: '学生不存在或不属于该班级' }
   if (student.class.teacherId !== null) return { ok: false, message: '只能匹配班级池中的学生' }
 
-  const ext = path.extname(filename).toLowerCase()
-  if (!['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) return { ok: false, message: '不支持的图片格式' }
+  const ext = getAllowedPhotoExt(filename)
+  if (!ext) return { ok: false, message: '不支持的图片格式' }
 
   const now = new Date()
   const year = String(now.getFullYear())
@@ -1614,18 +1795,12 @@ export async function resolveZipConflict({ studentId, classId, filename, buffer 
   const monthDir = path.join(UPLOAD_DIR, year, month)
   await fs.mkdir(monthDir, { recursive: true })
 
-  const baseName = path.basename(filename, ext)
-  let safeFilename = `${baseName}${ext}`
-  let counter = 1
   const existingFiles = new Set()
   try {
     const entries = await fs.readdir(monthDir)
     for (const entry of entries) existingFiles.add(entry)
   } catch { /* 目录不存在 */ }
-  while (existingFiles.has(safeFilename)) {
-    safeFilename = `${baseName}_${counter}${ext}`
-    counter++
-  }
+  const safeFilename = makeStoredPhotoFilename(student.id, ext, existingFiles)
 
   const filePath = path.join(monthDir, safeFilename)
   const url = `/uploads/photos/${year}/${month}/${safeFilename}`

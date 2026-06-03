@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "db:deploy": "node prisma/deploy.js",
-    "test": "node --test --test-concurrency=1 src/services/*.test.js src/utils/*.test.js src/routes/*.test.js",
+    "test": "node scripts/run-tests.mjs",
     "start": "pm2 startOrRestart ecosystem.config.cjs --env production",
     "start:direct": "node server.js",
     "dev": "node --watch server.js",
@@ -30,6 +30,7 @@
     "exceljs": "^4.4.0",
     "fastify": "^4.0.0",
     "fastify-plugin": "^5.1.0",
+    "iconv-lite": "^0.4.24",
     "nunjucks": "^3.2.4",
     "pinyin-pro": "^3.28.1"
   },

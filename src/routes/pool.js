@@ -37,12 +37,13 @@ export default async function poolRoutes(app) {
     const view = request.query.view
     const isRecycleView = view === 'recycle'
     const poolData = isRecycleView
-      ? { classes: {}, totalUniqueStudents: 0, totalWithoutPhotos: 0, gradeWithoutPhotos: {} }
+      ? { classes: {}, totalClassCount: 0, totalUniqueStudents: 0, totalWithoutPhotos: 0, gradeWithoutPhotos: {} }
       : await getPoolClasses(semester !== undefined ? { semester } : {})
     const semesters = await getPoolSemesters()
     const recycleBin = await getRecycleBinClasses()
     return reply.view('admin/pool.html', {
       classes: poolData.classes,
+      totalClassCount: poolData.totalClassCount,
       totalUniqueStudents: poolData.totalUniqueStudents,
       totalWithoutPhotos: poolData.totalWithoutPhotos,
       gradeWithoutPhotos: poolData.gradeWithoutPhotos,
@@ -64,7 +65,7 @@ export default async function poolRoutes(app) {
       const cls = await createPoolClass(name.trim())
       return reply.send({ ok: true, class: { id: cls.id, name: cls.name } })
     } catch (err) {
-      return reply.code(500).send({ ok: false, message: '创建失败' })
+      return reply.code(err.statusCode || 500).send({ ok: false, message: err.message || '创建失败' })
     }
   })
 
@@ -160,9 +161,9 @@ export default async function poolRoutes(app) {
 
   // === API: 批量上传照片 ===
 
-  app.post('/admin/api/pool/classes/:id/photos/bulk', { config: { bodyLimit: 500 * 1024 * 1024 },
+  app.post('/admin/api/pool/classes/:id/photos/bulk', {
     preHandler: adminRequired,
-    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    config: { bodyLimit: 500 * 1024 * 1024, rateLimit: { max: 5, timeWindow: '1 minute' } },
   }, async (request, reply) => {
     const classId = parseInt(request.params.id, 10)
     try {
@@ -203,9 +204,9 @@ export default async function poolRoutes(app) {
 
   // === API: 批量上传照片到班级池 ===
 
-  app.post('/admin/api/pool/batch-photos', { config: { bodyLimit: 500 * 1024 * 1024 },
+  app.post('/admin/api/pool/batch-photos', {
     preHandler: adminRequired,
-    config: { rateLimit: { max: 5, timeWindow: '1 minute' } }, // 限制批量上传频率
+    config: { bodyLimit: 500 * 1024 * 1024, rateLimit: { max: 5, timeWindow: '1 minute' } }, // 限制批量上传频率
   }, async (request, reply) => {
     try {
       const files = []
@@ -231,15 +232,20 @@ export default async function poolRoutes(app) {
     try {
       let fileBuffer = null
       let filename = 'photo.jpg'
+      let studentId = null
+      let classId = null
       for await (const part of request.parts()) {
         if (part.type === 'file') {
           fileBuffer = await part.toBuffer()
           filename = part.filename || 'photo.jpg'
+        } else if (part.fieldname === 'studentId') {
+          studentId = part.value
+        } else if (part.fieldname === 'classId') {
+          classId = part.value
         }
       }
       if (!fileBuffer) return reply.code(400).send({ ok: false, message: '请上传图片' })
 
-      const { studentId, classId } = request.body ?? {}
       if (!studentId || !classId) {
         return reply.code(400).send({ ok: false, message: '请指定学生和班级' })
       }
@@ -418,15 +424,20 @@ export default async function poolRoutes(app) {
     try {
       let fileBuffer = null
       let filename = 'photo.jpg'
+      let studentId = null
+      let classId = null
       for await (const part of request.parts()) {
         if (part.type === 'file') {
           fileBuffer = await part.toBuffer()
           filename = part.filename || 'photo.jpg'
+        } else if (part.fieldname === 'studentId') {
+          studentId = part.value
+        } else if (part.fieldname === 'classId') {
+          classId = part.value
         }
       }
       if (!fileBuffer) return reply.code(400).send({ ok: false, message: '请上传图片' })
 
-      const { studentId, classId } = request.body ?? {}
       if (!studentId || !classId) {
         return reply.code(400).send({ ok: false, message: '请指定学生和班级' })
       }

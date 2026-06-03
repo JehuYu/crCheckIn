@@ -15,7 +15,11 @@ if (!rawSecret) {
   throw new Error('环境变量 SECRET_KEY 未设置，请通过 .env 或系统环境配置。')
 }
 export const SECRET_KEY = rawSecret
-export const DATABASE_URL = process.env.DATABASE_URL ?? 'file:./attendance.db'
+const rawDatabaseUrl = process.env.DATABASE_URL
+if (!rawDatabaseUrl) {
+  throw new Error('DATABASE_URL is not configured. Set it in .env before starting the server.')
+}
+export const DATABASE_URL = rawDatabaseUrl
 export const AUTO_DB_DEPLOY = process.env.AUTO_DB_DEPLOY !== 'false'
 export const PORT = Number(process.env.PORT ?? 5000)
 export const HOST = process.env.HOST ?? '0.0.0.0'

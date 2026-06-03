@@ -268,5 +268,22 @@ describe('admin service', () => {
       assert.equal(logs.length, 1)
       assert.equal(logs[0].action, 'COPY_TO_POOL')
     })
+
+    it('reuses an existing pool class instead of creating a duplicate', async () => {
+      const admin = await factories.createTeacher({ isAdmin: true })
+      const teacher = await factories.createTeacher()
+      const cls = await factories.createClass({ name: '一劳A4', teacherId: teacher.id })
+      const poolClass = await factories.createClass({ name: cls.name, teacherId: null })
+      await factories.createStudent({ name: '张三', classId: poolClass.id })
+      await factories.createStudent({ name: '张三', classId: cls.id })
+      await factories.createStudent({ name: '李四', classId: cls.id })
+
+      const result = await copyClassToPool(cls.id, admin.id)
+
+      assert.equal(result.ok, true)
+      assert.ok(result.message.includes('1 名学生'))
+      assert.equal(await prisma.class.count({ where: { name: cls.name, teacherId: null } }), 1)
+      assert.equal(await prisma.student.count({ where: { classId: poolClass.id } }), 2)
+    })
   })
 })
