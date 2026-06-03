@@ -75,6 +75,25 @@ function runSqliteJson(query) {
   })
 }
 
+function assertSqliteCliAvailable() {
+  return new Promise((resolve, reject) => {
+    const child = spawn('sqlite3', ['--version'], {
+      stdio: ['ignore', 'ignore', 'ignore'],
+    })
+
+    child.on('error', () => {
+      reject(new Error('sqlite3 command not found. Install it with "sudo apt install sqlite3" before migrating.'))
+    })
+    child.on('exit', (code) => {
+      if (code === 0) {
+        resolve()
+        return
+      }
+      reject(new Error(`sqlite3 command failed with exit code ${code ?? 'unknown'}`))
+    })
+  })
+}
+
 function normalizeRow(table, row) {
   const normalized = { ...row }
 
@@ -91,6 +110,67 @@ function normalizeRow(table, row) {
   }
 
   return normalized
+}
+
+function hasId(importedIds, table, id) {
+  return id === null || id === undefined || importedIds.get(table)?.has(id)
+}
+
+function filterValidRows(table, rows, importedIds) {
+  const before = rows.length
+  let filteredRows = rows
+
+  switch (table) {
+    case 'Class':
+      filteredRows = rows.map((row) => (hasId(importedIds, 'Teacher', row.teacherId) ? row : { ...row, teacherId: null }))
+      break
+    case 'LoginLog':
+      filteredRows = rows.filter((row) => hasId(importedIds, 'Teacher', row.teacherId))
+      break
+    case 'Student':
+      filteredRows = rows.filter((row) => hasId(importedIds, 'Class', row.classId))
+      break
+    case 'StudentTag':
+      filteredRows = rows.filter(
+        (row) => hasId(importedIds, 'Class', row.classId) && hasId(importedIds, 'Student', row.studentId),
+      )
+      break
+    case 'SignInConfig':
+    case 'SignInSession':
+    case 'InfoCollection':
+      filteredRows = rows.filter((row) => hasId(importedIds, 'Class', row.classId))
+      break
+    case 'ArchivedRecord':
+      filteredRows = rows.filter((row) => hasId(importedIds, 'SignInSession', row.sessionId))
+      break
+    case 'SignInRecord':
+      filteredRows = rows.filter(
+        (row) => hasId(importedIds, 'Class', row.classId) && hasId(importedIds, 'Student', row.studentId),
+      )
+      break
+    case 'InfoField':
+      filteredRows = rows.filter((row) => hasId(importedIds, 'InfoCollection', row.collectionId))
+      break
+    case 'InfoSubmission':
+      filteredRows = rows.filter(
+        (row) => hasId(importedIds, 'Class', row.classId) && hasId(importedIds, 'Student', row.studentId),
+      )
+      break
+    case 'InfoResponse':
+      filteredRows = rows.filter(
+        (row) => hasId(importedIds, 'InfoSubmission', row.submissionId) && hasId(importedIds, 'InfoField', row.fieldId),
+      )
+      break
+    default:
+      break
+  }
+
+  const skipped = before - filteredRows.length
+  if (skipped > 0) {
+    console.log(`[migrate] ${table}: skipped ${skipped} orphan rows`)
+  }
+
+  return filteredRows
 }
 
 async function createMany(modelName, rows) {
@@ -118,6 +198,24 @@ async function resetSequences() {
   }
 }
 
+async function assertTargetSchemaReady() {
+  const tableNames = tables.map(([table]) => table)
+  const existingTables = await prisma.$queryRaw`
+    SELECT tablename
+    FROM pg_tables
+    WHERE schemaname = 'public'
+      AND tablename = ANY(${tableNames})
+  `
+  const existingTableNames = new Set(existingTables.map((row) => row.tablename))
+  const missingTables = tableNames.filter((table) => !existingTableNames.has(table))
+
+  if (missingTables.length > 0) {
+    throw new Error(
+      `PostgreSQL schema is not ready. Missing tables: ${missingTables.join(', ')}. Run "npx prisma generate && npm run db:deploy" before migrating.`,
+    )
+  }
+}
+
 async function clearTarget() {
   const tableNames = tables.map(([table]) => `"${table}"`).join(', ')
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableNames} RESTART IDENTITY CASCADE`)
@@ -128,15 +226,25 @@ try {
     throw new Error(`SQLite database not found: ${sqlitePath}`)
   }
 
+  await assertSqliteCliAvailable()
+  await assertTargetSchemaReady()
+
   if (shouldClear) {
     console.log('[migrate] Clearing PostgreSQL target tables...')
     await clearTarget()
   }
 
+  const importedIds = new Map()
+
   for (const [table, modelName] of tables) {
     const rows = await runSqliteJson(`SELECT * FROM "${table}"`)
-    const normalizedRows = rows.map((row) => normalizeRow(table, row))
+    const normalizedRows = filterValidRows(
+      table,
+      rows.map((row) => normalizeRow(table, row)),
+      importedIds,
+    )
     await createMany(modelName, normalizedRows)
+    importedIds.set(table, new Set(normalizedRows.map((row) => row.id)))
     console.log(`[migrate] ${table}: ${normalizedRows.length} rows`)
   }
 

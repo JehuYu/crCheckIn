@@ -39,7 +39,10 @@
       "Bash(wmic process *)",
       "Bash(curl -s http://localhost:15020/student)",
       "Read(//tmp/**)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git rm *)",
+      "Bash(git pull *)"
     ]
   }
 }
