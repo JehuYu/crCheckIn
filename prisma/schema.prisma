@@ -8,31 +8,36 @@ datasource db {
 }
 
 model Teacher {
-  id           Int       @id @default(autoincrement())
-  username     String    @unique
-  passwordHash String
-  isAdmin      Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  classes      Class[]
-  loginLogs    LoginLog[]
+  id                   Int                   @id @default(autoincrement())
+  username             String                @unique
+  passwordHash         String
+  isAdmin              Boolean               @default(false)
+  createdAt            DateTime              @default(now())
+  classes              Class[]
+  loginLogs            LoginLog[]
+  createdMemoryPkRooms MemoryPkRoom[]        @relation("MemoryPkRoomCreator")
+  memoryPkParticipants MemoryPkParticipant[]
+  scoreEntryLogs       ScoreEntryLog[]
 }
 
 model Class {
-  id            Int            @id @default(autoincrement())
-  name          String
-  school        String         @default("")  // 学校名称，如"镇海中学"、"蛟川书院"
-  teacherId     Int?
-  teacher       Teacher?       @relation(fields: [teacherId], references: [id])
-  isArchived    Boolean        @default(false)
-  semester      String         @default("")  // 学期，如 "2025秋"、"2026春"
-  deletedAt     DateTime?      // 回收站：软删除时间，null=正常
-  sortOrder     Int            @default(0) // 教师端班级排序
-  createdAt     DateTime       @default(now())
-  students      Student[]
-  signInConfig  SignInConfig?
-  signInRecords SignInRecord[]
-  sessions      SignInSession[]
-  infoCollection InfoCollection?
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  school               String                @default("") // 学校名称，如"镇海中学"、"蛟川书院"
+  teacherId            Int?
+  teacher              Teacher?              @relation(fields: [teacherId], references: [id])
+  isArchived           Boolean               @default(false)
+  semester             String                @default("") // 学期，如 "2025秋"、"2026春"
+  deletedAt            DateTime? // 回收站：软删除时间，null=正常
+  sortOrder            Int                   @default(0) // 教师端班级排序
+  createdAt            DateTime              @default(now())
+  students             Student[]
+  signInConfig         SignInConfig?
+  signInRecords        SignInRecord[]
+  sessions             SignInSession[]
+  infoCollection       InfoCollection?
+  memoryPkParticipants MemoryPkParticipant[]
+  scoreProjects        ScoreProject[]
 
   @@index([teacherId])
   @@index([teacherId, isArchived])
@@ -42,12 +47,12 @@ model Class {
 }
 
 model SignInSession {
-  id        Int            @id @default(autoincrement())
-  classId   Int
-  class     Class          @relation(fields: [classId], references: [id])
-  label     String         // 如 "2025-03-18 周二 上午 · 一职B4"
-  archivedAt DateTime      @default(now())
-  records   ArchivedRecord[]
+  id         Int              @id @default(autoincrement())
+  classId    Int
+  class      Class            @relation(fields: [classId], references: [id])
+  label      String // 如 "2025-03-18 周二 上午 · 一职B4"
+  archivedAt DateTime         @default(now())
+  records    ArchivedRecord[]
 
   @@index([classId])
 }
@@ -66,26 +71,141 @@ model ArchivedRecord {
 }
 
 model Student {
-  id            Int           @id @default(autoincrement())
+  id            Int            @id @default(autoincrement())
   name          String
-  homeClass     String        @default("")   // 行政班级，如"高一3班"
-  remark        String        @default("")   // 学生备注，如"体育生"
-  photoUrl      String        @default("")   // 学生照片路径
+  homeClass     String         @default("") // 行政班级，如"高一3班"
+  remark        String         @default("") // 学生备注，如"体育生"
+  photoUrl      String         @default("") // 学生照片路径
   classId       Int
-  class         Class         @relation(fields: [classId], references: [id])
+  class         Class          @relation(fields: [classId], references: [id])
   signInRecords SignInRecord[]
   tags          StudentTag[]
+  scores        StudentScore[]
+  scoreEntryLogs ScoreEntryLog[]
 
   @@unique([classId, name])
 }
 
+model ScoreProject {
+  id        Int      @id @default(autoincrement())
+  classId   Int
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  scores    StudentScore[]
+  logs      ScoreEntryLog[]
+
+  @@unique([classId, name])
+  @@index([classId])
+}
+
+model StudentScore {
+  id        Int          @id @default(autoincrement())
+  studentId Int
+  student   Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  projectId Int
+  project   ScoreProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  value     Float?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  logs      ScoreEntryLog[]
+
+  @@unique([studentId, projectId])
+  @@index([studentId])
+  @@index([projectId])
+}
+
+model ScoreEntryLog {
+  id        Int           @id @default(autoincrement())
+  projectId Int
+  project   ScoreProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  studentId Int
+  student   Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  scoreId   Int?
+  score     StudentScore? @relation(fields: [scoreId], references: [id], onDelete: SetNull)
+  teacherId Int?
+  teacher   Teacher?      @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  oldValue  Float?
+  newValue  Float?
+  createdAt DateTime      @default(now())
+
+  @@index([projectId])
+  @@index([studentId])
+  @@index([teacherId])
+}
+
+model MemoryPkRoom {
+  id                  Int                   @id @default(autoincrement())
+  status              String                @default("waiting")
+  mode                String                @default("photoToName")
+  createdById         Int
+  creator             Teacher               @relation("MemoryPkRoomCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  winnerParticipantId Int?
+  createdAt           DateTime              @default(now())
+  startedAt           DateTime?
+  endedAt             DateTime?
+  updatedAt           DateTime              @updatedAt
+  participants        MemoryPkParticipant[]
+  questions           MemoryPkQuestion[]
+
+  @@index([status, createdAt])
+  @@index([createdById])
+}
+
+model MemoryPkParticipant {
+  id          Int                @id @default(autoincrement())
+  roomId      Int
+  room        MemoryPkRoom       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  teacherId   Int
+  teacher     Teacher            @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classId     Int?
+  class       Class?             @relation(fields: [classId], references: [id], onDelete: SetNull)
+  teacherName String             @default("")
+  className   String             @default("")
+  status      String             @default("joined")
+  progress    Int                @default(0)
+  total       Int                @default(0)
+  correct     Int                @default(0)
+  wrong       Int                @default(0)
+  durationMs  Int                @default(0)
+  joinedAt    DateTime           @default(now())
+  finishedAt  DateTime?
+  questions   MemoryPkQuestion[]
+
+  @@unique([roomId, teacherId])
+  @@index([teacherId])
+  @@index([classId])
+}
+
+model MemoryPkQuestion {
+  id                Int                 @id @default(autoincrement())
+  roomId            Int
+  room              MemoryPkRoom        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  participantId     Int
+  participant       MemoryPkParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  position          Int
+  studentId         Int?
+  studentName       String
+  studentPhotoUrl   String
+  optionsJson       String              @default("[]")
+  selectedStudentId Int?
+  isCorrect         Boolean?
+  answeredAt        DateTime?
+
+  @@unique([participantId, position])
+  @@index([roomId])
+  @@index([participantId])
+}
+
 model StudentTag {
-  id          Int     @id @default(autoincrement())
-  studentId   Int
-  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  classId     Int
-  tag         String
-  color       String  @default("#cc785c") // 标签颜色
+  id        Int     @id @default(autoincrement())
+  studentId Int
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId   Int
+  tag       String
+  color     String  @default("#cc785c") // 标签颜色
 
   @@unique([classId, studentId, tag])
   @@index([classId])
@@ -107,43 +227,43 @@ model SignInRecord {
 }
 
 model SignInConfig {
-  id                  Int       @id @default(autoincrement())
-  classId             Int       @unique
-  class               Class     @relation(fields: [classId], references: [id])
-  activeStartedAt     DateTime?
-  countdownDurationMin Int      @default(30)
+  id                   Int       @id @default(autoincrement())
+  classId              Int       @unique
+  class                Class     @relation(fields: [classId], references: [id])
+  activeStartedAt      DateTime?
+  countdownDurationMin Int       @default(30)
 }
 
 // 信息收集配置
 model InfoCollection {
-  id        Int       @id @default(autoincrement())
-  classId   Int       @unique
-  class     Class     @relation(fields: [classId], references: [id])
-  enabled   Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id        Int         @id @default(autoincrement())
+  classId   Int         @unique
+  class     Class       @relation(fields: [classId], references: [id])
+  enabled   Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
   fields    InfoField[]
 }
 
 // 收集字段定义
 model InfoField {
-  id          Int           @id @default(autoincrement())
+  id           Int            @id @default(autoincrement())
   collectionId Int
-  collection  InfoCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  name        String        // 字段名，如"成绩"、"作业文件"
-  type        String        // "text" 或 "attachment"
-  required    Boolean       @default(false)
-  sortOrder   Int           @default(0)
-  responses   InfoResponse[]
+  collection   InfoCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name         String // 字段名，如"成绩"、"作业文件"
+  type         String // "text" 或 "attachment"
+  required     Boolean        @default(false)
+  sortOrder    Int            @default(0)
+  responses    InfoResponse[]
 }
 
 // 学生提交记录
 model InfoSubmission {
-  id          Int       @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   classId     Int
   studentId   Int?
   studentName String
-  submittedAt DateTime  @default(now())
+  submittedAt DateTime       @default(now())
   responses   InfoResponse[]
 
   @@index([classId])
@@ -151,30 +271,30 @@ model InfoSubmission {
 
 // 字段响应值
 model InfoResponse {
-  id           Int           @id @default(autoincrement())
+  id           Int            @id @default(autoincrement())
   submissionId Int
   submission   InfoSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   fieldId      Int
   field        InfoField      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
-  textValue    String?        // 文本值
-  fileUrl      String?        // 附件路径
+  textValue    String? // 文本值
+  fileUrl      String? // 附件路径
   createdAt    DateTime       @default(now())
 }
 
 // 预设标签模板（管理员可增删改）
 model PresetTag {
-  id        Int      @id @default(autoincrement())
-  tag       String   @unique
-  color     String   @default("#cc785c")
-  sortOrder Int      @default(0)
+  id        Int    @id @default(autoincrement())
+  tag       String @unique
+  color     String @default("#cc785c")
+  sortOrder Int    @default(0)
 }
 
 // 管理员操作审计日志
 model AuditLog {
   id        Int      @id @default(autoincrement())
-  adminId   Int      // 操作者（管理员）
-  action    String   // 操作类型：CREATE_TEACHER, DELETE_TEACHER, RESET_PASSWORD, TRANSFER_CLASS, DELETE_CLASS, ARCHIVE_ALL, BACKUP, RESTORE
-  target    String   // 操作目标描述
+  adminId   Int // 操作者（管理员）
+  action    String // 操作类型：CREATE_TEACHER, DELETE_TEACHER, RESET_PASSWORD, TRANSFER_CLASS, DELETE_CLASS, ARCHIVE_ALL, BACKUP, RESTORE
+  target    String // 操作目标描述
   detail    String   @default("") // 额外详情（JSON 或文本）
   ip        String   @default("")
   createdAt DateTime @default(now())

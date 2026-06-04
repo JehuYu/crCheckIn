@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads/photos')
-const PHOTO_MAX_SIZE = 5 * 1024 * 1024
+const PHOTO_MAX_SIZE = 10 * 1024 * 1024
 const ALLOWED_PHOTO_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 const CLASS_NAME_COLLATOR = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
 
@@ -709,7 +709,7 @@ export async function uploadStudentPhoto(classId, studentId, fileBuffer, filenam
   }
 
   if (fileBuffer.length > PHOTO_MAX_SIZE) {
-    return { ok: false, message: '图片大小不能超过 5MB' }
+    return { ok: false, message: '图片大小不能超过 10MB' }
   }
 
   // 验证学生归属

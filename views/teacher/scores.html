@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ cls.name }} - 快速录分</title>
+  <link rel="stylesheet" href="/public/tailwind.min.css">
+  <style>
+    :root {
+      --canvas: #faf9f5;
+      --surface-card: #efe9de;
+      --surface-dark: #181715;
+      --primary: #cc785c;
+      --primary-active: #a9583e;
+      --ink: #141413;
+      --body: #3d3d3a;
+      --muted: #6c6a64;
+      --muted-soft: #8e8b82;
+      --hairline: #e6dfd8;
+      --success: #5db872;
+      --error: #c64545;
+      --warning: #d4a017;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--canvas);
+      color: var(--body);
+      margin: 0;
+    }
+    .header-bar {
+      background: var(--canvas);
+      border-bottom: 1px solid var(--hairline);
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .header-inner {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .nav-link:hover { background: var(--surface-card); color: var(--ink); }
+    .page-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--ink);
+      margin: 0;
+    }
+    .layout {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 20px 24px 48px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 16px;
+      align-items: start;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--hairline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      margin: 0;
+    }
+    .muted { color: var(--muted-soft); }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .input, .select {
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: var(--canvas);
+      color: var(--ink);
+      font-size: 14px;
+      padding: 9px 12px;
+      outline: none;
+      box-sizing: border-box;
+    }
+    .input:focus, .select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(204,120,92,.14);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 40px;
+      padding: 0 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-active); }
+    .btn-secondary { background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline); }
+    .btn-secondary:hover { background: var(--surface-card); }
+    .btn-success { background: var(--success); color: #fff; }
+    .hero {
+      background: var(--surface-dark);
+      color: #fff;
+      border-radius: 12px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      margin: 0;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 24px;
+      font-weight: 400;
+    }
+    .stats {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      min-width: 86px;
+      text-align: center;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+    .stat-label { font-size: 11px; color: #a09d96; margin: 0; }
+    .stat-value { font-family: Georgia, serif; font-size: 22px; margin: 3px 0 0; color: #fff; }
+    .rapid-grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(160px, .55fr) auto;
+      gap: 10px;
+      align-items: start;
+      padding: 16px 18px;
+      background: #fff;
+    }
+    .candidate-list {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 28px;
+    }
+    .candidate {
+      border: 1px solid var(--hairline);
+      background: var(--canvas);
+      color: var(--body);
+      border-radius: 9999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .candidate:hover { border-color: var(--primary); color: var(--primary-active); }
+    .selected-student {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--primary-active);
+      font-weight: 700;
+    }
+    .project-row {
+      display: flex;
+      gap: 8px;
+      padding: 14px 18px;
+      border-top: 1px solid var(--hairline);
+      flex-wrap: wrap;
+    }
+    .table-wrap {
+      overflow: auto;
+      max-height: calc(100vh - 330px);
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 720px;
+      font-size: 13px;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f5efe7;
+      color: var(--ink);
+      border-bottom: 1px solid var(--hairline);
+      padding: 10px 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    td {
+      border-bottom: 1px solid var(--hairline);
+      padding: 8px;
+      background: #fff;
+      vertical-align: middle;
+    }
+    tr:nth-child(even) td { background: #fffdf9; }
+    .score-input {
+      width: 76px;
+      padding: 7px 8px;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      background: transparent;
+      font-size: 13px;
+      text-align: center;
+      color: var(--ink);
+    }
+    .score-input:hover { background: var(--canvas); border-color: var(--hairline); }
+    .score-input:focus {
+      background: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(204,120,92,.13);
+      outline: none;
+    }
+    .score-filled { font-weight: 700; color: var(--ink); }
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted-soft);
+      font-size: 14px;
+    }
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: sticky;
+      top: 80px;
+    }
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      max-height: 360px;
+      overflow: auto;
+    }
+    .log-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--hairline);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .log-item strong { color: var(--ink); }
+    .toast {
+      position: fixed;
+      top: 80px;
+      right: 24px;
+      z-index: 50;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(20,20,19,.12);
+      transform: translateX(120%);
+      transition: transform .25s ease;
+      background: #f0fdf4;
+      color: #047857;
+      border: 1px solid #b7e4c7;
+    }
+    .toast.err { background: #fef2f2; color: var(--error); border-color: #f5c6cb; }
+    .toast.show { transform: translateX(0); }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .side { position: static; }
+      .rapid-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header-bar">
+    <div class="header-inner">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+        <a href="/teacher/classes/{{ cls.id }}" class="nav-link">‹ 返回</a>
+        <p class="page-title">{{ cls.name }} · 快速录分</p>
+      </div>
+      <div class="toolbar">
+        <a class="btn btn-secondary" href="/teacher/classes/{{ cls.id }}">班级详情</a>
+        <a class="btn btn-success" id="exportBtn" href="/api/classes/{{ cls.id }}/scores/export">导出 Excel</a>
+      </div>
+    </div>
+  </header>
+
+  <div id="toast" class="toast"></div>
+
+  <main class="layout">
+    <section>
+      <div class="hero">
+        <div>
+          <h1>成绩快速录入</h1>
+          <p style="margin:6px 0 0;color:#a09d96;font-size:13px;">输拼音缩写找学生，回车录分；刷新后成绩仍保存在数据库。</p>
+        </div>
+        <div class="stats">
+          <div class="stat"><p class="stat-label">学生</p><p class="stat-value" id="studentCount">0</p></div>
+          <div class="stat"><p class="stat-label">项目</p><p class="stat-value" id="projectCount">0</p></div>
+          <div class="stat"><p class="stat-label">已录</p><p class="stat-value" id="filledCount">0</p></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <p class="card-title">快速录入</p>
+          <div class="toolbar">
+            <select class="select" id="activeProjectSelect"></select>
+            <button class="btn btn-secondary" id="importBtn">导入 Excel</button>
+            <input id="importFile" type="file" accept=".xlsx" style="display:none;" />
+          </div>
+        </div>
+        <div class="rapid-grid">
+          <div>
+            <input class="input" id="nameInput" placeholder="输入姓名或拼音缩写，如 zs" autocomplete="off" autofocus />
+            <div class="candidate-list" id="candidateList"></div>
+            <div class="selected-student" id="selectedStudentText"></div>
+          </div>
+          <input class="input" id="scoreInput" type="number" step="0.01" placeholder="输入成绩后回车" disabled />
+          <button class="btn btn-primary" id="saveRapidBtn" disabled>保存并下一位</button>
+        </div>
+        <div class="project-row">
+          <input class="input" id="newProjectInput" placeholder="新增成绩项目，如 第一次默写" style="min-width:220px;flex:1;" />
+          <button class="btn btn-primary" id="addProjectBtn">新增项目</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <p class="card-title">成绩表</p>
+          <div class="toolbar">
+            <input class="input" id="tableSearchInput" placeholder="筛选姓名 / 拼音 / 行政班" style="width:230px;" />
+            <select class="select" id="scoreFilterSelect">
+              <option value="all">全部</option>
+              <option value="missing">当前项目未录</option>
+              <option value="filled">当前项目已录</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead id="scoreHead"></thead>
+            <tbody id="scoreBody"></tbody>
+          </table>
+          <div class="empty-state" id="emptyState" style="display:none;"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <div class="card-header">
+          <p class="card-title">使用提示</p>
+        </div>
+        <div style="padding:14px 16px;font-size:13px;line-height:1.75;color:var(--muted);">
+          <p style="margin:0 0 8px;">1. 先新增或选择一个成绩项目。</p>
+          <p style="margin:0 0 8px;">2. 输入学生姓名、全拼或缩写，回车选择。</p>
+          <p style="margin:0 0 8px;">3. 输入成绩后回车保存，页面会自动回到姓名框。</p>
+          <p style="margin:0;">导入 Excel 需包含“姓名”列，其余非空表头会作为成绩项目。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <p class="card-title">最近录入</p>
+        </div>
+        <div class="log-list" id="logList"></div>
+      </div>
+    </aside>
+  </main>
+
+<script>
+const CLASS_ID = {{ cls.id }}
+let scorebook = {{ scorebookJson | safe }}
+let activeProjectId = null
+let selectedStudent = null
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))
+}
+
+function showToast(text, ok = true) {
+  const toast = document.getElementById('toast')
+  toast.textContent = text
+  toast.className = `toast ${ok ? '' : 'err'} show`
+  setTimeout(() => toast.classList.remove('show'), 2500)
+}
+
+function formatScore(value) {
+  if (value === null || value === undefined || value === '') return ''
+  const number = Number(value)
+  if (!Number.isFinite(number)) return ''
+  return Number.isInteger(number) ? String(number) : String(number)
+}
+
+function currentProject() {
+  return scorebook.projects.find(project => String(project.id) === String(activeProjectId)) || null
+}
+
+function scoreOf(student, projectId) {
+  return student.scores?.[projectId]?.value
+}
+
+function studentMatches(student, query) {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return student.name.includes(query) ||
+    String(student.homeClass || '').toLowerCase().includes(q) ||
+    String(student.pinyin?.initials || '').toLowerCase().includes(q) ||
+    String(student.pinyin?.full || '').toLowerCase().includes(q)
+}
+
+function getFilteredStudents() {
+  const query = document.getElementById('tableSearchInput').value
+  const filter = document.getElementById('scoreFilterSelect').value
+  return scorebook.students.filter((student) => {
+    if (!studentMatches(student, query)) return false
+    if (!activeProjectId || filter === 'all') return true
+    const hasScore = scoreOf(student, activeProjectId) !== undefined && scoreOf(student, activeProjectId) !== null
+    if (filter === 'missing') return !hasScore
+    if (filter === 'filled') return hasScore
+    return true
+  })
+}
+
+function renderStats() {
+  const filled = scorebook.students.reduce((sum, student) => {
+    return sum + scorebook.projects.filter(project => scoreOf(student, project.id) !== undefined && scoreOf(student, project.id) !== null).length
+  }, 0)
+  document.getElementById('studentCount').textContent = scorebook.students.length
+  document.getElementById('projectCount').textContent = scorebook.projects.length
+  document.getElementById('filledCount').textContent = filled
+}
+
+function renderProjectSelect() {
+  const select = document.getElementById('activeProjectSelect')
+  if (!scorebook.projects.length) {
+    select.innerHTML = '<option value="">请先新增成绩项目</option>'
+    activeProjectId = null
+  } else {
+    if (!activeProjectId || !scorebook.projects.some(project => String(project.id) === String(activeProjectId))) {
+      activeProjectId = scorebook.projects[0].id
+    }
+    select.innerHTML = scorebook.projects.map(project =>
+      `<option value="${project.id}" ${String(project.id) === String(activeProjectId) ? 'selected' : ''}>${esc(project.name)}</option>`
+    ).join('')
+  }
+  document.getElementById('scoreInput').disabled = !activeProjectId || !selectedStudent
+  document.getElementById('saveRapidBtn').disabled = !activeProjectId || !selectedStudent
+}
+
+function renderTable() {
+  const head = document.getElementById('scoreHead')
+  const body = document.getElementById('scoreBody')
+  const empty = document.getElementById('emptyState')
+
+  if (!scorebook.projects.length) {
+    head.innerHTML = ''
+    body.innerHTML = ''
+    empty.style.display = ''
+    empty.textContent = '请先新增一个成绩项目，或导入包含成绩列的 Excel。'
+    return
+  }
+
+  const students = getFilteredStudents()
+  head.innerHTML = `<tr>
+    <th style="width:90px;">行政班</th>
+    <th style="width:120px;">姓名</th>
+    <th style="width:90px;">缩写</th>
+    ${scorebook.projects.map(project => `<th>${esc(project.name)}</th>`).join('')}
+  </tr>`
+
+  body.innerHTML = students.map(student => `<tr>
+    <td class="muted">${esc(student.homeClass || '')}</td>
+    <td><strong>${esc(student.name)}</strong></td>
+    <td class="muted">${esc(student.pinyin?.initials || '')}</td>
+    ${scorebook.projects.map(project => {
+      const value = scoreOf(student, project.id)
+      const hasValue = value !== undefined && value !== null
+      return `<td>
+        <input class="score-input ${hasValue ? 'score-filled' : ''}" data-student-id="${student.id}" data-project-id="${project.id}" value="${esc(formatScore(value))}" placeholder="—" />
+      </td>`
+    }).join('')}
+  </tr>`).join('')
+
+  empty.style.display = students.length ? 'none' : ''
+  empty.textContent = students.length ? '' : '没有符合筛选条件的学生。'
+}
+
+function renderLogs() {
+  const list = document.getElementById('logList')
+  if (!scorebook.logs?.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:22px 14px;">暂无录入记录</div>'
+    return
+  }
+  list.innerHTML = scorebook.logs.map(log => {
+    const oldText = log.oldValue === null || log.oldValue === undefined ? '空' : formatScore(log.oldValue)
+    const newText = log.newValue === null || log.newValue === undefined ? '空' : formatScore(log.newValue)
+    const time = log.createdAt ? new Date(log.createdAt).toLocaleString('zh-CN', { hour12: false }) : ''
+    return `<div class="log-item">
+      <div><strong>${esc(log.studentName)}</strong> · ${esc(log.projectName)}</div>
+      <div class="muted">${esc(oldText)} → <strong>${esc(newText)}</strong></div>
+      <div class="muted">${esc(time)}</div>
+    </div>`
+  }).join('')
+}
+
+function renderCandidates(candidates) {
+  const box = document.getElementById('candidateList')
+  box.innerHTML = candidates.slice(0, 8).map(student =>
+    `<button class="candidate" data-student-id="${student.id}">${esc(student.name)} ${esc(student.homeClass || '')} · ${esc(student.pinyin?.initials || '')}</button>`
+  ).join('')
+}
+
+function selectStudent(student) {
+  selectedStudent = student
+  document.getElementById('selectedStudentText').textContent = `已选：${student.name}（${student.homeClass || '无行政班'}）`
+  document.getElementById('scoreInput').disabled = !activeProjectId
+  document.getElementById('saveRapidBtn').disabled = !activeProjectId
+  document.getElementById('candidateList').innerHTML = ''
+  const existing = activeProjectId ? scoreOf(student, activeProjectId) : ''
+  document.getElementById('scoreInput').value = formatScore(existing)
+  document.getElementById('scoreInput').focus()
+  document.getElementById('scoreInput').select()
+}
+
+function resetRapid() {
+  selectedStudent = null
+  document.getElementById('nameInput').value = ''
+  document.getElementById('scoreInput').value = ''
+  document.getElementById('scoreInput').disabled = true
+  document.getElementById('saveRapidBtn').disabled = true
+  document.getElementById('selectedStudentText').textContent = ''
+  document.getElementById('candidateList').innerHTML = ''
+  document.getElementById('nameInput').focus()
+}
+
+function renderAll() {
+  renderStats()
+  renderProjectSelect()
+  renderTable()
+  renderLogs()
+}
+
+async function reloadScorebook() {
+  const res = await fetch(`/api/classes/${CLASS_ID}/scores`)
+  if (res.status === 401) { window.location.href = '/student'; return }
+  const data = await res.json()
+  if (!data.ok) {
+    showToast(data.message || '加载成绩失败', false)
+    return
+  }
+  scorebook = data
+  renderAll()
+}
+
+async function saveScore(studentId, projectId, value, silent = false) {
+  const res = await fetch(`/api/classes/${CLASS_ID}/scores`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId, projectId, value }),
+  })
+  const data = await res.json()
+  if (!data.ok) {
+    showToast(data.message || '保存失败', false)
+    return false
+  }
+  const student = scorebook.students.find(item => String(item.id) === String(studentId))
+  if (student) {
+    if (!student.scores) student.scores = {}
+    if (data.score) student.scores[projectId] = { id: data.score.id, value: data.score.value, updatedAt: data.score.updatedAt }
+    else delete student.scores[projectId]
+  }
+  if (!silent) showToast('成绩已保存')
+  await reloadScorebook()
+  return true
+}
+
+async function addProject() {
+  const input = document.getElementById('newProjectInput')
+  const name = input.value.trim()
+  if (!name) { showToast('请输入成绩项目名称', false); return }
+  const res = await fetch(`/api/classes/${CLASS_ID}/score-projects`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  const data = await res.json()
+  if (!data.ok) { showToast(data.message || '新增失败', false); return }
+  input.value = ''
+  activeProjectId = data.project.id
+  showToast('成绩项目已新增')
+  await reloadScorebook()
+}
+
+function findNameCandidates(query) {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const exact = scorebook.students.filter(student =>
+    student.name === query ||
+    String(student.pinyin?.initials || '').toLowerCase() === q ||
+    String(student.pinyin?.full || '').toLowerCase() === q
+  )
+  if (exact.length) return exact
+  return scorebook.students.filter(student => studentMatches(student, query))
+}
+
+async function saveRapid() {
+  if (!selectedStudent || !activeProjectId) return
+  const value = document.getElementById('scoreInput').value.trim()
+  if (!value) { showToast('请输入成绩', false); return }
+  const ok = await saveScore(selectedStudent.id, activeProjectId, value, true)
+  if (ok) {
+    const project = currentProject()
+    showToast(`已保存：${selectedStudent.name} ${project?.name || ''} = ${value}`)
+    resetRapid()
+  }
+}
+
+document.getElementById('activeProjectSelect').addEventListener('change', (event) => {
+  activeProjectId = parseInt(event.target.value, 10) || null
+  if (selectedStudent) selectStudent(selectedStudent)
+  renderTable()
+})
+document.getElementById('addProjectBtn').addEventListener('click', addProject)
+document.getElementById('newProjectInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') addProject()
+})
+document.getElementById('tableSearchInput').addEventListener('input', renderTable)
+document.getElementById('scoreFilterSelect').addEventListener('change', renderTable)
+document.getElementById('saveRapidBtn').addEventListener('click', saveRapid)
+document.getElementById('scoreInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') saveRapid()
+  if (event.key === 'Escape') resetRapid()
+})
+document.getElementById('nameInput').addEventListener('input', (event) => {
+  selectedStudent = null
+  document.getElementById('selectedStudentText').textContent = ''
+  document.getElementById('scoreInput').disabled = true
+  document.getElementById('saveRapidBtn').disabled = true
+  renderCandidates(findNameCandidates(event.target.value))
+})
+document.getElementById('nameInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') resetRapid()
+  if (event.key !== 'Enter') return
+  const candidates = findNameCandidates(event.target.value)
+  if (candidates.length === 1) {
+    selectStudent(candidates[0])
+  } else if (candidates.length > 1) {
+    renderCandidates(candidates)
+    showToast('找到多名学生，请点选一个', false)
+  } else {
+    showToast('没有找到学生', false)
+  }
+})
+document.getElementById('candidateList').addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-student-id]')
+  if (!btn) return
+  const student = scorebook.students.find(item => String(item.id) === btn.dataset.studentId)
+  if (student) selectStudent(student)
+})
+document.getElementById('scoreBody').addEventListener('keydown', (event) => {
+  if (!event.target.classList.contains('score-input')) return
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    event.target.blur()
+  }
+})
+document.getElementById('scoreBody').addEventListener('change', async (event) => {
+  const input = event.target.closest('.score-input')
+  if (!input) return
+  await saveScore(input.dataset.studentId, input.dataset.projectId, input.value)
+})
+document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click())
+document.getElementById('importFile').addEventListener('change', async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  const fd = new FormData()
+  fd.append('file', file)
+  showToast('正在导入...')
+  const res = await fetch(`/api/classes/${CLASS_ID}/scores/import`, { method: 'POST', body: fd })
+  const data = await res.json()
+  event.target.value = ''
+  if (!data.ok) { showToast(data.message || '导入失败', false); return }
+  const projectText = data.createdProjects?.length ? `，新增 ${data.createdProjects.length} 个项目` : ''
+  const unmatchedText = data.unmatchedStudents?.length ? `，${data.unmatchedStudents.length} 名学生未匹配` : ''
+  showToast(`导入 ${data.importedScores} 个成绩${projectText}${unmatchedText}`)
+  await reloadScorebook()
+})
+
+renderAll()
+</script>
+</body>
+</html>

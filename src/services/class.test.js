@@ -170,6 +170,14 @@ describe('class service', () => {
       const session = await factories.createSignInSession({ classId: cls.id })
       await factories.createArchivedRecord({ sessionId: session.id, studentName: '张三' })
 
+      const scoreProject = await factories.createScoreProject({ classId: cls.id, name: 'score_project' })
+      const score = await prisma.studentScore.create({
+        data: { studentId: student.id, projectId: scoreProject.id, value: 95 },
+      })
+      await prisma.scoreEntryLog.create({
+        data: { studentId: student.id, projectId: scoreProject.id, scoreId: score.id, newValue: 95 },
+      })
+
       await deleteClass(cls.id, teacher.id)
 
       // 验证所有关联数据已删除
@@ -180,6 +188,9 @@ describe('class service', () => {
       assert.equal(await prisma.signInConfig.count({ where: { classId: cls.id } }), 0)
       assert.equal(await prisma.signInSession.count({ where: { classId: cls.id } }), 0)
       assert.equal(await prisma.archivedRecord.count({ where: { sessionId: session.id } }), 0)
+      assert.equal(await prisma.scoreProject.count({ where: { classId: cls.id } }), 0)
+      assert.equal(await prisma.studentScore.count({ where: { projectId: scoreProject.id } }), 0)
+      assert.equal(await prisma.scoreEntryLog.count({ where: { projectId: scoreProject.id } }), 0)
     })
 
     it('admin can delete any class', async () => {

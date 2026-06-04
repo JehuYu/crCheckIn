@@ -148,6 +148,17 @@ export async function deleteClassesCascadeWithTx(tx, classIds) {
   await tx.signInConfig.deleteMany({ where: { classId: { in: classIds } } })
   await tx.signInRecord.deleteMany({ where: { classId: { in: classIds } } })
 
+  const scoreProjects = await tx.scoreProject.findMany({
+    where: { classId: { in: classIds } },
+    select: { id: true },
+  })
+  const scoreProjectIds = scoreProjects.map(project => project.id)
+  if (scoreProjectIds.length > 0) {
+    await tx.scoreEntryLog.deleteMany({ where: { projectId: { in: scoreProjectIds } } })
+    await tx.studentScore.deleteMany({ where: { projectId: { in: scoreProjectIds } } })
+    await tx.scoreProject.deleteMany({ where: { id: { in: scoreProjectIds } } })
+  }
+
   // 4. 学生标签（依赖 Student）
   await tx.studentTag.deleteMany({ where: { classId: { in: classIds } } })
 

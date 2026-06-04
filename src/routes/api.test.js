@@ -89,6 +89,18 @@ describe('API routes integration', () => {
       assert.equal(body.ok, false)
     })
 
+    it('POST /api/teacher-login is not rate limited', async () => {
+      for (let index = 0; index < 8; index += 1) {
+        const response = await app.inject({
+          method: 'POST',
+          url: '/api/teacher-login',
+          payload: JSON.stringify({ password: `wrong_password_${index}` }),
+          headers: sameOriginJsonHeaders,
+        })
+        assert.equal(response.statusCode, 401)
+      }
+    })
+
     it('POST /api/teacher-login with correct password succeeds', async () => {
       const bcrypt = await import('bcrypt')
       await prisma.teacher.create({

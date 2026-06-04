@@ -51,6 +51,23 @@ import {
   getPresetTags,
 } from '../services/tag.js'
 import { registerSSE, broadcastToClass, invalidateClassTeacherCache } from '../services/sse.js'
+import {
+  answerMemoryPkQuestion,
+  createMemoryPkRoom,
+  getMemoryPkRoom,
+  joinMemoryPkRoom,
+  leaveMemoryPkRoom,
+  listMemoryPkRooms,
+  selectMemoryPkClass,
+  startMemoryPkRoom,
+} from '../services/memoryPk.js'
+import {
+  createScoreProject,
+  exportScoresToExcel,
+  getScorebook,
+  importScoresFromExcel,
+  saveStudentScore,
+} from '../services/scores.js'
 
 /**
  * 格式化当前时间为 YYYYMMDD_HHmmss
@@ -63,6 +80,14 @@ function nowTimestamp() {
     `${d.year}${pad(d.month)}${pad(d.day)}_` +
     `${pad(d.hour)}${pad(d.minute)}${pad(d.second)}`
   )
+}
+
+function sendServiceError(reply, error) {
+  const status = error.status || error.statusCode || 500
+  return reply.code(status).send({
+    ok: false,
+    message: error.message || '服务处理失败',
+  })
 }
 
 /**
@@ -237,6 +262,77 @@ export default async function apiRoutes(fastify) {
   })
 
   // POST /api/change-password — 需要 teacherRequired
+  fastify.get('/api/classes/:classId/scores', { preHandler: classOwnerRequired }, async (request, reply) => {
+    try {
+      const scorebook = await getScorebook(request.classId)
+      return reply.send({ ok: true, ...scorebook })
+    } catch (error) {
+      return sendServiceError(reply, error)
+    }
+  })
+
+  fastify.post('/api/classes/:classId/score-projects', { preHandler: classOwnerRequired }, async (request, reply) => {
+    try {
+      const project = await createScoreProject(request.classId, request.body?.name)
+      return reply.send({ ok: true, project })
+    } catch (error) {
+      return sendServiceError(reply, error)
+    }
+  })
+
+  fastify.put('/api/classes/:classId/scores', { preHandler: classOwnerRequired }, async (request, reply) => {
+    try {
+      const studentId = parseInt(request.body?.studentId, 10)
+      const projectId = parseInt(request.body?.projectId, 10)
+      if (Number.isNaN(studentId) || Number.isNaN(projectId)) {
+        return reply.code(400).send({ ok: false, message: '学生或成绩项目无效' })
+      }
+      const result = await saveStudentScore({
+        classId: request.classId,
+        studentId,
+        projectId,
+        value: request.body?.value,
+        teacherId: request.session.teacherId,
+      })
+      return reply.send(result)
+    } catch (error) {
+      return sendServiceError(reply, error)
+    }
+  })
+
+  fastify.post('/api/classes/:classId/scores/import', { preHandler: classOwnerRequired, config: { bodyLimit: 50 * 1024 * 1024 } }, async (request, reply) => {
+    try {
+      let fileBuffer = null
+      let filename = 'scores.xlsx'
+      for await (const part of request.parts()) {
+        if (part.type === 'file' && part.fieldname === 'file') {
+          const chunks = []
+          filename = part.filename || filename
+          for await (const chunk of part.file) chunks.push(chunk)
+          fileBuffer = Buffer.concat(chunks)
+        }
+      }
+      if (!fileBuffer) return reply.code(400).send({ ok: false, message: '请上传 .xlsx 成绩文件' })
+      const result = await importScoresFromExcel(request.classId, fileBuffer, filename, request.session.teacherId)
+      return reply.send(result)
+    } catch (error) {
+      return sendServiceError(reply, error)
+    }
+  })
+
+  fastify.get('/api/classes/:classId/scores/export', { preHandler: classOwnerRequired }, async (request, reply) => {
+    try {
+      const buffer = await exportScoresToExcel(request.classId)
+      const filename = `scores_${request.classId}_${nowTimestamp()}.xlsx`
+      reply
+        .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+      return reply.send(buffer)
+    } catch (error) {
+      return sendServiceError(reply, error)
+    }
+  })
+
   fastify.post('/api/change-password', { preHandler: teacherRequired }, async (request, reply) => {
     const { old_password, new_password } = request.body ?? {}
     if (!old_password || !new_password) {
@@ -255,7 +351,7 @@ export default async function apiRoutes(fastify) {
 
   // POST /api/teacher-login — 通过口令登录教师/管理员端（供学生端入口使用）
   fastify.post('/api/teacher-login', {
-    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    config: { rateLimit: false },
   }, async (request, reply) => {
     const { password } = request.body ?? {}
     if (!password || typeof password !== 'string') {
@@ -364,6 +460,96 @@ export default async function apiRoutes(fastify) {
     // 广播 SSE 事件给该班级教师
     broadcastToClass(classId, 'signin')
     return reply.send(result)
+  })
+
+  // GET /api/memory-pk/rooms — PK 大厅房间列表
+  fastify.get('/api/memory-pk/rooms', { preHandler: teacherRequired }, async (request, reply) => {
+    try {
+      const rooms = await listMemoryPkRooms(request.session.teacherId)
+      return reply.send({ ok: true, rooms })
+    } catch (err) {
+      return sendServiceError(reply, err)
+    }
+  })
+
+  // POST /api/memory-pk/rooms — 创建 PK 房间
+  fastify.post('/api/memory-pk/rooms', { preHandler: teacherRequired }, async (request, reply) => {
+    try {
+      const room = await createMemoryPkRoom(request.session.teacherId)
+      return reply.code(201).send({ ok: true, room })
+    } catch (err) {
+      return sendServiceError(reply, err)
+    }
+  })
+
+  // GET /api/memory-pk/rooms/:roomId — 查看已加入房间
+  fastify.get('/api/memory-pk/rooms/:roomId', { preHandler: teacherRequired }, async (request, reply) => {
+    try {
+      const room = await getMemoryPkRoom(request.params.roomId, request.session.teacherId)
+      return reply.send({ ok: true, room })
+    } catch (err) {
+      return sendServiceError(reply, err)
+    }
+  })
+
+  // POST /api/memory-pk/rooms/:roomId/join — 加入等待中的 PK 房间
+  fastify.post('/api/memory-pk/rooms/:roomId/join', { preHandler: teacherRequired }, async (request, reply) => {
+    try {
+      const room = await joinMemoryPkRoom(request.params.roomId, request.session.teacherId)
+      return reply.send({ ok: true, room })
+    } catch (err) {
+      return sendServiceError(reply, err)
+    }
+  })
+
+  // POST /api/memory-pk/rooms/:roomId/class — 选择本方比赛班级
+  fastify.post('/api/memory-pk/rooms/:roomId/class', { preHandler: teacherRequired }, async (request, reply) => {
+    try {
+      const room = await selectMemoryPkClass(
+        request.params.roomId,
+        request.session.teacherId,
+        request.body?.classId,
+        request.session.isAdmin === true
+      )
+      return reply.send({ ok: true, room })
+    } catch (err) {
+      return sendServiceError(reply, err)
+    }
+  })
+
+  // POST /api/memory-pk/rooms/:roomId/start — 双方选班后开始比赛
+  fastify.post('/api/memory-pk/rooms/:roomId/start', { preHandler: teacherRequired }, async (request, reply) => {
+    try {
+      const room = await startMemoryPkRoom(request.params.roomId, request.session.teacherId)
+      return reply.send({ ok: true, room })
+    } catch (err) {
+      return sendServiceError(reply, err)
+    }
+  })
+
+  // POST /api/memory-pk/rooms/:roomId/answer — 提交当前题答案
+  fastify.post('/api/memory-pk/rooms/:roomId/answer', { preHandler: teacherRequired }, async (request, reply) => {
+    try {
+      const room = await answerMemoryPkQuestion(
+        request.params.roomId,
+        request.session.teacherId,
+        request.body?.questionId,
+        request.body?.selectedStudentId
+      )
+      return reply.send({ ok: true, room })
+    } catch (err) {
+      return sendServiceError(reply, err)
+    }
+  })
+
+  // POST /api/memory-pk/rooms/:roomId/leave — 主动退出房间
+  fastify.post('/api/memory-pk/rooms/:roomId/leave', { preHandler: teacherRequired }, async (request, reply) => {
+    try {
+      const room = await leaveMemoryPkRoom(request.params.roomId, request.session.teacherId)
+      return reply.send({ ok: true, room })
+    } catch (err) {
+      return sendServiceError(reply, err)
+    }
   })
 
   // GET /api/sse — SSE 实时推送通道，需要 teacherRequired
