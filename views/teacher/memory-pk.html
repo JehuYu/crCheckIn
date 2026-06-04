@@ -1,0 +1,1071 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>教师在线 PK - 学生照片记忆卡</title>
+  <link rel="stylesheet" href="/public/tailwind.min.css">
+  <style>
+    :root {
+      --canvas: #faf9f5;
+      --surface-card: #efe9de;
+      --primary: #cc785c;
+      --primary-active: #a9583e;
+      --ink: #141413;
+      --body: #3d3d3a;
+      --muted: #6c6a64;
+      --muted-soft: #8e8b82;
+      --hairline: #e6dfd8;
+      --success: #5db872;
+      --error: #c64545;
+      --warning: #d4a017;
+      --on-primary: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--body);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+    button, select { font: inherit; }
+    button { border: 0; }
+    .header-bar {
+      height: 64px;
+      background: var(--canvas);
+      border-bottom: 1px solid var(--hairline);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .header-inner {
+      max-width: 1300px;
+      height: 100%;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .page-title {
+      margin: 0;
+      color: var(--ink);
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 20px;
+      font-weight: 400;
+      letter-spacing: -.3px;
+    }
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all .15s ease;
+    }
+    .nav-link:hover { background: var(--surface-card); color: var(--ink); }
+    .pk-page {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 20px 24px 48px;
+    }
+    .control-band,
+    .panel {
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .control-band {
+      margin-bottom: 16px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .control-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .data-summary {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 38px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s ease;
+    }
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn:disabled { cursor: not-allowed; opacity: .5; }
+    .btn-primary { background: var(--primary); color: var(--on-primary); }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-active); }
+    .btn-secondary {
+      color: var(--ink);
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+    }
+    .btn-danger { background: var(--error); color: #fff; }
+    .layout {
+      display: grid;
+      grid-template-columns: 380px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .panel {
+      min-height: 200px;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--hairline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .panel-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .panel-body {
+      padding: 16px;
+    }
+    .room-list {
+      display: grid;
+      gap: 10px;
+    }
+    .room-card {
+      padding: 12px;
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      background: var(--canvas);
+      display: grid;
+      gap: 10px;
+    }
+    .room-card.is-active {
+      border-color: rgba(204, 120, 92, .55);
+      box-shadow: 0 8px 22px rgba(204, 120, 92, .12);
+    }
+    .room-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .room-name {
+      color: var(--ink);
+      font-weight: 800;
+      font-size: 14px;
+    }
+    .room-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      border: 1px solid var(--hairline);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .status-pill.waiting { color: #8a6424; border-color: #ead8a8; background: #fff8df; }
+    .status-pill.active { color: #1f6f3d; border-color: #b7e4c7; background: #f0fdf4; }
+    .status-pill.finished { color: #465569; border-color: #d8dee8; background: #f8fafc; }
+    .status-pill.abandoned { color: var(--error); border-color: #f5c6cb; background: #fef2f2; }
+    .empty {
+      padding: 28px 16px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .room-actions,
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .participant-card {
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      padding: 12px;
+      background: var(--canvas);
+    }
+    .participant-card.is-me {
+      border-color: rgba(204, 120, 92, .55);
+      background: #fffaf6;
+    }
+    .participant-name {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .participant-detail {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 220px;
+    }
+    .field span {
+      color: var(--muted-soft);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .field select {
+      width: 100%;
+      min-height: 38px;
+      padding: 0 34px 0 10px;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: var(--canvas);
+      color: var(--ink);
+      outline: none;
+    }
+    .hint {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .quiz-layout {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 250px;
+      gap: 16px;
+      align-items: start;
+    }
+    .quiz-card,
+    .score-card,
+    .result-card {
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .quiz-card {
+      min-height: 520px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .student-photo {
+      width: min(360px, 100%);
+      aspect-ratio: 4 / 5;
+      display: block;
+      object-fit: cover;
+      object-position: center top;
+      border-radius: 10px;
+      background: var(--surface-card);
+    }
+    .options {
+      width: min(680px, 100%);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .option-button {
+      min-height: 56px;
+      padding: 10px 12px;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: var(--canvas);
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 17px;
+      font-weight: 800;
+      transition: border-color .15s, box-shadow .15s, transform .15s;
+    }
+    .option-button:hover:not(:disabled) {
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px rgba(204, 120, 92, .12);
+      transform: translateY(-1px);
+    }
+    .option-button:disabled { cursor: not-allowed; opacity: .78; }
+    .name-chinese {
+      font-size: 17px;
+      font-weight: 800;
+    }
+    .annotated-name ruby {
+      position: relative;
+      display: inline-block;
+      ruby-align: center;
+      ruby-position: over;
+    }
+    .annotated-name rt {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      width: max-content;
+      color: var(--primary);
+      font-size: .56em;
+      font-weight: 700;
+      line-height: 1;
+      transform: translate(-50%, -.12em);
+      white-space: nowrap;
+    }
+    .feedback {
+      min-height: 24px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+      text-align: center;
+    }
+    .feedback.good { color: #23824a; }
+    .feedback.bad { color: var(--error); }
+    .score-card {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      position: sticky;
+      top: 80px;
+    }
+    .score-row {
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .score-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .score-name {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .score-stats {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .progress-track {
+      height: 7px;
+      margin-top: 8px;
+      border-radius: 999px;
+      background: var(--surface-card);
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: var(--primary);
+      transition: width .25s ease;
+    }
+    .result-card {
+      margin-top: 16px;
+      padding: 18px;
+    }
+    .result-title {
+      margin: 0 0 12px;
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .toast {
+      position: fixed;
+      top: 80px;
+      right: 24px;
+      z-index: 50;
+      padding: 10px 18px;
+      border: 1px solid #b7e4c7;
+      border-radius: 8px;
+      background: #f0fdf4;
+      color: #047857;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 8px 24px rgba(20,20,19,.12);
+      transform: translateX(120%);
+      transition: transform .25s ease;
+    }
+    .toast.show { transform: translateX(0); }
+    .toast.err {
+      border-color: #f5c6cb;
+      background: #fef2f2;
+      color: var(--error);
+    }
+    @media (max-width: 980px) {
+      .layout,
+      .quiz-layout { grid-template-columns: 1fr; }
+      .score-card { position: static; }
+    }
+    @media (max-width: 640px) {
+      .header-inner { padding: 0 16px; }
+      .pk-page { padding: 14px 14px 36px; }
+      .control-band { flex-direction: column; align-items: stretch; }
+      .setup-grid { grid-template-columns: 1fr; }
+      .toolbar, .room-actions, .btn, .field { width: 100%; }
+      .options { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header-bar">
+    <div class="header-inner">
+      <div class="header-left">
+        <a href="{{ backHref }}" class="nav-link">
+          <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+          返回照片记忆
+        </a>
+        <span style="color: var(--hairline);">|</span>
+        <span class="page-title">教师在线 PK</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="pk-page">
+    <div id="toast" class="toast"></div>
+
+    <section class="control-band">
+      <div>
+        <h2 class="control-title">照片记忆对战大厅</h2>
+        <p id="summaryText" class="data-summary">两名老师加入同一房间，各自选择班级后开始比赛。每方随机抽取最多 30 位有照片学生。</p>
+      </div>
+      <div class="toolbar">
+        <button id="createRoomBtn" class="btn btn-primary" type="button">创建 PK 房间</button>
+        <button id="refreshBtn" class="btn btn-secondary" type="button">刷新大厅</button>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="panel-header">
+          <h3 class="panel-title">PK 大厅</h3>
+          <span id="lobbyCount" class="status-pill">0 个房间</span>
+        </div>
+        <div class="panel-body">
+          <div id="roomList" class="room-list"></div>
+        </div>
+      </section>
+
+      <section id="roomPanel" class="panel" hidden>
+        <div class="panel-header">
+          <div>
+            <h3 id="roomTitle" class="panel-title">当前房间</h3>
+            <p id="roomHint" class="hint"></p>
+          </div>
+          <span id="roomStatus" class="status-pill">等待中</span>
+        </div>
+        <div class="panel-body">
+          <div id="setupArea">
+            <div id="participantGrid" class="setup-grid"></div>
+            <div class="toolbar">
+              <label class="field">
+                <span>我的比赛班级</span>
+                <select id="classSelect"></select>
+              </label>
+              <button id="saveClassBtn" class="btn btn-secondary" type="button">确认班级</button>
+              <button id="startBtn" class="btn btn-primary" type="button">开始比赛</button>
+              <button id="leaveBtn" class="btn btn-danger" type="button">退出房间</button>
+            </div>
+            <p id="classHint" class="hint"></p>
+          </div>
+
+          <div id="quizArea" class="quiz-layout" hidden>
+            <section class="quiz-card">
+              <img id="questionPhoto" class="student-photo" src="" alt="学生照片">
+              <div id="questionOptions" class="options"></div>
+              <p id="feedback" class="feedback"></p>
+            </section>
+            <aside id="scoreBoard" class="score-card"></aside>
+          </div>
+
+          <div id="resultArea" class="result-card" hidden></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script id="memory-data" type="application/json">{{ memoryClassesJson | safe }}</script>
+  <script id="current-teacher-id" type="application/json">{{ currentTeacherIdJson | safe }}</script>
+  <script id="initial-room-id" type="application/json">{{ initialRoomIdJson | safe }}</script>
+  <script>
+const MEMORY_CLASSES = JSON.parse(document.getElementById('memory-data').textContent)
+const CURRENT_TEACHER_ID = JSON.parse(document.getElementById('current-teacher-id').textContent)
+const INITIAL_ROOM_ID = JSON.parse(document.getElementById('initial-room-id').textContent)
+
+const STATUS_TEXT = {
+  waiting: '等待中',
+  active: '比赛中',
+  finished: '已结束',
+  abandoned: '已退出',
+}
+
+const els = {
+  toast: document.getElementById('toast'),
+  summaryText: document.getElementById('summaryText'),
+  createRoomBtn: document.getElementById('createRoomBtn'),
+  refreshBtn: document.getElementById('refreshBtn'),
+  lobbyCount: document.getElementById('lobbyCount'),
+  roomList: document.getElementById('roomList'),
+  roomPanel: document.getElementById('roomPanel'),
+  roomTitle: document.getElementById('roomTitle'),
+  roomHint: document.getElementById('roomHint'),
+  roomStatus: document.getElementById('roomStatus'),
+  setupArea: document.getElementById('setupArea'),
+  participantGrid: document.getElementById('participantGrid'),
+  classSelect: document.getElementById('classSelect'),
+  saveClassBtn: document.getElementById('saveClassBtn'),
+  startBtn: document.getElementById('startBtn'),
+  leaveBtn: document.getElementById('leaveBtn'),
+  classHint: document.getElementById('classHint'),
+  quizArea: document.getElementById('quizArea'),
+  questionPhoto: document.getElementById('questionPhoto'),
+  questionOptions: document.getElementById('questionOptions'),
+  feedback: document.getElementById('feedback'),
+  scoreBoard: document.getElementById('scoreBoard'),
+  resultArea: document.getElementById('resultArea'),
+}
+
+let currentRoomId = INITIAL_ROOM_ID || null
+let currentRoom = null
+let refreshInFlight = false
+let toastTimer = null
+let liveTimer = null
+
+init()
+
+function init() {
+  bindEvents()
+  renderClassSelect()
+  refreshAll()
+  connectSse()
+  window.setInterval(refreshAll, 3500)
+  liveTimer = window.setInterval(renderLiveScores, 500)
+}
+
+function bindEvents() {
+  els.createRoomBtn.addEventListener('click', createRoom)
+  els.refreshBtn.addEventListener('click', refreshAll)
+  els.roomList.addEventListener('click', handleRoomListClick)
+  els.saveClassBtn.addEventListener('click', saveClassSelection)
+  els.startBtn.addEventListener('click', startRoom)
+  els.leaveBtn.addEventListener('click', leaveRoom)
+  els.questionOptions.addEventListener('click', submitAnswer)
+  els.classSelect.addEventListener('change', renderClassHint)
+}
+
+async function refreshAll() {
+  if (refreshInFlight) return
+  refreshInFlight = true
+  try {
+    await loadLobby()
+    if (currentRoomId) await loadCurrentRoom()
+  } catch (err) {
+    showToast(err.message || '刷新失败', false)
+  } finally {
+    refreshInFlight = false
+  }
+}
+
+async function loadLobby() {
+  const data = await requestJson('/api/memory-pk/rooms')
+  renderLobby(data.rooms || [])
+}
+
+async function loadCurrentRoom() {
+  if (!currentRoomId) return
+  try {
+    const data = await requestJson(`/api/memory-pk/rooms/${currentRoomId}`)
+    currentRoom = data.room
+    renderRoom()
+  } catch (err) {
+    currentRoom = null
+    currentRoomId = null
+    updateRoomUrl(null)
+    els.roomPanel.hidden = true
+    showToast(err.message || '房间已不可用', false)
+  }
+}
+
+async function createRoom() {
+  try {
+    const data = await requestJson('/api/memory-pk/rooms', { method: 'POST' })
+    currentRoom = data.room
+    currentRoomId = currentRoom.id
+    updateRoomUrl(currentRoomId)
+    renderRoom()
+    await loadLobby()
+    showToast('PK 房间已创建')
+  } catch (err) {
+    showToast(err.message || '创建失败', false)
+  }
+}
+
+async function joinRoom(roomId) {
+  try {
+    const data = await requestJson(`/api/memory-pk/rooms/${roomId}/join`, { method: 'POST' })
+    currentRoom = data.room
+    currentRoomId = currentRoom.id
+    updateRoomUrl(currentRoomId)
+    renderRoom()
+    await loadLobby()
+    showToast('已加入房间')
+  } catch (err) {
+    showToast(err.message || '加入失败', false)
+  }
+}
+
+async function saveClassSelection() {
+  if (!currentRoomId) return
+  const classId = Number(els.classSelect.value)
+  if (!classId) {
+    showToast('请选择比赛班级', false)
+    return
+  }
+  try {
+    const data = await requestJson(`/api/memory-pk/rooms/${currentRoomId}/class`, {
+      method: 'POST',
+      body: { classId },
+    })
+    currentRoom = data.room
+    renderRoom()
+    await loadLobby()
+    showToast('班级已确认')
+  } catch (err) {
+    showToast(err.message || '确认班级失败', false)
+  }
+}
+
+async function startRoom() {
+  if (!currentRoomId) return
+  try {
+    const data = await requestJson(`/api/memory-pk/rooms/${currentRoomId}/start`, { method: 'POST' })
+    currentRoom = data.room
+    renderRoom()
+    await loadLobby()
+    showToast('比赛开始')
+  } catch (err) {
+    showToast(err.message || '开始失败', false)
+  }
+}
+
+async function leaveRoom() {
+  if (!currentRoomId) return
+  if (!window.confirm('确认退出当前 PK 房间？')) return
+  try {
+    const data = await requestJson(`/api/memory-pk/rooms/${currentRoomId}/leave`, { method: 'POST' })
+    currentRoom = data.room
+    renderRoom()
+    await loadLobby()
+    showToast('已退出房间')
+  } catch (err) {
+    showToast(err.message || '退出失败', false)
+  }
+}
+
+async function submitAnswer(event) {
+  const button = event.target.closest('[data-student-id]')
+  if (!button || !currentRoom?.currentQuestion) return
+  const selectedStudentId = button.dataset.studentId
+  const questionId = currentRoom.currentQuestion.id
+  setOptionButtonsDisabled(true)
+  try {
+    const data = await requestJson(`/api/memory-pk/rooms/${currentRoomId}/answer`, {
+      method: 'POST',
+      body: { questionId, selectedStudentId },
+    })
+    currentRoom = data.room
+    renderRoom()
+  } catch (err) {
+    showToast(err.message || '提交失败', false)
+    setOptionButtonsDisabled(false)
+  }
+}
+
+function handleRoomListClick(event) {
+  const button = event.target.closest('[data-action]')
+  if (!button) return
+  const roomId = Number(button.dataset.roomId)
+  if (!roomId) return
+  if (button.dataset.action === 'join') joinRoom(roomId)
+  if (button.dataset.action === 'open') {
+    currentRoomId = roomId
+    updateRoomUrl(roomId)
+    loadCurrentRoom()
+  }
+}
+
+function renderLobby(rooms) {
+  els.lobbyCount.textContent = `${rooms.length} 个房间`
+  if (!rooms.length) {
+    els.roomList.innerHTML = '<div class="empty">当前没有 PK 房间。创建一个房间后，其他老师就能在这里直接加入。</div>'
+    return
+  }
+
+  els.roomList.innerHTML = rooms.map((room) => {
+    const joined = room.participants.some((participant) => participant.teacherId === CURRENT_TEACHER_ID)
+    const participantText = room.participants
+      .map((participant) => `${escapeHtml(participant.teacherName)}${participant.className ? `：${escapeHtml(participant.className)}` : '：未选班'}`)
+      .join('<br>')
+    const statusClass = room.status || 'waiting'
+    const action = joined
+      ? `<button class="btn btn-secondary" type="button" data-action="open" data-room-id="${room.id}">打开</button>`
+      : room.canJoin
+        ? `<button class="btn btn-primary" type="button" data-action="join" data-room-id="${room.id}">加入</button>`
+        : '<button class="btn btn-secondary" type="button" disabled>不可加入</button>'
+
+    return `
+      <article class="room-card ${currentRoomId === room.id ? 'is-active' : ''}">
+        <div class="room-top">
+          <span class="room-name">房间 #${room.id}</span>
+          <span class="status-pill ${statusClass}">${STATUS_TEXT[room.status] || room.status}</span>
+        </div>
+        <div class="room-meta">
+          <div>创建老师：${escapeHtml(room.creatorName || '-')}</div>
+          <div>创建时间：${formatDate(room.createdAt)}</div>
+          <div>当前人数：${room.participants.length}/2</div>
+          <div>${participantText || '暂无老师加入'}</div>
+        </div>
+        <div class="room-actions">${action}</div>
+      </article>
+    `
+  }).join('')
+}
+
+function renderRoom() {
+  if (!currentRoom) {
+    els.roomPanel.hidden = true
+    return
+  }
+  els.roomPanel.hidden = false
+  els.roomTitle.textContent = `房间 #${currentRoom.id}`
+  els.roomHint.textContent = currentRoom.status === 'waiting'
+    ? '等待两名老师加入并确认班级。'
+    : currentRoom.status === 'active'
+      ? '比赛进行中，双方独立答题，比分会自动刷新。'
+      : '本场比赛已结束。'
+  setStatusPill(els.roomStatus, currentRoom.status)
+  renderParticipants()
+  renderClassControls()
+  renderQuiz()
+  renderResult()
+}
+
+function renderParticipants() {
+  const cards = [...currentRoom.participants]
+  while (cards.length < 2) cards.push(null)
+  els.participantGrid.innerHTML = cards.map((participant, index) => {
+    if (!participant) {
+      return `
+        <div class="participant-card">
+          <div class="participant-name">等待老师加入 <span class="status-pill waiting">空位</span></div>
+          <div class="participant-detail">第二名老师可以在 PK 大厅中直接加入。</div>
+        </div>
+      `
+    }
+    const isMe = participant.teacherId === CURRENT_TEACHER_ID
+    const progressText = participant.total ? `${participant.progress}/${participant.total}` : '未开始'
+    return `
+      <div class="participant-card ${isMe ? 'is-me' : ''}">
+        <div class="participant-name">
+          <span>${escapeHtml(participant.teacherName)}${isMe ? '（我）' : ''}</span>
+          <span class="status-pill">${participantStatusText(participant.status)}</span>
+        </div>
+        <div class="participant-detail">
+          <div>班级：${participant.className ? escapeHtml(participant.className) : '未选择'}</div>
+          <div>进度：${progressText}</div>
+          <div>正确：${participant.correct}，错误：${participant.wrong}，正确率：${participant.accuracy}%</div>
+          <div>用时：${formatDuration(displayDuration(participant))}</div>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+function renderClassControls() {
+  const me = getMe()
+  const isWaiting = currentRoom.status === 'waiting'
+  els.setupArea.hidden = currentRoom.status === 'active'
+  els.saveClassBtn.disabled = !isWaiting
+  els.classSelect.disabled = !isWaiting
+  els.startBtn.disabled = !currentRoom.canStart
+  els.leaveBtn.disabled = currentRoom.status === 'finished' || currentRoom.status === 'abandoned'
+  if (me?.classId) els.classSelect.value = String(me.classId)
+  renderClassHint()
+}
+
+function renderQuiz() {
+  const isActive = currentRoom.status === 'active'
+  els.quizArea.hidden = !isActive
+  if (!isActive) return
+
+  renderLiveScores()
+  const question = currentRoom.currentQuestion
+  if (!question) {
+    els.questionPhoto.src = createPlaceholder('已完成', '等待对方完成比赛')
+    els.questionOptions.innerHTML = ''
+    els.feedback.textContent = '你已完成本场比赛，等待对方完成后显示结果。'
+    els.feedback.className = 'feedback good'
+    return
+  }
+
+  els.questionPhoto.src = question.photoUrl
+  els.questionPhoto.alt = `第 ${question.position} 题学生照片`
+  els.questionPhoto.onerror = () => {
+    els.questionPhoto.src = createPlaceholder('照片不可用', '请继续作答')
+  }
+  els.feedback.textContent = `第 ${question.position} 题：请选择照片中的学生姓名`
+  els.feedback.className = 'feedback'
+  els.questionOptions.innerHTML = question.options.map((student) => `
+    <button class="option-button" type="button" data-student-id="${student.id}">
+      ${renderStudentName(student)}
+    </button>
+  `).join('')
+}
+
+function renderLiveScores() {
+  if (!currentRoom || !els.scoreBoard) return
+  els.scoreBoard.innerHTML = currentRoom.participants.map((participant) => {
+    const ratio = participant.total ? Math.round((participant.progress / participant.total) * 100) : 0
+    return `
+      <div class="score-row">
+        <div class="score-name">${escapeHtml(participant.teacherName)}${participant.teacherId === CURRENT_TEACHER_ID ? '（我）' : ''}</div>
+        <div class="score-stats">
+          <div>${escapeHtml(participant.className || '未选班')}</div>
+          <div>进度 ${participant.progress}/${participant.total || '-'}，正确 ${participant.correct}，错误 ${participant.wrong}</div>
+          <div>正确率 ${participant.accuracy}%，用时 ${formatDuration(displayDuration(participant))}</div>
+        </div>
+        <div class="progress-track"><div class="progress-bar" style="width:${ratio}%"></div></div>
+      </div>
+    `
+  }).join('')
+}
+
+function renderResult() {
+  const shouldShow = currentRoom.status === 'finished' || currentRoom.status === 'abandoned'
+  els.resultArea.hidden = !shouldShow
+  if (!shouldShow) return
+  const winner = currentRoom.participants.find((participant) => participant.id === currentRoom.winnerParticipantId)
+  const title = currentRoom.status === 'abandoned'
+    ? '比赛已结束：有老师退出'
+    : winner
+      ? `获胜：${winner.teacherName}`
+      : '平局'
+
+  els.resultArea.innerHTML = `
+    <h3 class="result-title">${escapeHtml(title)}</h3>
+    <div class="setup-grid">
+      ${currentRoom.participants.map((participant) => `
+        <div class="participant-card ${participant.teacherId === CURRENT_TEACHER_ID ? 'is-me' : ''}">
+          <div class="participant-name">
+            <span>${escapeHtml(participant.teacherName)}${participant.teacherId === CURRENT_TEACHER_ID ? '（我）' : ''}</span>
+            <span class="status-pill">${participant.id === currentRoom.winnerParticipantId ? '胜' : participant.status === 'left' ? '退出' : '完成'}</span>
+          </div>
+          <div class="participant-detail">
+            <div>班级：${escapeHtml(participant.className || '-')}</div>
+            <div>成绩：${participant.correct} 对 / ${participant.wrong} 错 / ${participant.accuracy}%</div>
+            <div>进度：${participant.progress}/${participant.total}</div>
+            <div>用时：${formatDuration(participant.durationMs)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderClassSelect() {
+  const playableClasses = MEMORY_CLASSES.filter((classInfo) => classInfo.playableCount > 0)
+  els.classSelect.innerHTML = playableClasses.map((classInfo) => `
+    <option value="${classInfo.id}">${escapeHtml(classInfo.name)}（可练 ${classInfo.playableCount} 人）</option>
+  `).join('')
+  if (!playableClasses.length) {
+    els.classSelect.innerHTML = '<option value="">暂无可用班级</option>'
+    els.classSelect.disabled = true
+  }
+}
+
+function renderClassHint() {
+  const selected = MEMORY_CLASSES.find((classInfo) => classInfo.id === Number(els.classSelect.value))
+  if (!selected) {
+    els.classHint.textContent = '请选择至少有 1 张学生照片的班级。'
+    return
+  }
+  els.classHint.textContent = selected.playableCount < 30
+    ? `该班级可用于 PK 的学生为 ${selected.playableCount} 人，不足 30 人时会使用全部可用学生。`
+    : `将从该班级 ${selected.playableCount} 名有照片学生中随机抽取 30 人。`
+}
+
+function getMe() {
+  return currentRoom?.participants.find((participant) => participant.teacherId === CURRENT_TEACHER_ID) || null
+}
+
+function displayDuration(participant) {
+  if (
+    currentRoom?.status === 'active' &&
+    participant.status === 'playing' &&
+    currentRoom.startedAt
+  ) {
+    return Math.max(participant.durationMs || 0, Date.now() - new Date(currentRoom.startedAt).getTime())
+  }
+  return participant.durationMs || 0
+}
+
+function setStatusPill(element, status) {
+  element.className = `status-pill ${status || ''}`.trim()
+  element.textContent = STATUS_TEXT[status] || status || '-'
+}
+
+function participantStatusText(status) {
+  return {
+    joined: '已加入',
+    playing: '答题中',
+    finished: '已完成',
+    left: '已退出',
+  }[status] || status || '-'
+}
+
+function setOptionButtonsDisabled(disabled) {
+  for (const button of els.questionOptions.querySelectorAll('button')) {
+    button.disabled = disabled
+  }
+}
+
+async function requestJson(url, { method = 'GET', body = null } = {}) {
+  const options = { method }
+  if (body !== null) {
+    options.headers = { 'content-type': 'application/json' }
+    options.body = JSON.stringify(body)
+  }
+  const response = await fetch(url, options)
+  const data = await response.json().catch(() => ({ ok: false, message: '服务响应异常' }))
+  if (!response.ok || data.ok === false) {
+    throw new Error(data.message || '请求失败')
+  }
+  return data
+}
+
+function connectSse() {
+  if (!window.EventSource) return
+  try {
+    const source = new EventSource('/api/sse')
+    source.addEventListener('memory-pk', refreshAll)
+    source.addEventListener('error', () => {})
+  } catch {
+    // Polling remains as a fallback.
+  }
+}
+
+function updateRoomUrl(roomId) {
+  const url = roomId ? `/teacher/memory/pk/${roomId}` : '/teacher/memory/pk'
+  window.history.replaceState({}, '', url)
+}
+
+function formatDate(value) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleString('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatDuration(value) {
+  const totalSeconds = Math.max(0, Math.floor((value || 0) / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function renderStudentName(student) {
+  const parts = Array.isArray(student.pinyinParts) ? student.pinyinParts : []
+  const hasAnnotations = parts.some((part) => part.annotate && part.pinyin)
+  const nameHtml = hasAnnotations
+    ? parts.map((part) => {
+      const character = escapeHtml(part.character)
+      return part.annotate && part.pinyin
+        ? `<ruby>${character}<rt>${escapeHtml(part.pinyin)}</rt></ruby>`
+        : character
+    }).join('')
+    : escapeHtml(student.name)
+  return `<span class="name-chinese${hasAnnotations ? ' annotated-name' : ''}">${nameHtml}</span>`
+}
+
+function createPlaceholder(title, subtitle) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="460" height="575" viewBox="0 0 460 575">
+      <rect width="460" height="575" fill="#efe9de"/>
+      <text x="230" y="278" text-anchor="middle" font-size="26" font-family="Arial, sans-serif" font-weight="700" fill="#141413">${escapeXml(title)}</text>
+      <text x="230" y="318" text-anchor="middle" font-size="18" font-family="Arial, sans-serif" fill="#6c6a64">${escapeXml(subtitle)}</text>
+    </svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+function showToast(text, ok = true) {
+  if (toastTimer) window.clearTimeout(toastTimer)
+  els.toast.textContent = text
+  els.toast.className = `toast ${ok ? '' : 'err'} show`
+  toastTimer = window.setTimeout(() => els.toast.classList.remove('show'), 2400)
+}
+
+function escapeHtml(value) {
+  const div = document.createElement('div')
+  div.textContent = value == null ? '' : String(value)
+  return div.innerHTML
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+}
+  </script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import { getSessionDetailForTeacher, getSessionRosterForTeacher } from '../servi
 import { getPoolClasses, uploadStudentPhoto, deleteStudentPhoto } from '../services/pool.js'
 import { getSeatGrids, getSeatGridsFromArchivedRecords, getSeatGridsWithTags } from '../services/seat.js'
 import { getClassTags } from '../services/tag.js'
+import { getScorebook } from '../services/scores.js'
 
 // Set cache-control headers on all teacher-rendered pages
 function noCache(reply) {
@@ -90,6 +91,20 @@ async function renderPhotoMemoryPage(request, reply, selectedClassId = null) {
   })
 }
 
+async function renderMemoryPkPage(request, reply, selectedRoomId = null) {
+  const teacherId = request.session.teacherId
+  const isAdmin = request.session.isAdmin === true
+  const classes = await getPhotoMemoryClasses(teacherId, isAdmin)
+
+  noCache(reply)
+  return reply.view('teacher/memory-pk.html', {
+    memoryClassesJson: safeJson(classes),
+    currentTeacherIdJson: safeJson(teacherId),
+    initialRoomIdJson: safeJson(selectedRoomId),
+    backHref: '/teacher/memory',
+  })
+}
+
 export default async function teacherRoutes(app) {
   app.post('/teacher/logout', async (request, reply) => {
     request.session.destroy((err) => {
@@ -158,8 +173,26 @@ export default async function teacherRoutes(app) {
     return renderPhotoMemoryPage(request, reply, Number.isNaN(selectedClassId) ? null : selectedClassId)
   })
 
+  app.get('/teacher/memory/pk', { preHandler: teacherRequired }, async (request, reply) => {
+    return renderMemoryPkPage(request, reply)
+  })
+
+  app.get('/teacher/memory/pk/:roomId', { preHandler: teacherRequired }, async (request, reply) => {
+    const roomId = parseInt(request.params.roomId, 10)
+    return renderMemoryPkPage(request, reply, Number.isNaN(roomId) ? null : roomId)
+  })
+
   app.get('/teacher/classes/:classId/memory', { preHandler: classOwnerRequired }, async (request, reply) => {
     return renderPhotoMemoryPage(request, reply, request.classId)
+  })
+
+  app.get('/teacher/classes/:classId/scores', { preHandler: classOwnerRequired }, async (request, reply) => {
+    const scorebook = await getScorebook(request.classId)
+    noCache(reply)
+    return reply.view('teacher/scores.html', {
+      cls: scorebook.class,
+      scorebookJson: safeJson(scorebook),
+    })
   })
 
   app.get('/teacher/classes/:classId', { preHandler: classOwnerRequired }, async (request, reply) => {

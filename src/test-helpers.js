@@ -11,6 +11,12 @@ export const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 6)
 
 /** 清理所有测试数据（按外键依赖顺序） */
 export async function cleanDatabase() {
+  await prisma.scoreEntryLog.deleteMany().catch(() => {})
+  await prisma.studentScore.deleteMany().catch(() => {})
+  await prisma.scoreProject.deleteMany().catch(() => {})
+  await prisma.memoryPkQuestion.deleteMany().catch(() => {})
+  await prisma.memoryPkParticipant.deleteMany().catch(() => {})
+  await prisma.memoryPkRoom.deleteMany().catch(() => {})
   await prisma.infoResponse.deleteMany().catch(() => {})
   await prisma.infoSubmission.deleteMany().catch(() => {})
   await prisma.infoField.deleteMany().catch(() => {})
@@ -123,6 +129,16 @@ export const factories = {
         studentId: data.studentId,
         tag: data.tag,
         color: data.color || '#cc785c',
+      },
+    })
+  },
+
+  async createScoreProject(data = {}) {
+    return prisma.scoreProject.create({
+      data: {
+        classId: data.classId,
+        name: data.name || `score_${uid()}`,
+        sortOrder: data.sortOrder ?? 0,
       },
     })
   },

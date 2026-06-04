@@ -174,6 +174,18 @@
       border-radius: 10px;
       background: var(--canvas);
     }
+    .memory-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .pk-action {
+      min-height: 34px;
+      border: 1px solid var(--hairline);
+      background: #fff;
+    }
     .mode-tab {
       min-height: 32px;
       padding: 0 12px;
@@ -578,6 +590,7 @@
       .control-row,
       .field,
       .btn { width: 100%; }
+      .memory-actions { width: 100%; }
       .mode-tabs { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .mode-tab { padding: 0 6px; font-size: 12px; }
       .practice-card { min-height: 520px; padding: 14px; }
@@ -614,10 +627,13 @@
           <h2 class="control-title">照片与姓名练习</h2>
           <p id="dataSummary" class="data-summary"></p>
         </div>
-        <div id="modeTabs" class="mode-tabs" role="tablist" aria-label="练习模式">
-          <button class="mode-tab active" type="button" data-mode="study">学习</button>
-          <button class="mode-tab" type="button" data-mode="photoToName">照片选姓名</button>
-          <button class="mode-tab" type="button" data-mode="nameToPhoto">姓名选照片</button>
+        <div class="memory-actions">
+          <div id="modeTabs" class="mode-tabs" role="tablist" aria-label="练习模式">
+            <button class="mode-tab active" type="button" data-mode="study">学习</button>
+            <button class="mode-tab" type="button" data-mode="photoToName">照片选姓名</button>
+            <button class="mode-tab" type="button" data-mode="nameToPhoto">姓名选照片</button>
+          </div>
+          <a href="/teacher/memory/pk" class="btn btn-secondary pk-action">在线 PK</a>
         </div>
       </div>
       <div class="control-row">

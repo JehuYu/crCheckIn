@@ -50,7 +50,7 @@
 
 ### 安全与管理
 - **双角色体系** — 管理员（全局管理）+ 教师（班级管理）
-- **数据备份 / 恢复** — SQLite 数据库导出与恢复
+- **数据备份 / 恢复** — 支持 PostgreSQL 备份，并提醒同步备份上传目录
 - **审计日志** — 管理员操作全程记录
 - **多端防护** — CSRF、XSS、Excel 注入防护，时序攻击防护，速率限制
 
@@ -60,7 +60,7 @@
 |---|------|
 | 运行时 | Node.js 18+ / ES Modules |
 | Web 框架 | [Fastify](https://fastify.dev/) v4 |
-| 数据库 | [Prisma](https://www.prisma.io/) v5 + SQLite |
+| 数据库 | [Prisma](https://www.prisma.io/) v5 + PostgreSQL |
 | 模板引擎 | [Nunjucks](https://mozilla.github.io/nunjucks/) |
 | 样式 | [Tailwind CSS](https://tailwindcss.com/) v3 |
 | 进程管理 | [PM2](https://pm2.keymetrics.io/) |
@@ -73,6 +73,8 @@
 
 - Node.js >= 18
 - npm >= 9
+- PostgreSQL >= 14
+- 可选：Python 3.10+（小题成绩分析功能需要）
 
 ### 安装
 
@@ -84,28 +86,44 @@ npm install
 
 ### 配置
 
+复制环境变量模板：
+
 ```bash
-# 创建 .env 文件
-cat > .env << 'EOF'
-DATABASE_URL="file:./attendance.db"
-PORT=8080
+cp .env.example .env
+```
+
+在 Windows PowerShell 中可以使用：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+然后编辑 `.env`，至少填写 `SECRET_KEY` 和 `DATABASE_URL`：
+
+```env
+SECRET_KEY="please-change-this-secret-key-at-least-32-chars"
+DATABASE_URL="postgresql://crcheckin_user:CHANGE_ME@127.0.0.1:5432/crcheckin?schema=public"
+PORT=5000
 HOST=0.0.0.0
-SECRET_KEY="please-change-this-secret-key"
 AUTO_DB_DEPLOY=true
-EOF
 ```
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `DATABASE_URL` | `file:./attendance.db` | SQLite 数据库路径 |
-| `PORT` | `8080` | 服务端口 |
+| `SECRET_KEY` | 无 | Session 密钥，必须配置，建议 32 位以上随机字符串 |
+| `DATABASE_URL` | 无 | PostgreSQL 连接地址 |
+| `PORT` | `5000` | 服务端口 |
 | `HOST` | `0.0.0.0` | 监听地址 |
-| `SECRET_KEY` | 内置默认 | Session 密钥，生产环境务必修改 |
-| `AUTO_DB_DEPLOY` | `true` | 启动时自动初始化数据库 |
+| `AUTO_DB_DEPLOY` | `true` | 启动时自动同步 Prisma 数据库结构 |
+| `PG_DUMP_PATH` | 自动查找 | 可选，Windows 下可指定 `pg_dump.exe` 路径用于备份 |
+| `EXAM_ANALYSIS_PYTHON` | 系统 Python | 可选，小题成绩分析使用的 Python 路径 |
 
 ### 运行
 
 ```bash
+# 同步数据库结构
+npm run db:deploy
+
 # 开发模式（文件热重载）
 npm run dev
 
@@ -116,15 +134,15 @@ npm run start:direct
 npm start
 ```
 
-首次启动会自动初始化数据库并创建默认管理员账号。
+如果 `AUTO_DB_DEPLOY=true`，服务启动时也会自动同步数据库结构。首次启动会创建默认管理员账号，随机密码会打印在启动日志中。
 
 ### 默认账号
 
 | 角色 | 用户名 | 密码 |
 |------|--------|------|
-| 管理员 | `admin` | `abc123` |
+| 管理员 | `admin` | 首次启动时随机生成，查看服务日志获取 |
 
-> **重要：** 部署后请立即修改默认密码。
+> **重要：** 首次登录后请立即修改管理员密码，并妥善保存新密码。
 
 ## 路由一览
 
@@ -135,10 +153,14 @@ npm start
 | `/teacher/classes/:id` | 教师 | 班级签到看板 |
 | `/teacher/classes/:id/seats` | 教师 | 座位表管理 |
 | `/teacher/classes/:id/students` | 教师 | 学生名单管理 |
+| `/teacher/memory` | 教师 | 学生照片记忆卡 |
+| `/teacher/memory/pk` | 教师 | 照片记忆在线 PK 大厅 |
 | `/teacher/classes/:id/info` | 教师 | 信息收集 |
 | `/teacher/classes/:id/analytics` | 教师 | 出勤统计 |
+| `/teacher/exam-analysis` | 教师 | 小题成绩处理 |
 | `/teacher/sessions/:id/seats` | 教师 | 历史批次座位表 |
 | `/admin` | 管理员 | 教师账号管理 |
+| `/admin/pool` | 管理员 | 班级池和照片管理 |
 | `/admin/dashboard` | 管理员 | 全局数据看板 |
 | `/admin/analytics` | 管理员 | 跨班级分析 |
 | `/admin/audit` | 管理员 | 审计日志 |
@@ -230,33 +252,168 @@ npm run pm2:stop      # 停止服务
 
 ## 生产部署
 
-### 推荐配置
+下面以 PostgreSQL + PM2 为推荐方式。当前项目默认服务端口为 `5000`。
+
+### 1. 准备 PostgreSQL
+
+先创建数据库和专用账号。账号名和密码可自行调整，但要和 `.env` 中的 `DATABASE_URL` 保持一致。
+
+```sql
+CREATE DATABASE crcheckin;
+CREATE USER crcheckin_user WITH PASSWORD 'CHANGE_ME';
+GRANT ALL PRIVILEGES ON DATABASE crcheckin TO crcheckin_user;
+```
+
+如果 PostgreSQL 15+ 出现 schema 权限不足，可进入 `crcheckin` 数据库后补充：
+
+```sql
+GRANT ALL ON SCHEMA public TO crcheckin_user;
+ALTER SCHEMA public OWNER TO crcheckin_user;
+```
+
+### 2. 部署代码
 
 ```bash
-# 1. 设置生产密钥
-export SECRET_KEY=$(openssl rand -hex 32)
-
-# 2. 设置生产端口
-export PORT=3000
-
-# 3. 后台启动
-npm start
-
-# 4. 使用 nginx 反向代理（可选）
-# server {
-#   listen 80;
-#   server_name your-domain.com;
-#   location / {
-#     proxy_pass http://127.0.0.1:3000;
-#     proxy_set_header Host $host;
-#     proxy_set_header X-Real-IP $remote_addr;
-#   }
-# }
+git clone https://github.com/JehuYu/crCheckIn.git
+cd crCheckIn
+npm install
+cp .env.example .env
 ```
+
+Windows PowerShell：
+
+```powershell
+git clone https://github.com/JehuYu/crCheckIn.git
+cd crCheckIn
+npm install
+Copy-Item .env.example .env
+```
+
+### 3. 配置 `.env`
+
+生产环境建议生成随机密钥：
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+示例：
+
+```env
+SECRET_KEY="把上一步生成的随机字符串填到这里"
+DATABASE_URL="postgresql://crcheckin_user:CHANGE_ME@127.0.0.1:5432/crcheckin?schema=public"
+PORT=5000
+HOST=0.0.0.0
+AUTO_DB_DEPLOY=true
+```
+
+Windows 如果需要使用管理端备份功能，可配置 PostgreSQL 备份工具路径：
+
+```env
+PG_DUMP_PATH="C:\Program Files\PostgreSQL\17\bin\pg_dump.exe"
+```
+
+### 4. 初始化数据库
+
+```bash
+npm run db:deploy
+```
+
+该命令会根据 `prisma/schema.prisma` 同步 PostgreSQL 表结构。正常输出中会看到 `Database schema is ready` 或 `database is now in sync`。
+
+### 5. 启动服务
+
+直接启动：
+
+```bash
+npm run start:direct
+```
+
+推荐使用 PM2 后台运行：
+
+```bash
+npm start
+npm run pm2:status
+```
+
+启动成功后访问：
+
+- 学生入口：`http://服务器地址:5000/student`
+- 教师/管理员登录入口：学生页中的教师口令登录
+- 管理端：`http://服务器地址:5000/admin`
+
+首次部署时，管理员账号为 `admin`，随机密码会出现在启动日志中：
+
+```bash
+npm run pm2:logs
+```
+
+日志中会出现类似 `初始管理员已创建，密码: xxxxxxxx` 的提示。首次登录后请立即修改密码。
+
+### 6. 反向代理（可选）
+
+如果需要绑定域名，可以用 nginx 代理到本地 5000 端口：
+
+```nginx
+server {
+  listen 80;
+  server_name your-domain.com;
+
+  location / {
+    proxy_pass http://127.0.0.1:5000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}
+```
+
+### 7. 更新版本
+
+更新前建议先备份数据库。
+
+```bash
+git pull
+npm install
+npm run db:deploy
+npm run pm2:restart
+```
+
+如果使用 fork 或功能分支，请先确认当前分支和远程仓库，再执行更新。
+
+### 8. 常用排查
+
+```bash
+npm run pm2:status      # 查看服务是否在线
+npm run pm2:logs        # 查看实时日志
+npm run pm2:restart     # 重启服务
+npm run db:deploy       # 重新同步数据库结构
+```
+
+常见问题：
+
+- `SECRET_KEY 未设置`：检查 `.env` 中是否填写了 `SECRET_KEY`。
+- `DATABASE_URL is not configured`：检查 `.env` 中是否填写了 PostgreSQL 连接地址。
+- 数据库连接失败：确认 PostgreSQL 已启动、账号密码正确、数据库名存在。
+- 5000 端口被占用：修改 `.env` 中的 `PORT`，或停止占用端口的进程。
+- Windows 下备份失败：配置 `PG_DUMP_PATH` 指向 PostgreSQL 安装目录中的 `pg_dump.exe`。
 
 ### 数据库备份
 
-在管理端使用"数据备份"功能导出 SQLite 数据库，或直接复制 `attendance.db` 文件。
+推荐在管理端使用“数据备份”功能导出 PostgreSQL 备份文件；也可以手动使用 `pg_dump`：
+
+```bash
+pg_dump "$DATABASE_URL" > crcheckin_backup.sql
+```
+
+Windows 可直接调用 `pg_dump.exe`，例如：
+
+```powershell
+& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" "postgresql://crcheckin_user:CHANGE_ME@127.0.0.1:5432/crcheckin?schema=public" > crcheckin_backup.sql
+```
+
+上传目录 `uploads/` 中保存了学生照片和附件，迁移服务器时也需要一并备份。
 
 ## 更新日志
 
