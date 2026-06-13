@@ -107,6 +107,77 @@
     .rbadge.hi { background: #f0fdf4; color: #047857; }
     .rbadge.md { background: #fefce8; color: #a16207; }
     .rbadge.lo { background: #fef2f2; color: #c64545; }
+    .score-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; }
+    .score-summary { padding: 16px; }
+    .score-list { display: flex; flex-direction: column; gap: 8px; }
+    .score-card {
+      border: 1px solid var(--hairline); border-radius: 8px; padding: 10px 12px;
+      background: var(--canvas, #fafaf9); font-size: 13px;
+    }
+    .score-card strong { color: var(--ink); }
+    .score-card .meta { color: var(--muted-soft); font-size: 12px; margin-top: 4px; }
+    .score-student-row {
+      display: grid; grid-template-columns: minmax(70px, .8fr) 72px repeat(4, minmax(58px, .6fr));
+      gap: 8px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--hairline);
+      font-size: 13px;
+    }
+    .score-student-row.head { background: #f5efe7; color: var(--ink); font-weight: 700; position: sticky; top: 0; }
+    .score-student-row:last-child { border-bottom: 0; }
+    .score-trend.up { color: #047857; }
+    .score-trend.down { color: #c64545; }
+    .score-trend.flat { color: var(--muted-soft); }
+    .score-select {
+      border: 1px solid var(--hairline); border-radius: 8px; background: var(--canvas, #fafaf9);
+      color: var(--ink); font-size: 13px; padding: 7px 10px; outline: none;
+    }
+    .chart-note {
+      margin: 10px 0 0; padding: 10px 12px; border-radius: 8px;
+      background: var(--canvas, #fafaf9); color: var(--muted); font-size: 12px; line-height: 1.65;
+      border: 1px solid var(--hairline);
+    }
+    .trend-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; }
+    .trend-svg { width: 100%; min-height: 220px; display: block; }
+    .student-profile { display: flex; flex-direction: column; gap: 8px; }
+    .mini-kpi {
+      background: var(--canvas, #fafaf9); border: 1px solid var(--hairline);
+      border-radius: 8px; padding: 10px 12px; font-size: 12px;
+    }
+    .mini-kpi strong { display: block; color: var(--ink); font-size: 20px; font-family: Georgia, serif; font-weight: 400; }
+    .band-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 54px; gap: 8px; align-items: center; font-size: 12px; margin-bottom: 8px; }
+    .band-track { height: 10px; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
+    .band-fill { height: 100%; border-radius: 999px; min-width: 2px; }
+    .project-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    .compare-bar { display: grid; grid-template-columns: 82px minmax(0, 1fr) 54px; gap: 8px; align-items: center; font-size: 12px; margin-bottom: 8px; }
+    .compare-track { height: 12px; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
+    .compare-fill { height: 100%; border-radius: 999px; background: var(--primary); min-width: 2px; }
+    .legend-inline { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+    .legend-inline span { display: inline-flex; align-items: center; gap: 4px; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .insight-list { display: flex; flex-direction: column; gap: 8px; }
+    .insight-card {
+      border: 1px solid var(--hairline); border-left: 4px solid var(--info);
+      border-radius: 8px; padding: 10px 12px; background: var(--canvas, #fafaf9);
+      font-size: 12px; color: var(--muted); line-height: 1.55;
+    }
+    .insight-card.good { border-left-color: #047857; }
+    .insight-card.warning { border-left-color: #c64545; }
+    .insight-card strong { display: block; color: var(--ink); font-size: 13px; margin-bottom: 3px; }
+    .movement-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+    .movement-card {
+      border: 1px solid var(--hairline); border-radius: 8px;
+      background: var(--canvas, #fafaf9); overflow: hidden; min-height: 120px;
+    }
+    .movement-card h4 {
+      margin: 0; padding: 9px 11px; border-bottom: 1px solid var(--hairline);
+      color: var(--ink); font-size: 12px; font-weight: 700; background: #f5efe7;
+    }
+    .movement-row {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px;
+      padding: 8px 11px; border-bottom: 1px solid var(--hairline); font-size: 12px;
+    }
+    .movement-row:last-child { border-bottom: 0; }
+    .movement-row strong { color: var(--ink); }
+    .movement-row .meta { color: var(--muted-soft); margin-top: 2px; }
 
     .loading { display: flex; align-items: center; justify-content: center; min-height: 200px; font-size: 13px; color: var(--muted-soft); }
     .empty-state { text-align: center; padding: 40px 24px; color: var(--muted-soft); }
@@ -114,9 +185,15 @@
     @media (max-width: 900px) {
       .kpi-row { grid-template-columns: repeat(3, 1fr); }
       .name-grid { grid-template-columns: 1fr; }
+      .score-layout { grid-template-columns: 1fr; }
+      .trend-layout { grid-template-columns: 1fr; }
+      .movement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .score-student-row { grid-template-columns: minmax(70px, 1fr) 64px repeat(2, 56px); }
+      .score-student-row .hide-sm { display: none; }
     }
     @media (max-width: 640px) {
       .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .movement-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -150,8 +227,106 @@
       <!-- KPI Row -->
       <div class="kpi-row" id="kpiRow"></div>
 
+      <!-- Score Analytics -->
+      <div class="sec" id="scoreOverviewSec">
+        <div class="sec-head">
+          <p class="sec-title">成绩概览</p>
+          <span class="sec-badge" id="scoreProjectCount"></span>
+        </div>
+        <div class="score-summary">
+          <div class="kpi-row" id="scoreKpiRow"></div>
+          <div class="score-layout">
+            <div>
+              <p class="sec-title" style="margin-bottom:10px;">成绩项目均分趋势</p>
+              <div id="scoreProjectChart"></div>
+            </div>
+            <div>
+              <p class="sec-title" style="margin-bottom:10px;">最新项目与关注名单</p>
+              <div class="score-list" id="latestScoreBox"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec" id="scoreTrendSec">
+        <div class="sec-head">
+          <p class="sec-title">班级成绩走势与变化洞察</p>
+          <span class="sec-badge">关注过程信号，不给学生贴标签</span>
+        </div>
+        <div class="sec-body">
+          <div class="score-layout">
+            <div>
+              <div id="classScoreTrendChart"></div>
+              <div class="legend-inline">
+                <span><i class="legend-dot" style="background:#cc785c;"></i>项目均分</span>
+                <span><i class="legend-dot" style="background:#4a90d9;"></i>录入完成率</span>
+              </div>
+              <p class="chart-note">说明：折线看每个成绩项目的班级均分变化，浅蓝点显示录入完成率。若均分变化很大，先确认题目难度、录入完整性和缺考情况，再判断教学问题。</p>
+            </div>
+            <div>
+              <p class="sec-title" style="margin-bottom:10px;">自动洞察</p>
+              <div class="insight-list" id="scoreInsightList"></div>
+            </div>
+          </div>
+          <div class="movement-grid" id="scoreMovementGrid"></div>
+        </div>
+      </div>
+
+      <div class="sec" id="scoreStudentSec">
+        <div class="sec-head">
+          <p class="sec-title">学生成绩概况</p>
+          <span class="sec-badge" id="scoreStudentCount"></span>
+        </div>
+        <div class="sec-body-np" id="scoreStudentGrid"></div>
+      </div>
+
+      <div class="sec" id="studentTrendSec">
+        <div class="sec-head">
+          <p class="sec-title">学生趋势追踪</p>
+          <select class="score-select" id="studentTrendSelect"></select>
+        </div>
+        <div class="sec-body">
+          <div class="trend-layout">
+            <div>
+              <div id="studentTrendChart"></div>
+              <div class="legend-inline">
+                <span><i class="legend-dot" style="background:#cc785c;"></i>学生成绩</span>
+                <span><i class="legend-dot" style="background:#4a90d9;"></i>项目均分</span>
+              </div>
+              <p class="chart-note">说明：这张图把某位学生每次成绩和当次项目均分放在一起看。连续低于均分、突然下滑、或缺录较多，比单次低分更值得优先关注。</p>
+            </div>
+            <div class="student-profile" id="studentTrendProfile"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec" id="scoreDistributionSec">
+        <div class="sec-head">
+          <p class="sec-title">分数段、行政班与项目明细</p>
+          <span class="sec-badge">用于定位整体结构问题</span>
+        </div>
+        <div class="sec-body">
+          <div class="score-layout">
+            <div>
+              <p class="sec-title" style="margin-bottom:10px;">整体分数段分布</p>
+              <div id="scoreBandChart"></div>
+              <p class="chart-note">说明：分数段不是为了贴标签，而是帮助判断本次成绩结构。如果低分段集中，优先看项目难度或知识点；如果高分段少但中段多，适合做拔高训练。</p>
+            </div>
+            <div>
+              <p class="sec-title" style="margin-bottom:10px;">行政班均分对比</p>
+              <div id="homeClassScoreChart"></div>
+              <p class="chart-note">说明：行政班对比可以发现班级间差异；同时看完成率，避免把缺录造成的偏差当成真实表现差异。</p>
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <p class="sec-title" style="margin-bottom:10px;">项目明细</p>
+            <div class="project-detail-grid" id="projectDetailGrid"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Charts: Trend -->
-      <div class="sec">
+      <div class="sec" id="attendanceTrendSec">
         <div class="sec-head"><p class="sec-title">各批次签到趋势</p></div>
         <div class="sec-body">
           <div id="trendChart"></div>
@@ -160,7 +335,7 @@
       </div>
 
       <!-- Stats + Trend combined -->
-      <div class="sec">
+      <div class="sec" id="attendanceStatsSec">
         <div class="sec-head">
           <p class="sec-title">出勤统计</p>
           <span class="sec-badge" id="statsCount"></span>
@@ -178,6 +353,8 @@ const CLASS_ID = {{ classId }}
 
 const YEAR_COLORS = ['#cc785c','#4a90d9','#5db872','#d4a017','#7c6cf0','#c64545','#e88c60','#6bb8a0']
 let _yearColorMap = {}
+let _scoreData = null
+let _selectedScoreStudentId = null
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
@@ -202,15 +379,23 @@ function getYearColor(year) {
 }
 
 async function loadAnalytics() {
-  const [analyticsRes, statsRes] = await Promise.all([
+  const [analyticsRes, statsRes, scoreRes] = await Promise.all([
     fetch(`/api/analytics?classId=${CLASS_ID}`),
     fetch(`/api/stats?classId=${CLASS_ID}`),
+    fetch(`/api/classes/${CLASS_ID}/score-analytics`),
   ])
-  if (analyticsRes.status === 401 || analyticsRes.status === 403) { window.location.href = '/student'; return }
+  if ([analyticsRes.status, statsRes.status, scoreRes.status].some(status => status === 401 || status === 403)) {
+    window.location.href = '/student'
+    return
+  }
   const data = await analyticsRes.json()
   const stats = statsRes.ok ? await statsRes.json() : null
+  const scoreData = scoreRes.ok ? await scoreRes.json() : null
+  const hasAttendance = Boolean(data.summary && data.summary.totalSessions > 0)
+  const hasScores = Boolean(scoreData?.summary?.totalScores > 0)
+  const hasScoreProjects = Boolean(scoreData?.summary?.totalProjects > 0)
 
-  if (!data.summary || data.summary.totalSessions === 0) {
+  if (!hasAttendance && !hasScoreProjects) {
     document.getElementById('loadingView').style.display = 'none'
     document.getElementById('errorView').style.display = ''
     return
@@ -220,9 +405,15 @@ async function loadAnalytics() {
   document.getElementById('dataView').style.display = ''
 
   _yearColorMap = {}
-  renderKpi(data.summary)
-  renderStatsGrid(stats, data.personalTrend)
-  renderTrendChart(data.sessionTrend)
+  document.getElementById('kpiRow').style.display = hasAttendance ? '' : 'none'
+  document.getElementById('attendanceTrendSec').style.display = hasAttendance ? '' : 'none'
+  document.getElementById('attendanceStatsSec').style.display = hasAttendance ? '' : 'none'
+  if (hasAttendance) {
+    renderKpi(data.summary)
+    renderStatsGrid(stats, data.personalTrend)
+    renderTrendChart(data.sessionTrend)
+  }
+  renderScoreAnalytics(scoreData, hasScores)
 }
 
 function renderKpi(s) {
@@ -237,6 +428,424 @@ function renderKpi(s) {
   document.getElementById('kpiRow').innerHTML = kpis.map(k =>
     `<div class="kpi ${k.cls}"><div class="kpi-val ${k.vcls}">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`
   ).join('')
+}
+
+function formatScore(value) {
+  if (value === null || value === undefined || value === '') return '—'
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '—'
+  return Number.isInteger(num) ? String(num) : num.toFixed(1)
+}
+
+function formatPercent(value) {
+  if (value === null || value === undefined || value === '') return '0%'
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '0%'
+  return `${num.toFixed(1)}%`
+}
+
+function trendHtml(value) {
+  if (value === null || value === undefined) return '<span class="score-trend flat">—</span>'
+  const num = Number(value)
+  if (!Number.isFinite(num) || num === 0) return '<span class="score-trend flat">持平</span>'
+  const cls = num > 0 ? 'up' : 'down'
+  const sign = num > 0 ? '+' : ''
+  return `<span class="score-trend ${cls}">${sign}${formatScore(num)}</span>`
+}
+
+function renderScoreAnalytics(scoreData, hasScores) {
+  const overview = document.getElementById('scoreOverviewSec')
+  const studentSec = document.getElementById('scoreStudentSec')
+  const scoreTrendSec = document.getElementById('scoreTrendSec')
+  const trendSec = document.getElementById('studentTrendSec')
+  const distributionSec = document.getElementById('scoreDistributionSec')
+  if (!scoreData?.summary) {
+    overview.style.display = 'none'
+    studentSec.style.display = 'none'
+    scoreTrendSec.style.display = 'none'
+    trendSec.style.display = 'none'
+    distributionSec.style.display = 'none'
+    return
+  }
+
+  _scoreData = scoreData
+  overview.style.display = ''
+  studentSec.style.display = scoreData.summary.totalProjects ? '' : 'none'
+  scoreTrendSec.style.display = hasScores ? '' : 'none'
+  trendSec.style.display = hasScores ? '' : 'none'
+  distributionSec.style.display = hasScores ? '' : 'none'
+  document.getElementById('scoreProjectCount').textContent = `${scoreData.summary.totalProjects} 个项目`
+
+  if (!scoreData.summary.totalProjects) {
+    document.getElementById('scoreKpiRow').innerHTML = ''
+    document.getElementById('scoreProjectChart').innerHTML = '<div class="empty-state" style="padding:24px;">暂无成绩项目。</div>'
+    document.getElementById('latestScoreBox').innerHTML = '<div class="score-card">暂无成绩数据。<div class="meta">可以先到“快速录分”新增成绩项目，再录入或导入成绩。</div></div>'
+    return
+  }
+
+  if (!hasScores) {
+    document.getElementById('scoreKpiRow').innerHTML = ''
+    document.getElementById('scoreProjectChart').innerHTML = '<div class="empty-state" style="padding:24px;">已有成绩项目，但还没有录入成绩。</div>'
+    document.getElementById('latestScoreBox').innerHTML = '<div class="score-card">暂无可分析的成绩。<div class="meta">可以先到“快速录分”录入或导入 Excel。</div></div>'
+    document.getElementById('scoreStudentCount').textContent = '0 人'
+    document.getElementById('scoreStudentGrid').innerHTML = '<div class="empty-state">暂无学生成绩数据</div>'
+    return
+  }
+
+  const summary = scoreData.summary
+  const scoreKpis = [
+    { val: summary.totalProjects, lbl: '成绩项目', cls: 'kpi-primary', vcls: 'primary' },
+    { val: summary.totalScores, lbl: '已录成绩', cls: '', vcls: '' },
+    { val: formatPercent(summary.fillRate), lbl: '录入完成率', cls: 'kpi-success', vcls: 'success' },
+    { val: formatScore(summary.classAverage), lbl: '班级均分', cls: 'kpi-info', vcls: 'info' },
+    { val: formatScore(summary.latestProjectAverage), lbl: '最新项目均分', cls: '', vcls: '' },
+    { val: summary.latestProjectMissingCount, lbl: '最新项目缺录', cls: '', vcls: '' },
+  ]
+  document.getElementById('scoreKpiRow').innerHTML = scoreKpis.map(k =>
+    `<div class="kpi ${k.cls}"><div class="kpi-val ${k.vcls}">${k.val}</div><div class="kpi-lbl">${k.lbl}</div></div>`
+  ).join('')
+
+  renderScoreProjectChart(scoreData.projects || [])
+  renderLatestScoreBox(scoreData)
+  renderClassScoreTrend(scoreData)
+  renderScoreStudents(scoreData.students || [])
+  renderStudentTrend(scoreData)
+  renderScoreDistribution(scoreData)
+}
+
+function renderClassScoreTrend(scoreData) {
+  const chart = document.getElementById('classScoreTrendChart')
+  const trend = (scoreData.classTrend || []).filter(project => project.average !== null)
+  if (!trend.length) {
+    chart.innerHTML = '<div class="empty-state" style="padding:24px;">暂无班级成绩走势数据</div>'
+    renderScoreInsights(scoreData.insights || [])
+    renderScoreMovement(scoreData.movement || {})
+    return
+  }
+
+  const width = 720
+  const height = 240
+  const padX = 44
+  const padY = 34
+  const scale = chartScale(trend.map(project => project.average))
+  const points = trendPoints(trend, 'average', scale, width, height, padX, padY)
+  const line = points.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
+  const completionPoints = trend.map((project, index) => {
+    const x = trend.length === 1
+      ? width / 2
+      : padX + (index / (trend.length - 1)) * (width - padX * 2)
+    const y = height - padY - (Math.max(Math.min(project.fillRate || 0, 100), 0) / 100) * (height - padY * 2)
+    return { x, y, project }
+  })
+  const labelEvery = Math.ceil(trend.length / 6)
+  const labels = trend.map((project, index) => {
+    if (trend.length > 6 && index % labelEvery !== 0 && index !== trend.length - 1) return ''
+    const x = trend.length === 1 ? width / 2 : padX + (index / (trend.length - 1)) * (width - padX * 2)
+    const label = project.name.length > 6 ? `${project.name.slice(0, 6)}…` : project.name
+    return `<text x="${x}" y="${height - 8}" text-anchor="middle" font-size="11" fill="#8e8b82">${escHtml(label)}</text>`
+  }).join('')
+  const pointNodes = points.map(point => {
+    const change = point.item.averageChange === null ? '—' : `${point.item.averageChange > 0 ? '+' : ''}${formatScore(point.item.averageChange)}`
+    return `<g>
+      <circle cx="${point.x}" cy="${point.y}" r="4.5" fill="#cc785c"></circle>
+      <title>${escHtml(point.item.name)}：均分 ${formatScore(point.item.average)}；变化 ${change}；中位数 ${formatScore(point.item.median)}；完成率 ${formatPercent(point.item.fillRate)}</title>
+    </g>`
+  }).join('')
+  const completionNodes = completionPoints.map(point => `<g>
+    <circle cx="${point.x}" cy="${point.y}" r="3" fill="#4a90d9" opacity=".78"></circle>
+    <title>${escHtml(point.project.name)}：录入完成率 ${formatPercent(point.project.fillRate)}</title>
+  </g>`).join('')
+
+  chart.innerHTML = `
+    <svg class="trend-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="班级成绩走势">
+      <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" stroke="#e6dfd8"></line>
+      <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#e6dfd8"></line>
+      <text x="10" y="${padY + 4}" font-size="11" fill="#8e8b82">${formatScore(scale.max)}</text>
+      <text x="10" y="${height - padY + 4}" font-size="11" fill="#8e8b82">${formatScore(scale.min)}</text>
+      ${points.length > 1 ? `<polyline points="${line}" fill="none" stroke="#cc785c" stroke-width="3"></polyline>` : ''}
+      ${completionNodes}
+      ${pointNodes}
+      ${labels}
+    </svg>
+  `
+  renderScoreInsights(scoreData.insights || [])
+  renderScoreMovement(scoreData.movement || {})
+}
+
+function renderScoreInsights(insights) {
+  const el = document.getElementById('scoreInsightList')
+  if (!insights.length) {
+    el.innerHTML = '<div class="score-card">暂无明显变化信号。<div class="meta">继续录入更多成绩项目后，这里会自动生成说明。</div></div>'
+    return
+  }
+  el.innerHTML = insights.map(insight => `
+    <div class="insight-card ${escHtml(insight.type || 'info')}">
+      <strong>${escHtml(insight.title)}</strong>
+      ${escHtml(insight.body)}
+    </div>
+  `).join('')
+}
+
+function renderMovementRows(rows, kind) {
+  if (!rows?.length) {
+    return '<div class="movement-row"><span class="meta">暂无明显信号</span><span></span></div>'
+  }
+  return rows.slice(0, 4).map(student => {
+    let value = ''
+    if (kind === 'up' || kind === 'down') value = trendHtml(student.firstLastDelta)
+    else if (kind === 'volatile') value = `波动 ${formatScore(student.volatility)}`
+    else value = `缺 ${student.missingCount} 项`
+    return `<div class="movement-row">
+      <span>
+        <strong>${escHtml(student.name)}</strong>
+        <div class="meta">${escHtml(student.homeClass || '')} 均分 ${formatScore(student.average)}，完成 ${formatPercent(student.fillRate)}</div>
+      </span>
+      <span>${value}</span>
+    </div>`
+  }).join('')
+}
+
+function renderScoreMovement(movement) {
+  const grid = document.getElementById('scoreMovementGrid')
+  const sections = [
+    { title: '进步明显', rows: movement.improvers || [], kind: 'up' },
+    { title: '需要回看', rows: movement.decliners || [], kind: 'down' },
+    { title: '波动较大', rows: movement.volatile || [], kind: 'volatile' },
+    { title: '缺录较多', rows: movement.missingHeavy || [], kind: 'missing' },
+  ]
+  grid.innerHTML = sections.map(section => `
+    <div class="movement-card">
+      <h4>${section.title}</h4>
+      ${renderMovementRows(section.rows, section.kind)}
+    </div>
+  `).join('')
+}
+
+function renderScoreProjectChart(projects) {
+  const el = document.getElementById('scoreProjectChart')
+  const scored = projects.filter(project => project.filledCount > 0)
+  if (!scored.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:24px;">暂无可绘制的项目均分</div>'
+    return
+  }
+  const values = scored.map(project => project.average || 0)
+  const max = Math.max(...values, 1)
+  const bars = scored.map((project, index) => {
+    const height = Math.max(((project.average || 0) / max) * 120, 4)
+    const color = YEAR_COLORS[index % YEAR_COLORS.length]
+    return `<div class="bar" style="height:${height}px;background:${color};">
+      <span class="bar-rate">${formatScore(project.average)}</span>
+      <span class="tp">${escHtml(project.name)}<br>均分 ${formatScore(project.average)}<br>完成 ${formatPercent(project.fillRate)}</span>
+    </div>`
+  }).join('')
+  const labels = scored.map(project => {
+    const label = project.name.length > 8 ? `${project.name.slice(0, 8)}…` : project.name
+    return `<span title="${escHtml(project.name)}">${escHtml(label)}</span>`
+  }).join('')
+  el.innerHTML = `<div class="bchart">${bars}</div><div class="bx">${labels}</div>`
+}
+
+function renderLatestScoreBox(scoreData) {
+  const box = document.getElementById('latestScoreBox')
+  const latest = scoreData.latestProject
+  const attention = scoreData.needsAttention || []
+  if (!latest) {
+    box.innerHTML = '<div class="score-card">暂无最新项目。</div>'
+    return
+  }
+  const missing = latest.missingStudents || []
+  const missingPreview = missing.slice(0, 6).map(student => student.name).join('、')
+  const attentionPreview = attention.slice(0, 5).map(student =>
+    `<div class="score-card"><strong>${escHtml(student.name)}</strong> ${escHtml(student.homeClass || '')}<div class="meta">平均 ${formatScore(student.average)}，已录 ${student.filledCount} 项</div></div>`
+  ).join('')
+  box.innerHTML = `
+    <div class="score-card">
+      <strong>${escHtml(latest.name)}</strong>
+      <div class="meta">均分 ${formatScore(latest.average)}，最高 ${formatScore(latest.max)}，最低 ${formatScore(latest.min)}，完成 ${formatPercent(latest.fillRate)}</div>
+    </div>
+    <div class="score-card">
+      <strong>缺录 ${missing.length} 人</strong>
+      <div class="meta">${missingPreview ? escHtml(missingPreview) : '无缺录'}</div>
+    </div>
+    ${attentionPreview || '<div class="score-card">暂无关注名单。</div>'}
+  `
+}
+
+function renderScoreStudents(students) {
+  const grid = document.getElementById('scoreStudentGrid')
+  document.getElementById('scoreStudentCount').textContent = `${students.length} 人`
+  if (!students.length) {
+    grid.innerHTML = '<div class="empty-state">暂无学生成绩数据</div>'
+    return
+  }
+  grid.innerHTML = `
+    <div class="score-student-row head">
+      <span>姓名</span><span>行政班</span><span>均分</span><span>最新</span><span class="hide-sm">完成</span><span class="hide-sm">趋势</span>
+    </div>
+    ${students.map(student => `
+      <div class="score-student-row">
+        <strong>${escHtml(student.name)}</strong>
+        <span>${escHtml(student.homeClass || '')}</span>
+        <span>${formatScore(student.average)}</span>
+        <span>${formatScore(student.latestValue)}</span>
+        <span class="hide-sm">${student.filledCount} 项 / ${formatPercent(student.fillRate)}</span>
+        <span class="hide-sm">${trendHtml(student.trend)}</span>
+      </div>
+    `).join('')}
+  `
+}
+
+function chartScale(values) {
+  const valid = values.filter(value => Number.isFinite(value))
+  if (!valid.length) return { min: 0, max: 100 }
+  const minRaw = Math.min(...valid)
+  const maxRaw = Math.max(...valid)
+  if (minRaw === maxRaw) {
+    return { min: Math.max(0, minRaw - 10), max: maxRaw + 10 }
+  }
+  const pad = Math.max((maxRaw - minRaw) * 0.12, 5)
+  return { min: Math.max(0, minRaw - pad), max: maxRaw + pad }
+}
+
+function trendPoints(history, valueKey, scale, width, height, padX, padY) {
+  if (!history.length) return []
+  return history.map((item, index) => {
+    const x = history.length === 1
+      ? width / 2
+      : padX + (index / (history.length - 1)) * (width - padX * 2)
+    const value = item[valueKey]
+    const y = height - padY - ((value - scale.min) / (scale.max - scale.min)) * (height - padY * 2)
+    return { x, y, value, item }
+  }).filter(point => Number.isFinite(point.value))
+}
+
+function renderStudentTrend(scoreData) {
+  const students = scoreData.students || []
+  const select = document.getElementById('studentTrendSelect')
+  const chart = document.getElementById('studentTrendChart')
+  const profile = document.getElementById('studentTrendProfile')
+  if (!students.length) {
+    select.innerHTML = ''
+    chart.innerHTML = '<div class="empty-state">暂无学生趋势数据</div>'
+    profile.innerHTML = ''
+    return
+  }
+
+  if (!_selectedScoreStudentId || !students.some(student => String(student.id) === String(_selectedScoreStudentId))) {
+    _selectedScoreStudentId = (scoreData.needsAttention?.[0] || students[0]).id
+  }
+  select.innerHTML = students.map(student =>
+    `<option value="${student.id}" ${String(student.id) === String(_selectedScoreStudentId) ? 'selected' : ''}>${escHtml(student.name)} ${escHtml(student.homeClass || '')}</option>`
+  ).join('')
+
+  const student = students.find(item => String(item.id) === String(_selectedScoreStudentId)) || students[0]
+  const history = student.history || []
+  if (!history.length) {
+    chart.innerHTML = '<div class="empty-state">该学生暂无成绩轨迹</div>'
+  } else {
+    const width = 720
+    const height = 240
+    const padX = 44
+    const padY = 34
+    const scale = chartScale(history.flatMap(item => [item.value, item.projectAverage]).filter(value => value !== null && value !== undefined))
+    const studentPoints = trendPoints(history, 'value', scale, width, height, padX, padY)
+    const avgPoints = trendPoints(history, 'projectAverage', scale, width, height, padX, padY)
+    const line = points => points.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ')
+    const labelEvery = Math.ceil(history.length / 6)
+    const labels = history.map((item, index) => {
+      if (history.length > 6 && index % labelEvery !== 0 && index !== history.length - 1) return ''
+      const x = history.length === 1 ? width / 2 : padX + (index / (history.length - 1)) * (width - padX * 2)
+      const label = item.projectName.length > 6 ? `${item.projectName.slice(0, 6)}…` : item.projectName
+      return `<text x="${x}" y="${height - 8}" text-anchor="middle" font-size="11" fill="#8e8b82">${escHtml(label)}</text>`
+    }).join('')
+    const pointNodes = studentPoints.map(point => `
+      <g>
+        <circle cx="${point.x}" cy="${point.y}" r="4" fill="#cc785c"></circle>
+        <title>${escHtml(point.item.projectName)}：${formatScore(point.value)}；项目均分 ${formatScore(point.item.projectAverage)}；排名 ${point.item.rank || '—'}</title>
+      </g>
+    `).join('')
+    chart.innerHTML = `
+      <svg class="trend-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escHtml(student.name)}成绩趋势图">
+        <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" stroke="#e6dfd8"></line>
+        <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#e6dfd8"></line>
+        <text x="10" y="${padY + 4}" font-size="11" fill="#8e8b82">${formatScore(scale.max)}</text>
+        <text x="10" y="${height - padY + 4}" font-size="11" fill="#8e8b82">${formatScore(scale.min)}</text>
+        ${avgPoints.length > 1 ? `<polyline points="${line(avgPoints)}" fill="none" stroke="#4a90d9" stroke-width="2" stroke-dasharray="5 4"></polyline>` : ''}
+        ${studentPoints.length > 1 ? `<polyline points="${line(studentPoints)}" fill="none" stroke="#cc785c" stroke-width="3"></polyline>` : ''}
+        ${pointNodes}
+        ${labels}
+      </svg>
+    `
+  }
+
+  const reason = student.attentionReason || '建议持续关注'
+  profile.innerHTML = `
+    <div class="mini-kpi"><strong>${formatScore(student.average)}</strong>个人均分</div>
+    <div class="mini-kpi"><strong>${formatScore(student.latestValue)}</strong>最新成绩</div>
+    <div class="mini-kpi"><strong>${formatScore(student.deltaFromClassAverage)}</strong>相对班级均分</div>
+    <div class="mini-kpi"><strong>${trendHtml(student.trend)}</strong>最近趋势</div>
+    <div class="score-card">
+      <strong>关注说明</strong>
+      <div class="meta">${escHtml(reason)}。已录 ${student.filledCount} 项，完成率 ${formatPercent(student.fillRate)}。</div>
+    </div>
+  `
+}
+
+function renderBandChart(el, distribution) {
+  const total = distribution.reduce((sum, band) => sum + band.count, 0)
+  if (!total) {
+    el.innerHTML = '<div class="empty-state" style="padding:24px;">暂无分数段数据</div>'
+    return
+  }
+  el.innerHTML = distribution.map(band => `
+    <div class="band-row">
+      <span>${escHtml(band.label)}</span>
+      <span class="band-track"><span class="band-fill" style="width:${Math.max(band.rate, band.count ? 3 : 0)}%;background:${band.color};"></span></span>
+      <strong>${band.count}人</strong>
+    </div>
+  `).join('')
+}
+
+function renderHomeClassChart(homeClasses) {
+  const el = document.getElementById('homeClassScoreChart')
+  const rows = (homeClasses || []).filter(group => group.average !== null)
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:24px;">暂无行政班对比数据</div>'
+    return
+  }
+  const max = Math.max(...rows.map(group => group.average || 0), 1)
+  el.innerHTML = rows.slice(0, 10).map(group => `
+    <div class="compare-bar">
+      <span title="${escHtml(group.name)}">${escHtml(group.name)}</span>
+      <span class="compare-track"><span class="compare-fill" style="width:${Math.max(((group.average || 0) / max) * 100, 3)}%;"></span></span>
+      <strong>${formatScore(group.average)}</strong>
+    </div>
+  `).join('')
+}
+
+function renderProjectDetails(projects) {
+  const grid = document.getElementById('projectDetailGrid')
+  const rows = (projects || []).filter(project => project.filledCount > 0)
+  if (!rows.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">暂无项目明细</div>'
+    return
+  }
+  grid.innerHTML = rows.map(project => {
+    const low = (project.lowStudents || []).slice(0, 3).map(student => `${student.name} ${formatScore(student.value)}`).join('、')
+    const high = (project.topStudents || []).slice(0, 3).map(student => `${student.name} ${formatScore(student.value)}`).join('、')
+    return `<div class="score-card">
+      <strong>${escHtml(project.name)}</strong>
+      <div class="meta">均分 ${formatScore(project.average)}，中位数 ${formatScore(project.median)}，标准差 ${formatScore(project.standardDeviation)}，完成 ${formatPercent(project.fillRate)}</div>
+      <div class="meta">高分：${escHtml(high || '暂无')}</div>
+      <div class="meta">低分：${escHtml(low || '暂无')}</div>
+    </div>`
+  }).join('')
+}
+
+function renderScoreDistribution(scoreData) {
+  renderBandChart(document.getElementById('scoreBandChart'), scoreData.overallDistribution || [])
+  renderHomeClassChart(scoreData.homeClasses || [])
+  renderProjectDetails(scoreData.projects || [])
 }
 
 function renderStatsGrid(stats, trends) {
@@ -306,6 +915,11 @@ function renderTrendChart(sessions) {
     legendEl.innerHTML = ''
   }
 }
+
+document.getElementById('studentTrendSelect').addEventListener('change', (event) => {
+  _selectedScoreStudentId = parseInt(event.target.value, 10)
+  if (_scoreData) renderStudentTrend(_scoreData)
+})
 
 loadAnalytics()
 </script>

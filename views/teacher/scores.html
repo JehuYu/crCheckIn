@@ -205,6 +205,82 @@
       border-top: 1px solid var(--hairline);
       flex-wrap: wrap;
     }
+    .voice-panel {
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .voice-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--canvas);
+      color: var(--muted);
+      border: 1px solid var(--hairline);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .voice-status.listening {
+      background: #f0fdf4;
+      color: #047857;
+      border-color: #b7e4c7;
+    }
+    .voice-status.err {
+      background: #fef2f2;
+      color: var(--error);
+      border-color: #f5c6cb;
+    }
+    .voice-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: .85;
+    }
+    .voice-transcript {
+      min-height: 62px;
+      border: 1px dashed var(--hairline);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: var(--canvas);
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.7;
+      margin-top: 10px;
+    }
+    .voice-interim { color: var(--muted-soft); }
+    .voice-hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+      margin: 10px 0 0;
+    }
+    .voice-list {
+      max-height: 180px;
+      overflow: auto;
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      background: #fff;
+    }
+    .voice-list-title {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .voice-item {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--hairline);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .voice-item:last-child { border-bottom: 0; }
+    .voice-item strong { color: var(--ink); }
+    .voice-item.pending strong { color: var(--error); }
     .table-wrap {
       overflow: auto;
       max-height: calc(100vh - 330px);
@@ -299,6 +375,7 @@
       .layout { grid-template-columns: 1fr; }
       .side { position: static; }
       .rapid-grid { grid-template-columns: 1fr; }
+      .voice-panel { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -356,6 +433,35 @@
         </div>
       </div>
 
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="toolbar">
+            <p class="card-title">语音录分</p>
+            <span class="voice-status" id="voiceStatus"><span class="voice-dot"></span><span id="voiceStatusText">未开始</span></span>
+          </div>
+          <div class="toolbar">
+            <button class="btn btn-primary" id="voiceStartBtn">开始语音录分</button>
+            <button class="btn btn-secondary" id="voiceStopBtn" disabled>停止</button>
+          </div>
+        </div>
+        <div class="voice-panel">
+          <div>
+            <p class="voice-hint" id="voiceSupportHint">说出“姓名 + 分数”，例如：周之健 13，郑俊杰 23。系统会录入到当前选中的成绩项目。</p>
+            <div class="voice-transcript">
+              <span id="voiceFinalText">等待语音输入...</span>
+              <span class="voice-interim" id="voiceInterimText"></span>
+            </div>
+            <p class="voice-hint">只会自动保存唯一匹配的学生；重名、未找到或重复冲突会放到“待确认”。</p>
+          </div>
+          <div>
+            <p class="voice-list-title">刚刚保存</p>
+            <div class="voice-list" id="voiceSavedList"><div class="empty-state" style="padding:18px 12px;">暂无语音保存</div></div>
+            <p class="voice-list-title" style="margin-top:12px;">待确认</p>
+            <div class="voice-list" id="voicePendingList"><div class="empty-state" style="padding:18px 12px;">暂无待确认项</div></div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <p class="card-title">成绩表</p>
@@ -400,11 +506,21 @@
     </aside>
   </main>
 
-<script>
+<script type="module">
+import { parseVoiceScoreTranscript } from '/public/score-voice.js'
+
 const CLASS_ID = {{ cls.id }}
 let scorebook = {{ scorebookJson | safe }}
 let activeProjectId = null
 let selectedStudent = null
+let recognition = null
+let voiceWanted = false
+let voiceStarting = false
+let voiceSavedItems = []
+let voicePendingItems = []
+let voiceSessionValues = new Map()
+let voiceProcessingQueue = Promise.resolve()
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition || null
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))
@@ -536,6 +652,270 @@ function renderLogs() {
   }).join('')
 }
 
+function setVoiceStatus(text, state = '') {
+  const status = document.getElementById('voiceStatus')
+  document.getElementById('voiceStatusText').textContent = text
+  status.className = `voice-status ${state}`.trim()
+}
+
+function renderVoiceControls() {
+  const startBtn = document.getElementById('voiceStartBtn')
+  const stopBtn = document.getElementById('voiceStopBtn')
+  const hint = document.getElementById('voiceSupportHint')
+  const supported = Boolean(SpeechRecognitionCtor)
+
+  if (!supported) {
+    startBtn.disabled = true
+    stopBtn.disabled = true
+    hint.textContent = '当前浏览器不支持语音识别。请用 Chrome 或 Edge 打开本页，并允许麦克风权限。'
+    setVoiceStatus('浏览器不支持', 'err')
+    return
+  }
+
+  startBtn.disabled = voiceWanted || voiceStarting || !activeProjectId
+  stopBtn.disabled = !voiceWanted && !voiceStarting
+  hint.textContent = activeProjectId
+    ? '说出“姓名 + 分数”，例如：周之健 13，郑俊杰 23。系统会录入到当前选中的成绩项目。'
+    : '请先新增或选择一个成绩项目，再开始语音录分。'
+  if (!voiceWanted && !voiceStarting) setVoiceStatus(activeProjectId ? '准备就绪' : '请先选择项目')
+}
+
+function renderVoiceLists() {
+  const savedList = document.getElementById('voiceSavedList')
+  const pendingList = document.getElementById('voicePendingList')
+  if (!voiceSavedItems.length) {
+    savedList.innerHTML = '<div class="empty-state" style="padding:18px 12px;">暂无语音保存</div>'
+  } else {
+    savedList.innerHTML = voiceSavedItems.slice(0, 20).map(item => `
+      <div class="voice-item">
+        <div><strong>${esc(item.studentName)}</strong> · ${esc(item.projectName)} = <strong>${esc(formatScore(item.value))}</strong></div>
+        <div class="muted">${esc(item.phrase || '')}</div>
+      </div>
+    `).join('')
+  }
+
+  if (!voicePendingItems.length) {
+    pendingList.innerHTML = '<div class="empty-state" style="padding:18px 12px;">暂无待确认项</div>'
+  } else {
+    pendingList.innerHTML = voicePendingItems.slice(0, 20).map(item => `
+      <div class="voice-item pending">
+        <div><strong>${esc(item.message || '需要确认')}</strong></div>
+        <div class="muted">${esc(item.phrase || '')}</div>
+      </div>
+    `).join('')
+  }
+}
+
+function activeVoiceSeenValues() {
+  const seen = new Map()
+  for (const [key, value] of voiceSessionValues.entries()) {
+    const [projectId, studentId] = key.split(':')
+    if (String(projectId) === String(activeProjectId)) seen.set(Number(studentId), Number(value))
+  }
+  return seen
+}
+
+function splitSafeVoiceEntries(entries) {
+  const safe = []
+  const pending = []
+  for (const entry of entries) {
+    const student = scorebook.students.find(item => String(item.id) === String(entry.studentId))
+    const existing = student && activeProjectId ? scoreOf(student, activeProjectId) : null
+    if (existing !== undefined && existing !== null) {
+      const existingNumber = Number(existing)
+      pending.push({
+        ...entry,
+        reason: existingNumber === entry.value ? 'duplicate' : 'conflict',
+        message: existingNumber === entry.value
+          ? `${entry.studentName} 已有 ${formatScore(existing)}，本次不重复保存`
+          : `${entry.studentName} 已有 ${formatScore(existing)}，新的 ${formatScore(entry.value)} 需要确认`,
+      })
+      continue
+    }
+    safe.push(entry)
+  }
+  return { safe, pending }
+}
+
+function appendVoicePending(items) {
+  if (!items.length) return
+  voicePendingItems = [
+    ...items.map(item => ({
+      ...item,
+      message: item.message || '需要手动确认',
+    })),
+    ...voicePendingItems,
+  ].slice(0, 30)
+  renderVoiceLists()
+}
+
+async function saveVoiceEntries(entries) {
+  if (!entries.length || !activeProjectId) return
+  const project = currentProject()
+  const res = await fetch(`/api/classes/${CLASS_ID}/scores/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      projectId: activeProjectId,
+      entries: entries.map(entry => ({
+        studentId: entry.studentId,
+        value: entry.value,
+        phrase: entry.phrase,
+      })),
+    }),
+  })
+  const data = await res.json()
+  if (!data.ok) {
+    showToast(data.message || '语音成绩保存失败', false)
+    appendVoicePending(entries.map(entry => ({ ...entry, message: data.message || '保存失败' })))
+    return
+  }
+
+  const savedItems = []
+  for (const item of data.saved || []) {
+    const entry = entries[item.index]
+    const student = scorebook.students.find(candidate => String(candidate.id) === String(item.studentId))
+    voiceSessionValues.set(`${activeProjectId}:${item.studentId}`, item.value)
+    savedItems.push({
+      studentName: entry?.studentName || student?.name || item.studentId,
+      value: item.value,
+      projectName: project?.name || '',
+      phrase: item.phrase || entry?.phrase || '',
+    })
+  }
+  voiceSavedItems = [...savedItems.reverse(), ...voiceSavedItems].slice(0, 30)
+
+  if (data.failed?.length) {
+    appendVoicePending(data.failed.map(item => {
+      const entry = entries[item.index]
+      return {
+        ...entry,
+        phrase: item.phrase || entry?.phrase || '',
+        message: item.message || '保存失败',
+      }
+    }))
+  }
+
+  renderVoiceLists()
+  if (savedItems.length) showToast(`语音录入已保存 ${savedItems.length} 条`)
+  await reloadScorebook()
+}
+
+async function processVoiceTranscript(text) {
+  const normalized = text.trim()
+  if (!normalized) return
+  document.getElementById('voiceFinalText').textContent = normalized
+  if (!activeProjectId) {
+    appendVoicePending([{ phrase: normalized, message: '请先选择成绩项目' }])
+    showToast('请先选择成绩项目', false)
+    return
+  }
+
+  const parsed = parseVoiceScoreTranscript(normalized, scorebook.students, {
+    seenStudentValues: activeVoiceSeenValues(),
+  })
+  appendVoicePending(parsed.pending)
+
+  const { safe, pending } = splitSafeVoiceEntries(parsed.accepted)
+  appendVoicePending(pending)
+  await saveVoiceEntries(safe)
+}
+
+function ensureVoiceRecognition() {
+  if (recognition || !SpeechRecognitionCtor) return recognition
+  recognition = new SpeechRecognitionCtor()
+  recognition.lang = 'zh-CN'
+  recognition.continuous = true
+  recognition.interimResults = true
+  recognition.maxAlternatives = 1
+
+  recognition.onstart = () => {
+    voiceStarting = false
+    voiceWanted = true
+    setVoiceStatus('正在听', 'listening')
+    renderVoiceControls()
+  }
+  recognition.onresult = (event) => {
+    let finalText = ''
+    let interimText = ''
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const transcript = event.results[index][0]?.transcript || ''
+      if (event.results[index].isFinal) finalText += transcript
+      else interimText += transcript
+    }
+    document.getElementById('voiceInterimText').textContent = interimText ? ` ${interimText}` : ''
+    if (finalText.trim()) {
+      voiceProcessingQueue = voiceProcessingQueue
+        .then(() => processVoiceTranscript(finalText))
+        .catch((error) => {
+          appendVoicePending([{ phrase: finalText, message: error.message || '语音处理失败' }])
+        })
+    }
+  }
+  recognition.onerror = (event) => {
+    const fatal = ['not-allowed', 'service-not-allowed', 'audio-capture'].includes(event.error)
+    if (fatal) voiceWanted = false
+    setVoiceStatus(fatal ? '麦克风不可用' : '识别中断，准备恢复', 'err')
+    showToast(fatal ? '请在浏览器中允许麦克风权限' : '语音识别短暂中断', false)
+    renderVoiceControls()
+  }
+  recognition.onend = () => {
+    voiceStarting = false
+    document.getElementById('voiceInterimText').textContent = ''
+    if (voiceWanted) {
+      setVoiceStatus('正在恢复...', 'listening')
+      setTimeout(() => {
+        if (!voiceWanted) return
+        try {
+          voiceStarting = true
+          recognition.start()
+        } catch {
+          voiceStarting = false
+        }
+        renderVoiceControls()
+      }, 350)
+      return
+    }
+    setVoiceStatus('已停止')
+    renderVoiceControls()
+  }
+  return recognition
+}
+
+function startVoiceRecognition() {
+  if (!activeProjectId) {
+    showToast('请先选择成绩项目', false)
+    renderVoiceControls()
+    return
+  }
+  const instance = ensureVoiceRecognition()
+  if (!instance) {
+    showToast('当前浏览器不支持语音识别，请用 Chrome 或 Edge 打开', false)
+    renderVoiceControls()
+    return
+  }
+  try {
+    voiceWanted = true
+    voiceStarting = true
+    document.getElementById('voiceFinalText').textContent = '正在等待你说话...'
+    instance.start()
+    setVoiceStatus('正在启动...', 'listening')
+  } catch {
+    voiceStarting = false
+    setVoiceStatus('正在听', 'listening')
+  }
+  renderVoiceControls()
+}
+
+function stopVoiceRecognition() {
+  voiceWanted = false
+  voiceStarting = false
+  if (recognition) recognition.stop()
+  document.getElementById('voiceInterimText').textContent = ''
+  setVoiceStatus('已停止')
+  renderVoiceControls()
+}
+
 function renderCandidates(candidates) {
   const box = document.getElementById('candidateList')
   box.innerHTML = candidates.slice(0, 8).map(student =>
@@ -571,6 +951,8 @@ function renderAll() {
   renderProjectSelect()
   renderTable()
   renderLogs()
+  renderVoiceControls()
+  renderVoiceLists()
 }
 
 async function reloadScorebook() {
@@ -702,6 +1084,8 @@ document.getElementById('scoreBody').addEventListener('change', async (event) =>
   if (!input) return
   await saveScore(input.dataset.studentId, input.dataset.projectId, input.value)
 })
+document.getElementById('voiceStartBtn').addEventListener('click', startVoiceRecognition)
+document.getElementById('voiceStopBtn').addEventListener('click', stopVoiceRecognition)
 document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click())
 document.getElementById('importFile').addEventListener('change', async (event) => {
   const file = event.target.files[0]

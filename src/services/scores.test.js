@@ -5,6 +5,7 @@ import { prisma, cleanDatabase, factories } from '../test-helpers.js'
 import {
   createScoreProject,
   exportScoresToExcel,
+  getScoreAnalytics,
   getScorebook,
   importScoresFromExcel,
   saveStudentScore,
@@ -90,5 +91,74 @@ describe('score service', () => {
     const exportedSheet = exportedWorkbook.getWorksheet('成绩表')
     assert.equal(exportedSheet.getRow(3).getCell(2).value, '姓名')
     assert.equal(exportedSheet.getRow(4).getCell(2).value, '张三')
+  })
+
+  it('builds score analytics for projects, students, and home classes', async () => {
+    const teacher = await factories.createTeacher()
+    const cls = await factories.createClass({ teacherId: teacher.id })
+    const zhangSan = await factories.createStudent({ classId: cls.id, name: '张三', homeClass: '1' })
+    const liSi = await factories.createStudent({ classId: cls.id, name: '李四', homeClass: '1' })
+    const wangWu = await factories.createStudent({ classId: cls.id, name: '王五', homeClass: '2' })
+    const first = await createScoreProject(cls.id, '第一次')
+    const second = await createScoreProject(cls.id, '第二次')
+    const third = await createScoreProject(cls.id, '第三次')
+
+    await saveStudentScore({ classId: cls.id, studentId: zhangSan.id, projectId: first.id, value: 90, teacherId: teacher.id })
+    await saveStudentScore({ classId: cls.id, studentId: liSi.id, projectId: first.id, value: 80, teacherId: teacher.id })
+    await saveStudentScore({ classId: cls.id, studentId: wangWu.id, projectId: first.id, value: 70, teacherId: teacher.id })
+    await saveStudentScore({ classId: cls.id, studentId: zhangSan.id, projectId: second.id, value: 95, teacherId: teacher.id })
+    await saveStudentScore({ classId: cls.id, studentId: liSi.id, projectId: second.id, value: 85, teacherId: teacher.id })
+    await saveStudentScore({ classId: cls.id, studentId: zhangSan.id, projectId: third.id, value: 100, teacherId: teacher.id })
+    await saveStudentScore({ classId: cls.id, studentId: liSi.id, projectId: third.id, value: 70, teacherId: teacher.id })
+    await saveStudentScore({ classId: cls.id, studentId: wangWu.id, projectId: third.id, value: 65, teacherId: teacher.id })
+
+    const analytics = await getScoreAnalytics(cls.id)
+    assert.equal(analytics.hasScoreData, true)
+    assert.equal(analytics.summary.totalProjects, 3)
+    assert.equal(analytics.summary.totalScores, 8)
+    assert.equal(analytics.summary.fillRate, 88.9)
+    assert.equal(analytics.summary.classAverage, 81.9)
+    assert.equal(analytics.summary.median, 82.5)
+    assert.equal(analytics.summary.standardDeviation, 12)
+    assert.equal(analytics.latestProject.name, '第三次')
+    assert.equal(analytics.latestProject.average, 78.3)
+    assert.equal(analytics.latestProject.median, 70)
+    assert.equal(analytics.latestProject.distribution.find(band => band.key === 'excellent').count, 1)
+    assert.equal(analytics.latestProject.distribution.find(band => band.key === 'pass').count, 1)
+    assert.equal(analytics.latestProject.missingStudents.length, 0)
+
+    const zhangSummary = analytics.students.find(student => student.name === '张三')
+    assert.equal(zhangSummary.average, 95)
+    assert.equal(zhangSummary.trend, 5)
+    assert.equal(zhangSummary.firstLastDelta, 10)
+    assert.equal(zhangSummary.volatility, 4.1)
+    assert.equal(zhangSummary.history.length, 3)
+    assert.equal(zhangSummary.history[2].projectAverage, 78.3)
+    assert.equal(zhangSummary.history[2].deltaFromAverage, 21.7)
+    assert.equal(zhangSummary.history[2].rank, 1)
+
+    const liSummary = analytics.students.find(student => student.name === '李四')
+    assert.equal(liSummary.firstLastDelta, -10)
+
+    const classOne = analytics.homeClasses.find(group => group.name === '1')
+    assert.equal(classOne.average, 86.7)
+    assert.equal(classOne.fillRate, 100)
+
+    assert.equal(analytics.overallDistribution.find(band => band.key === 'excellent').count, 3)
+    assert.equal(analytics.needsAttention[0].name, '王五')
+    assert.equal(analytics.needsAttention[0].attentionReason, '平均分偏低')
+    assert.equal(analytics.classTrend.length, 3)
+    assert.equal(analytics.classTrend[1].averageChange, 10)
+    assert.equal(analytics.classTrend[2].averageChange, -11.7)
+    assert.equal(analytics.classTrend[2].under70Rate, 33.3)
+    assert.equal(analytics.trendSummary.latestAverageChange, -11.7)
+    assert.equal(analytics.trendSummary.biggestImprovement.name, '第二次')
+    assert.equal(analytics.trendSummary.biggestDrop.name, '第三次')
+    assert.equal(analytics.movement.improvers[0].name, '张三')
+    assert.equal(analytics.movement.decliners[0].name, '李四')
+    assert.equal(analytics.movement.missingHeavy[0].name, '王五')
+    assert.ok(analytics.insights.some(insight => insight.title === '最近项目均分变化'))
+    assert.ok(analytics.insights.some(insight => insight.title === '进步信号'))
+    assert.ok(analytics.insights.some(insight => insight.title === '需要回看过程'))
   })
 })

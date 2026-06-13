@@ -71,29 +71,29 @@ model ArchivedRecord {
 }
 
 model Student {
-  id            Int            @id @default(autoincrement())
-  name          String
-  homeClass     String         @default("") // 行政班级，如"高一3班"
-  remark        String         @default("") // 学生备注，如"体育生"
-  photoUrl      String         @default("") // 学生照片路径
-  classId       Int
-  class         Class          @relation(fields: [classId], references: [id])
-  signInRecords SignInRecord[]
-  tags          StudentTag[]
-  scores        StudentScore[]
+  id             Int             @id @default(autoincrement())
+  name           String
+  homeClass      String          @default("") // 行政班级，如"高一3班"
+  remark         String          @default("") // 学生备注，如"体育生"
+  photoUrl       String          @default("") // 学生照片路径
+  classId        Int
+  class          Class           @relation(fields: [classId], references: [id])
+  signInRecords  SignInRecord[]
+  tags           StudentTag[]
+  scores         StudentScore[]
   scoreEntryLogs ScoreEntryLog[]
 
   @@unique([classId, name])
 }
 
 model ScoreProject {
-  id        Int      @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   classId   Int
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class     Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
   name      String
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
   scores    StudentScore[]
   logs      ScoreEntryLog[]
 
@@ -102,14 +102,14 @@ model ScoreProject {
 }
 
 model StudentScore {
-  id        Int          @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   studentId Int
-  student   Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   projectId Int
-  project   ScoreProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   ScoreProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   value     Float?
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
   logs      ScoreEntryLog[]
 
   @@unique([studentId, projectId])
@@ -305,8 +305,8 @@ model AuditLog {
 // 教师登录日志
 model LoginLog {
   id        Int      @id @default(autoincrement())
-  teacherId Int
-  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  teacherId Int?
+  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   ip        String   @default("")
   success   Boolean  @default(true)
   createdAt DateTime @default(now())

@@ -15,7 +15,7 @@ export async function registerPlugins(app) {
     reply.header('X-Content-Type-Options', 'nosniff')
     reply.header('X-XSS-Protection', '1; mode=block')
     reply.header('Referrer-Policy', 'strict-origin-when-cross-origin')
-    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+    reply.header('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()')
   })
 
   await app.register(fastifyRateLimit, {

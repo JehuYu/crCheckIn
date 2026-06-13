@@ -1,6 +1,6 @@
 import { describe, before, after, beforeEach, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { prisma } from '../plugins/db.js'
+import { prisma, cleanDatabase } from '../test-helpers.js'
 
 // 使用与生产环境相同的数据库（测试数据会在 beforeEach 中清理）
 // 使用唯一前缀避免测试间数据干扰
@@ -16,22 +16,7 @@ describe('attendance service', () => {
     // 注意：不关闭连接，因为其他测试可能还需要
   })
 
-  beforeEach(async () => {
-    // 清空所有表（按外键依赖顺序：先删子表，后删父表）
-    await prisma.infoResponse.deleteMany().catch(() => {})
-    await prisma.infoSubmission.deleteMany().catch(() => {})
-    await prisma.infoField.deleteMany().catch(() => {})
-    await prisma.archivedRecord.deleteMany().catch(() => {})
-    await prisma.signInSession.deleteMany().catch(() => {})
-    await prisma.signInRecord.deleteMany().catch(() => {})
-    await prisma.signInConfig.deleteMany().catch(() => {})
-    await prisma.studentTag.deleteMany().catch(() => {})
-    await prisma.student.deleteMany().catch(() => {})
-    await prisma.class.deleteMany().catch(() => {})
-    await prisma.teacher.deleteMany().catch(() => {})
-    await prisma.presetTag.deleteMany().catch(() => {})
-    await prisma.auditLog.deleteMany().catch(() => {})
-  })
+  beforeEach(cleanDatabase)
 
   describe('signIn', async () => {
     const { signIn } = await import('./attendance.js')

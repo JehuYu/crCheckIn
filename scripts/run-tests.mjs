@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -59,8 +59,26 @@ async function listTestFiles() {
   return files.sort()
 }
 
+async function prismaClientNeedsGenerate(schemaPath) {
+  const generatedSchemaPath = path.join(projectRoot, 'node_modules', '.prisma', 'client', 'schema.prisma')
+  try {
+    const [schema, generatedSchema] = await Promise.all([
+      readFile(schemaPath, 'utf8'),
+      readFile(generatedSchemaPath, 'utf8'),
+    ])
+    return schema.replace(/\r\n/g, '\n').trim() !== generatedSchema.replace(/\r\n/g, '\n').trim()
+  } catch {
+    return true
+  }
+}
+
 const prismaCli = path.join(projectRoot, 'node_modules', 'prisma', 'build', 'index.js')
 const schemaPath = path.join(projectRoot, 'prisma', 'schema.prisma')
+if (await prismaClientNeedsGenerate(schemaPath)) {
+  const generateCode = await run(process.execPath, [prismaCli, 'generate', '--schema', schemaPath])
+  if (generateCode !== 0) process.exit(generateCode)
+}
+
 const dbCode = await run(process.execPath, [prismaCli, 'db', 'push', '--skip-generate', '--schema', schemaPath])
 if (dbCode !== 0) process.exit(dbCode)
 

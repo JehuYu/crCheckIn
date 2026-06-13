@@ -64,9 +64,11 @@ import {
 import {
   createScoreProject,
   exportScoresToExcel,
+  getScoreAnalytics,
   getScorebook,
   importScoresFromExcel,
   saveStudentScore,
+  saveStudentScoresBatch,
 } from '../services/scores.js'
 
 /**
@@ -271,6 +273,15 @@ export default async function apiRoutes(fastify) {
     }
   })
 
+  fastify.get('/api/classes/:classId/score-analytics', { preHandler: classOwnerRequired }, async (request, reply) => {
+    try {
+      const analytics = await getScoreAnalytics(request.classId)
+      return reply.send({ ok: true, ...analytics })
+    } catch (error) {
+      return sendServiceError(reply, error)
+    }
+  })
+
   fastify.post('/api/classes/:classId/score-projects', { preHandler: classOwnerRequired }, async (request, reply) => {
     try {
       const project = await createScoreProject(request.classId, request.body?.name)
@@ -292,6 +303,20 @@ export default async function apiRoutes(fastify) {
         studentId,
         projectId,
         value: request.body?.value,
+        teacherId: request.session.teacherId,
+      })
+      return reply.send(result)
+    } catch (error) {
+      return sendServiceError(reply, error)
+    }
+  })
+
+  fastify.post('/api/classes/:classId/scores/batch', { preHandler: classOwnerRequired }, async (request, reply) => {
+    try {
+      const result = await saveStudentScoresBatch({
+        classId: request.classId,
+        projectId: request.body?.projectId,
+        entries: request.body?.entries,
         teacherId: request.session.teacherId,
       })
       return reply.send(result)
@@ -360,7 +385,7 @@ export default async function apiRoutes(fastify) {
     const ip = request.headers['x-forwarded-for']?.split(',')[0]?.trim() || request.ip || 'unknown'
     const result = await verifyTeacherByPassword(password)
     if (!result.ok) {
-      await recordLogin(0, ip, false)
+      await recordLogin(null, ip, false)
       return reply.code(401).send({ ok: false, message: result.message })
     }
 

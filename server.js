@@ -1,16 +1,18 @@
 import { buildApp } from './src/app.js'
-import { PORT, HOST } from './src/config.js'
+import { AUTO_BACKUP_ENABLED, PORT, HOST } from './src/config.js'
 import { prisma } from './src/plugins/db.js'
 import { seed } from './prisma/seed.js'
 import { deployDatabase } from './src/utils/database.js'
 import { migrateTeacherClassesToPool } from './src/utils/migrate-classes-to-pool.js'
 import { isExpiredCheckPaused } from './src/services/expiredCheck.js'
+import { startDailyBackupScheduler } from './src/services/backup.js'
 
 // 启动超时：30 秒
 const STARTUP_TIMEOUT_MS = 30_000
 
 let app = null
 let expiredCheckInterval = null
+let dailyBackupScheduler = null
 
 const startupTimer = setTimeout(() => {
   console.error('[startup] 启动超时（30s），强制退出')
@@ -42,6 +44,10 @@ try {
     }
   }, 60_000)
 
+  if (AUTO_BACKUP_ENABLED) {
+    dailyBackupScheduler = startDailyBackupScheduler({ prisma, logger: console })
+  }
+
   console.log(`[server] crCheckIn running at http://${HOST}:${PORT}`)
 } catch (err) {
   console.error('[startup] failed:', err)
@@ -53,6 +59,7 @@ try {
 async function gracefulShutdown(signal) {
   console.log(`[shutdown] received ${signal}, closing...`)
   if (expiredCheckInterval) clearInterval(expiredCheckInterval)
+  if (dailyBackupScheduler) dailyBackupScheduler.stop()
   try {
     if (app) await app.close()
     await prisma.$disconnect()

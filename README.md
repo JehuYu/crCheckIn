@@ -106,6 +106,10 @@ DATABASE_URL="postgresql://crcheckin_user:CHANGE_ME@127.0.0.1:5432/crcheckin?sch
 PORT=5000
 HOST=0.0.0.0
 AUTO_DB_DEPLOY=true
+AUTO_BACKUP_ENABLED=true
+AUTO_BACKUP_KEEP_DAYS=7
+AUTO_BACKUP_HOUR=2
+AUTO_BACKUP_MINUTE=0
 ```
 
 | 变量 | 默认值 | 说明 |
@@ -115,6 +119,11 @@ AUTO_DB_DEPLOY=true
 | `PORT` | `5000` | 服务端口 |
 | `HOST` | `0.0.0.0` | 监听地址 |
 | `AUTO_DB_DEPLOY` | `true` | 启动时自动同步 Prisma 数据库结构 |
+| `ALLOW_TEST_DATABASE_RUNTIME` | `false` | 仅临时本地调试用；默认禁止服务连接 `*_test` 测试库 |
+| `AUTO_BACKUP_ENABLED` | `true` | 启动后开启每日自动 JSON 数据备份 |
+| `AUTO_BACKUP_KEEP_DAYS` | `7` | 自动备份保留份数，默认保留最近 7 天 |
+| `AUTO_BACKUP_HOUR` | `2` | 每日自动备份小时，24 小时制 |
+| `AUTO_BACKUP_MINUTE` | `0` | 每日自动备份分钟 |
 | `PG_DUMP_PATH` | 自动查找 | 可选，Windows 下可指定 `pg_dump.exe` 路径用于备份 |
 | `EXAM_ANALYSIS_PYTHON` | 系统 Python | 可选，小题成绩分析使用的 Python 路径 |
 
@@ -132,9 +141,12 @@ npm run start:direct
 
 # PM2 后台运行（推荐生产环境）
 npm start
+
+# 只读体检：检查环境、数据库、Prisma、备份和 /health
+npm run doctor
 ```
 
-如果 `AUTO_DB_DEPLOY=true`，服务启动时也会自动同步数据库结构。首次启动会创建默认管理员账号，随机密码会打印在启动日志中。
+如果 `AUTO_DB_DEPLOY=true`，服务启动时也会自动同步数据库结构。启动前会检查数据库名：日常/生产服务默认不能连接 `*_test` 测试库，测试环境也不能连接正式库。首次启动会创建默认管理员账号，随机密码会打印在启动日志中。
 
 ### 默认账号
 
@@ -418,6 +430,22 @@ Windows 可直接调用 `pg_dump.exe`，例如：
 ## 更新日志
 
 详见 [CHANGELOG.zh.md](CHANGELOG.zh.md)（中文）或 [CHANGELOG.md](CHANGELOG.md)（English）。
+
+## 自动备份
+
+服务启动后会自动检查当天是否已有备份；如果没有，会立即生成一份。之后每天按配置时间自动备份一次。
+
+- 自动备份目录：`backups/daily`
+- 文件格式：`crcheckin-auto-YYYY-MM-DD.json`
+- 默认保留：最近 7 天，共 7 份
+- 超过保留数量的旧自动备份会自动删除
+- 手动备份文件，例如 `backups/crcheckin.system.dump`，不会被这个清理逻辑删除
+
+自动备份使用 JSON 格式导出应用数据表，不依赖 `pg_dump`。如需关闭，可在 `.env` 中设置：
+
+```env
+AUTO_BACKUP_ENABLED=false
+```
 
 ## License
 

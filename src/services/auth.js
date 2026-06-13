@@ -113,7 +113,7 @@ export async function createTeacher(username, password, isAdmin = false) {
 
 /**
  * 修改教师密码。
- * @param {number} teacherId
+ * @param {number|null} teacherId
  * @param {string} oldPassword
  * @param {string} newPassword
  * @returns {Promise<{ok: boolean, message: string}>}
@@ -161,7 +161,11 @@ export async function changePassword(teacherId, oldPassword, newPassword) {
 export async function recordLogin(teacherId, ip, success) {
   try {
     await prisma.loginLog.create({
-      data: { teacherId, ip, success },
+      data: {
+        teacherId: Number.isInteger(teacherId) && teacherId > 0 ? teacherId : null,
+        ip,
+        success,
+      },
     })
   } catch {
     // 日志写入失败不应影响主流程

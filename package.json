@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "db:deploy": "node prisma/deploy.js",
+    "doctor": "node scripts/doctor.mjs",
     "test": "node scripts/run-tests.mjs",
     "start": "pm2 startOrRestart ecosystem.config.cjs --env production",
     "start:direct": "node server.js",

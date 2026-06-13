@@ -14,6 +14,32 @@ const sameOriginHeaders = {
   origin: 'http://127.0.0.1',
 }
 
+async function loginTeacher(app, data = {}) {
+  const bcrypt = await import('bcrypt')
+  const password = data.password || `pass_${uid()}`
+  const teacher = await prisma.teacher.create({
+    data: {
+      username: data.username || `teacher_${uid()}`,
+      passwordHash: await bcrypt.hash(password, 10),
+      isAdmin: data.isAdmin || false,
+    },
+  })
+  const response = await app.inject({
+    method: 'POST',
+    url: '/api/teacher-login',
+    payload: JSON.stringify({ password }),
+    headers: sameOriginJsonHeaders,
+  })
+  assert.equal(response.statusCode, 200)
+  const rawCookie = response.headers['set-cookie']
+  return {
+    teacher,
+    cookie: Array.isArray(rawCookie)
+      ? rawCookie.map((value) => value.split(';')[0]).join('; ')
+      : rawCookie,
+  }
+}
+
 describe('API routes integration', () => {
   let app
 
@@ -87,6 +113,23 @@ describe('API routes integration', () => {
       assert.equal(response.statusCode, 401)
       const body = JSON.parse(response.body)
       assert.equal(body.ok, false)
+    })
+
+    it('POST /api/teacher-login records failed attempts without a teacher id', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/teacher-login',
+        payload: JSON.stringify({ password: 'wrong_password_logged' }),
+        headers: sameOriginJsonHeaders,
+      })
+      assert.equal(response.statusCode, 401)
+
+      const failedLog = await prisma.loginLog.findFirst({
+        where: { success: false },
+        orderBy: { id: 'desc' },
+      })
+      assert.ok(failedLog)
+      assert.equal(failedLog.teacherId, null)
     })
 
     it('POST /api/teacher-login is not rate limited', async () => {
@@ -234,6 +277,77 @@ describe('API routes integration', () => {
         headers: sameOriginHeaders,
       })
       assert.equal(response.statusCode, 401)
+    })
+  })
+
+  describe('score API endpoints', () => {
+    it('POST /api/classes/:classId/scores/batch returns 401 when not authenticated', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/classes/1/scores/batch',
+        payload: JSON.stringify({ projectId: 1, entries: [] }),
+        headers: sameOriginJsonHeaders,
+      })
+      assert.equal(response.statusCode, 401)
+    })
+
+    it('POST /api/classes/:classId/scores/batch saves valid scores and reports failures', async () => {
+      const { teacher, cookie } = await loginTeacher(app)
+      const cls = await factories.createClass({ teacherId: teacher.id })
+      const zhangSan = await factories.createStudent({ classId: cls.id, name: '张三' })
+      const liSi = await factories.createStudent({ classId: cls.id, name: '李四' })
+      const project = await factories.createScoreProject({ classId: cls.id, name: '语音录分' })
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/api/classes/${cls.id}/scores/batch`,
+        payload: JSON.stringify({
+          projectId: project.id,
+          entries: [
+            { studentId: zhangSan.id, value: 13, phrase: '张三 13' },
+            { studentId: liSi.id, value: 23, phrase: '李四 23' },
+            { studentId: 999999, value: 99, phrase: '王五 99' },
+          ],
+        }),
+        headers: { ...sameOriginJsonHeaders, cookie },
+      })
+
+      assert.equal(response.statusCode, 200)
+      const body = JSON.parse(response.body)
+      assert.equal(body.ok, true)
+      assert.equal(body.saved.length, 2)
+      assert.equal(body.failed.length, 1)
+      assert.equal(body.failed[0].message, '学生不属于当前班级')
+
+      const scores = await prisma.studentScore.findMany({
+        where: { projectId: project.id },
+        orderBy: { studentId: 'asc' },
+      })
+      assert.deepEqual(scores.map(score => score.value), [13, 23])
+      assert.equal(await prisma.scoreEntryLog.count({ where: { projectId: project.id } }), 2)
+    })
+
+    it('GET /api/classes/:classId/score-analytics returns score summary', async () => {
+      const { teacher, cookie } = await loginTeacher(app)
+      const cls = await factories.createClass({ teacherId: teacher.id })
+      const student = await factories.createStudent({ classId: cls.id, name: '张三' })
+      const project = await factories.createScoreProject({ classId: cls.id, name: '阶段练习' })
+      await prisma.studentScore.create({
+        data: { studentId: student.id, projectId: project.id, value: 88 },
+      })
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/classes/${cls.id}/score-analytics`,
+        headers: { ...sameOriginHeaders, cookie },
+      })
+
+      assert.equal(response.statusCode, 200)
+      const body = JSON.parse(response.body)
+      assert.equal(body.ok, true)
+      assert.equal(body.summary.totalProjects, 1)
+      assert.equal(body.summary.totalScores, 1)
+      assert.equal(body.summary.classAverage, 88)
     })
   })
 

@@ -23,3 +23,7 @@ export const DATABASE_URL = rawDatabaseUrl
 export const AUTO_DB_DEPLOY = process.env.AUTO_DB_DEPLOY !== 'false'
 export const PORT = Number(process.env.PORT ?? 5000)
 export const HOST = process.env.HOST ?? '0.0.0.0'
+export const AUTO_BACKUP_ENABLED = process.env.AUTO_BACKUP_ENABLED !== 'false'
+export const AUTO_BACKUP_KEEP_DAYS = Number(process.env.AUTO_BACKUP_KEEP_DAYS ?? 7)
+export const AUTO_BACKUP_HOUR = Number(process.env.AUTO_BACKUP_HOUR ?? 2)
+export const AUTO_BACKUP_MINUTE = Number(process.env.AUTO_BACKUP_MINUTE ?? 0)

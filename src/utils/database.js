@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { AUTO_DB_DEPLOY, DATABASE_URL } from '../config.js'
+import { assertSafeRuntimeDatabase } from './databaseSafety.js'
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const prismaDir = path.join(projectRoot, 'prisma')
@@ -59,6 +60,8 @@ async function runPrismaDbPush(logger) {
 }
 
 export async function deployDatabase({ logger = console } = {}) {
+  assertSafeRuntimeDatabase({ databaseUrl: DATABASE_URL })
+
   if (!AUTO_DB_DEPLOY) {
     logInfo(logger, '[db] AUTO_DB_DEPLOY=false, skipping automatic database deployment.')
     return

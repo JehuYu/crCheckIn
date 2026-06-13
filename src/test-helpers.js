@@ -3,14 +3,17 @@
  * 所有测试通过 beforeEach 清理数据，使用唯一前缀避免冲突
  */
 import { prisma } from './plugins/db.js'
+import { assertSafeTestDatabase } from './utils/databaseSafety.js'
 
 export { prisma }
+export { assertSafeTestDatabase }
 
 /** 生成唯一标识，用于测试数据命名 */
 export const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
 
 /** 清理所有测试数据（按外键依赖顺序） */
 export async function cleanDatabase() {
+  assertSafeTestDatabase()
   await prisma.scoreEntryLog.deleteMany().catch(() => {})
   await prisma.studentScore.deleteMany().catch(() => {})
   await prisma.scoreProject.deleteMany().catch(() => {})
